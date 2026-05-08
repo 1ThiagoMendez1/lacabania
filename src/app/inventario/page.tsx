@@ -222,11 +222,11 @@ export default function InventarioPage() {
                   </div>
 
                   <div className="space-y-2">
-                    <Label htmlFor="price">Precio de Venta (Opcional)</Label>
+                    <Label htmlFor="price">Precio de Venta ($)</Label>
                     <Input 
                       id="price" 
                       type="number"
-                      placeholder="Precio si es producto directo"
+                      placeholder="Ej: 85000"
                       value={newProduct.precio}
                       onChange={(e) => setNewProduct({...newProduct, precio: parseFloat(e.target.value)})}
                     />
@@ -320,6 +320,7 @@ export default function InventarioPage() {
                   <TableHead className="font-bold text-secondary">Producto</TableHead>
                   <TableHead className="font-bold text-secondary">Categoría</TableHead>
                   <TableHead className="font-bold text-secondary text-center">Estación</TableHead>
+                  <TableHead className="font-bold text-secondary text-right">Precio</TableHead>
                   <TableHead className="font-bold text-secondary text-right">Mínimo</TableHead>
                   <TableHead className="font-bold text-secondary text-right">Actual</TableHead>
                   <TableHead className="font-bold text-secondary text-center">Estado</TableHead>
@@ -334,6 +335,7 @@ export default function InventarioPage() {
                       <Badge variant="secondary" className="bg-accent text-[10px]">{p.categoria}</Badge>
                     </TableCell>
                     <TableCell className="text-center font-mono text-xs">{p.estacion}</TableCell>
+                    <TableCell className="text-right font-bold text-secondary">${p.precio.toLocaleString()}</TableCell>
                     <TableCell className="text-right text-muted-foreground">{p.stockMinimo} kg/un</TableCell>
                     <TableCell className="text-right">
                       {editingId === p.id ? (
