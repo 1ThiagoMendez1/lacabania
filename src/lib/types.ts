@@ -1,0 +1,66 @@
+export type Rol = 'ADMINISTRADOR' | 'CAJERO' | 'MESERO' | 'COCINERO' | 'BARTENDER';
+
+export type Estacion = 'ASADO' | 'PARRILLA' | 'COCINA' | 'BAR';
+
+export type EstadoMesa = 'LIBRE' | 'OCUPADA' | 'EN PEDIDO' | 'LISTA PAGAR' | 'RESERVADA';
+
+export type EstadoComanda = 'PENDIENTE' | 'EN PREPARACION' | 'LISTO' | 'ENTREGADO';
+
+export interface Usuario {
+  id: string;
+  nombre: string;
+  rol: Rol;
+}
+
+export interface Producto {
+  id: string;
+  nombre: string;
+  descripcion: string;
+  precio: number;
+  categoria: string;
+  estacion: Estacion;
+  imagen?: string;
+  stock: number;
+  stockMinimo: number;
+}
+
+export interface ItemOrden {
+  id: string;
+  productoId: string;
+  nombre: string;
+  cantidad: number;
+  precioUnitario: number;
+  notas?: string;
+  estacion: Estacion;
+  estado: EstadoComanda;
+  createdAt: string;
+}
+
+export interface Orden {
+  id: string;
+  mesaId: number;
+  meseroId: string;
+  items: ItemOrden[];
+  estado: 'ABIERTA' | 'CERRADA' | 'ANULADA';
+  createdAt: string;
+  updatedAt: string;
+}
+
+export interface Mesa {
+  id: number;
+  numero: number;
+  zona: 'Interior' | 'Terraza' | 'Privado';
+  capacidad: number;
+  estado: EstadoMesa;
+  meseroId?: string;
+  ordenActivaId?: string;
+  tiempoAbierta?: number; // minutos
+}
+
+export interface Gasto {
+  id: string;
+  categoria: string;
+  descripcion: string;
+  valor: number;
+  fecha: string;
+}
