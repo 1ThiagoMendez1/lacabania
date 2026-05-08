@@ -17,7 +17,7 @@ interface POSState {
 }
 
 export const usePOSStore = create<POSState>((set) => ({
-  user: { id: '1', nombre: 'Carlos Mesero', rol: 'MESERO' }, // Mock default user
+  user: { id: '1', nombre: 'Admin La Cabaña', rol: 'ADMINISTRADOR' }, // Cambiado a ADMINISTRADOR por defecto
   mesas: Array.from({ length: 15 }, (_, i) => ({
     id: i + 1,
     numero: i + 1,
