@@ -14,10 +14,12 @@ import {
 } from "@/components/ui/dialog";
 import { useState } from "react";
 import { Button } from "@/components/ui/button";
+import { useRouter } from "next/navigation";
 
 export default function MesasPage() {
   const { mesas, updateMesaEstado, user } = usePOSStore();
   const [selectedMesa, setSelectedMesa] = useState<number | null>(null);
+  const router = useRouter();
 
   const getStatusColor = (status: string) => {
     switch (status) {
@@ -32,7 +34,11 @@ export default function MesasPage() {
 
   const handleOpenMesa = (mesaId: number) => {
     updateMesaEstado(mesaId, 'OCUPADA', user?.id);
-    setSelectedMesa(null);
+    router.push(`/pedidos/${mesaId}`);
+  };
+
+  const handleVerPedido = (mesaId: number) => {
+    router.push(`/pedidos/${mesaId}`);
   };
 
   return (
@@ -69,7 +75,7 @@ export default function MesasPage() {
                   className={cn(
                     "relative group h-40 rounded-2xl border-2 transition-all duration-300 p-4 flex flex-col items-center justify-between wood-texture overflow-hidden",
                     getStatusColor(mesa.estado),
-                    mesa.estado === 'OCUPADA' ? "glow-orange" : "hover:scale-105"
+                    mesa.estado === 'OCUPADA' || mesa.estado === 'EN PEDIDO' ? "glow-orange" : "hover:scale-105"
                   )}
                 >
                   <div className="absolute top-0 right-0 p-2 opacity-10">
@@ -121,7 +127,10 @@ export default function MesasPage() {
                     </Button>
                   ) : (
                     <div className="space-y-3">
-                      <Button className="w-full h-14 bg-secondary text-secondary-foreground hover:glow-gold font-bold text-lg">
+                      <Button 
+                        className="w-full h-14 bg-secondary text-secondary-foreground hover:glow-gold font-bold text-lg"
+                        onClick={() => handleVerPedido(mesa.id)}
+                      >
                         VER PEDIDO
                       </Button>
                       <Button variant="outline" className="w-full h-14 border-primary text-primary hover:bg-primary/10">
