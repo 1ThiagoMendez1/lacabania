@@ -1,3 +1,4 @@
+
 import { create } from 'zustand';
 import { Mesa, Producto, Orden, Usuario, ItemOrden, EstadoComanda } from './types';
 
@@ -14,10 +15,11 @@ interface POSState {
   updateOrden: (ordenId: string, updates: Partial<Orden>) => void;
   updateItemEstado: (ordenId: string, itemId: string, estado: EstadoComanda) => void;
   updateStock: (productoId: string, cantidad: number) => void;
+  adjustStock: (productoId: string, nuevoStock: number) => void;
 }
 
 export const usePOSStore = create<POSState>((set) => ({
-  user: { id: '1', nombre: 'Admin La Cabaña', rol: 'ADMINISTRADOR' }, // Cambiado a ADMINISTRADOR por defecto
+  user: { id: '1', nombre: 'Admin La Cabaña', rol: 'ADMINISTRADOR' },
   mesas: Array.from({ length: 15 }, (_, i) => ({
     id: i + 1,
     numero: i + 1,
@@ -51,6 +53,9 @@ export const usePOSStore = create<POSState>((set) => ({
     )
   })),
   updateStock: (productoId, cantidad) => set((state) => ({
-    productos: state.productos.map(p => p.id === productoId ? { ...p, stock: p.stock - cantidad } : p)
+    productos: state.productos.map(p => p.id === productoId ? { ...p, stock: Math.max(0, p.stock - cantidad) } : p)
+  })),
+  adjustStock: (productoId, nuevoStock) => set((state) => ({
+    productos: state.productos.map(p => p.id === productoId ? { ...p, stock: nuevoStock } : p)
   })),
 }));
