@@ -1,4 +1,3 @@
-
 "use client"
 
 import { AppSidebar } from "@/components/layout/AppSidebar";
@@ -8,11 +7,11 @@ import {
   Search, 
   AlertTriangle, 
   Plus, 
-  Minus, 
   RotateCcw,
-  ArrowUpRight,
   TrendingDown,
-  Filter
+  Filter,
+  PlusCircle,
+  Utensils
 } from "lucide-react";
 import { 
   Table, 
@@ -29,13 +28,42 @@ import { Input } from "@/components/ui/input";
 import { useState } from "react";
 import { cn } from "@/lib/utils";
 import { useToast } from "@/hooks/use-toast";
+import {
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+  DialogTrigger,
+  DialogFooter,
+} from "@/components/ui/dialog";
+import { Label } from "@/components/ui/label";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
+import { Estacion, Producto } from "@/lib/types";
 
 export default function InventarioPage() {
-  const { productos, adjustStock } = usePOSStore();
+  const { productos, adjustStock, addProducto } = usePOSStore();
   const [searchTerm, setSearchTerm] = useState("");
   const [editingId, setEditingId] = useState<string | null>(null);
   const [editValue, setEditValue] = useState<string>("");
+  const [isDialogOpen, setIsDialogOpen] = useState(false);
   const { toast } = useToast();
+
+  // Form state for new product
+  const [newProduct, setNewProduct] = useState<Partial<Producto>>({
+    nombre: "",
+    categoria: "",
+    estacion: "COCINA",
+    stock: 0,
+    stockMinimo: 0,
+    precio: 0,
+    descripcion: ""
+  });
 
   const filteredProducts = productos.filter(p => 
     p.nombre.toLowerCase().includes(searchTerm.toLowerCase()) ||
@@ -46,7 +74,7 @@ export default function InventarioPage() {
   const criticalStockCount = productos.filter(p => p.stock <= p.stockMinimo / 2).length;
 
   const handleAdjustStock = (id: string) => {
-    const val = parseInt(editValue);
+    const val = parseFloat(editValue);
     if (isNaN(val)) return;
     
     adjustStock(id, val);
@@ -54,6 +82,45 @@ export default function InventarioPage() {
     toast({
       title: "Inventario Actualizado",
       description: `El stock se ha actualizado correctamente.`,
+    });
+  };
+
+  const handleCreateProduct = () => {
+    if (!newProduct.nombre || !newProduct.categoria) {
+      toast({
+        variant: "destructive",
+        title: "Error",
+        description: "El nombre y la categoría son obligatorios.",
+      });
+      return;
+    }
+
+    const producto: Producto = {
+      id: `p-${Date.now()}`,
+      nombre: newProduct.nombre!,
+      categoria: newProduct.categoria!,
+      estacion: (newProduct.estacion as Estacion) || "COCINA",
+      stock: newProduct.stock || 0,
+      stockMinimo: newProduct.stockMinimo || 0,
+      precio: newProduct.precio || 0,
+      descripcion: newProduct.descripcion || "",
+    };
+
+    addProducto(producto);
+    setIsDialogOpen(false);
+    setNewProduct({
+      nombre: "",
+      categoria: "",
+      estacion: "COCINA",
+      stock: 0,
+      stockMinimo: 0,
+      precio: 0,
+      descripcion: ""
+    });
+
+    toast({
+      title: "Producto Registrado",
+      description: `${producto.nombre} ha sido añadido al inventario.`,
     });
   };
 
@@ -79,6 +146,101 @@ export default function InventarioPage() {
           </div>
           
           <div className="flex gap-4">
+            <Dialog open={isDialogOpen} onOpenChange={setIsDialogOpen}>
+              <DialogTrigger asChild>
+                <Button className="bg-secondary text-secondary-foreground hover:glow-gold font-bold gap-2">
+                  <PlusCircle className="w-5 h-5" />
+                  Registrar Nuevo Insumo
+                </Button>
+              </DialogTrigger>
+              <DialogContent className="bg-card border-border text-foreground sm:max-w-[500px]">
+                <DialogHeader>
+                  <DialogTitle className="text-2xl font-headline flex items-center gap-2">
+                    <Plus className="w-6 h-6 text-primary" />
+                    Nuevo Producto / Insumo
+                  </DialogTitle>
+                </DialogHeader>
+                <div className="grid gap-6 py-4">
+                  <div className="grid grid-cols-2 gap-4">
+                    <div className="space-y-2">
+                      <Label htmlFor="name">Nombre</Label>
+                      <Input 
+                        id="name" 
+                        placeholder="Ej: Punta de Anca" 
+                        value={newProduct.nombre}
+                        onChange={(e) => setNewProduct({...newProduct, nombre: e.target.value})}
+                      />
+                    </div>
+                    <div className="space-y-2">
+                      <Label htmlFor="category">Categoría</Label>
+                      <Input 
+                        id="category" 
+                        placeholder="Ej: Carnes" 
+                        value={newProduct.categoria}
+                        onChange={(e) => setNewProduct({...newProduct, categoria: e.target.value})}
+                      />
+                    </div>
+                  </div>
+
+                  <div className="space-y-2">
+                    <Label htmlFor="station">Estación</Label>
+                    <Select 
+                      onValueChange={(val) => setNewProduct({...newProduct, estacion: val as Estacion})}
+                      defaultValue="COCINA"
+                    >
+                      <SelectTrigger className="bg-background">
+                        <SelectValue placeholder="Seleccionar Estación" />
+                      </SelectTrigger>
+                      <SelectContent className="bg-card border-border">
+                        <SelectItem value="ASADO">Asado (Barril)</SelectItem>
+                        <SelectItem value="PARRILLA">Parrilla</SelectItem>
+                        <SelectItem value="COCINA">Cocina General</SelectItem>
+                        <SelectItem value="BAR">Bar / Bebidas</SelectItem>
+                      </SelectContent>
+                    </Select>
+                  </div>
+
+                  <div className="grid grid-cols-2 gap-4">
+                    <div className="space-y-2">
+                      <Label htmlFor="stock">Stock Inicial (kg/un)</Label>
+                      <Input 
+                        id="stock" 
+                        type="number"
+                        value={newProduct.stock}
+                        onChange={(e) => setNewProduct({...newProduct, stock: parseFloat(e.target.value)})}
+                      />
+                    </div>
+                    <div className="space-y-2">
+                      <Label htmlFor="min-stock">Stock Mínimo (Alerta)</Label>
+                      <Input 
+                        id="min-stock" 
+                        type="number"
+                        value={newProduct.stockMinimo}
+                        onChange={(e) => setNewProduct({...newProduct, stockMinimo: parseFloat(e.target.value)})}
+                      />
+                    </div>
+                  </div>
+
+                  <div className="space-y-2">
+                    <Label htmlFor="price">Precio de Venta (Opcional)</Label>
+                    <Input 
+                      id="price" 
+                      type="number"
+                      placeholder="Precio si es producto directo"
+                      value={newProduct.precio}
+                      onChange={(e) => setNewProduct({...newProduct, precio: parseFloat(e.target.value)})}
+                    />
+                  </div>
+                </div>
+                <DialogFooter>
+                  <Button variant="ghost" onClick={() => setIsDialogOpen(false)}>Cancelar</Button>
+                  <Button className="bg-primary hover:glow-orange font-bold" onClick={handleCreateProduct}>
+                    GUARDAR INSUMO
+                  </Button>
+                </DialogFooter>
+              </DialogContent>
+            </Dialog>
+
             <Card className="bg-accent/30 border-border px-4 py-2 flex items-center gap-4">
               <div className="flex flex-col">
                 <span className="text-[10px] text-muted-foreground uppercase font-mono">Alertas</span>
