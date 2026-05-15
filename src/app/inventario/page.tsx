@@ -1,3 +1,4 @@
+
 "use client"
 
 import { AppSidebar } from "@/components/layout/AppSidebar";
@@ -11,7 +12,8 @@ import {
   TrendingDown,
   Filter,
   PlusCircle,
-  Utensils
+  Utensils,
+  DollarSign
 } from "lucide-react";
 import { 
   Table, 
@@ -54,7 +56,6 @@ export default function InventarioPage() {
   const [isDialogOpen, setIsDialogOpen] = useState(false);
   const { toast } = useToast();
 
-  // Form state for new product
   const [newProduct, setNewProduct] = useState<Partial<Producto>>({
     nombre: "",
     categoria: "",
@@ -86,11 +87,11 @@ export default function InventarioPage() {
   };
 
   const handleCreateProduct = () => {
-    if (!newProduct.nombre || !newProduct.categoria) {
+    if (!newProduct.nombre || !newProduct.categoria || !newProduct.precio) {
       toast({
         variant: "destructive",
         title: "Error",
-        description: "El nombre y la categoría son obligatorios.",
+        description: "El nombre, categoría y precio son obligatorios.",
       });
       return;
     }
@@ -222,11 +223,14 @@ export default function InventarioPage() {
                   </div>
 
                   <div className="space-y-2">
-                    <Label htmlFor="price">Precio de Venta ($)</Label>
+                    <Label htmlFor="price" className="text-secondary font-bold flex items-center gap-1">
+                      <DollarSign className="w-3 h-3" /> Precio de Venta ($)
+                    </Label>
                     <Input 
                       id="price" 
                       type="number"
                       placeholder="Ej: 85000"
+                      className="border-secondary/50 focus:ring-secondary"
                       value={newProduct.precio}
                       onChange={(e) => setNewProduct({...newProduct, precio: parseFloat(e.target.value)})}
                     />
@@ -251,13 +255,12 @@ export default function InventarioPage() {
           </div>
         </header>
 
-        {/* Stats Grid */}
         <div className="grid grid-cols-1 md:grid-cols-3 gap-6 mb-8">
-          <Card className="bg-card border-border border-t-4 border-t-primary">
+          <Card className="bg-card border-border border-t-4 border-t-primary shadow-lg">
             <CardContent className="pt-6">
               <div className="flex items-center justify-between">
                 <div>
-                  <p className="text-sm text-muted-foreground">Total Productos</p>
+                  <p className="text-sm text-muted-foreground">Total Insumos</p>
                   <h3 className="text-2xl font-bold">{productos.length}</h3>
                 </div>
                 <div className="p-3 bg-primary/10 rounded-full">
@@ -267,7 +270,7 @@ export default function InventarioPage() {
             </CardContent>
           </Card>
           
-          <Card className="bg-card border-border border-t-4 border-t-yellow-500">
+          <Card className="bg-card border-border border-t-4 border-t-yellow-500 shadow-lg">
             <CardContent className="pt-6">
               <div className="flex items-center justify-between">
                 <div>
@@ -281,7 +284,7 @@ export default function InventarioPage() {
             </CardContent>
           </Card>
 
-          <Card className="bg-card border-border border-t-4 border-t-destructive">
+          <Card className="bg-card border-border border-t-4 border-t-destructive shadow-lg">
             <CardContent className="pt-6">
               <div className="flex items-center justify-between">
                 <div>
@@ -296,12 +299,11 @@ export default function InventarioPage() {
           </Card>
         </div>
 
-        {/* Inventory Table */}
-        <Card className="bg-card border-border paper-texture overflow-hidden">
+        <Card className="bg-card border-border paper-texture overflow-hidden shadow-2xl">
           <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-6 border-b border-border/50">
             <CardTitle className="text-xl font-headline flex items-center gap-2">
               <Filter className="w-5 h-5 text-secondary" />
-              Listado de Insumos
+              Inventario y Precios
             </CardTitle>
             <div className="relative w-72">
               <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
@@ -317,10 +319,10 @@ export default function InventarioPage() {
             <Table>
               <TableHeader className="bg-accent/50">
                 <TableRow className="border-border hover:bg-transparent">
-                  <TableHead className="font-bold text-secondary">Producto</TableHead>
+                  <TableHead className="font-bold text-secondary">Insumo</TableHead>
                   <TableHead className="font-bold text-secondary">Categoría</TableHead>
                   <TableHead className="font-bold text-secondary text-center">Estación</TableHead>
-                  <TableHead className="font-bold text-secondary text-right">Precio</TableHead>
+                  <TableHead className="font-bold text-secondary text-right bg-secondary/10">Precio Venta</TableHead>
                   <TableHead className="font-bold text-secondary text-right">Mínimo</TableHead>
                   <TableHead className="font-bold text-secondary text-right">Actual</TableHead>
                   <TableHead className="font-bold text-secondary text-center">Estado</TableHead>
@@ -334,9 +336,11 @@ export default function InventarioPage() {
                     <TableCell>
                       <Badge variant="secondary" className="bg-accent text-[10px]">{p.categoria}</Badge>
                     </TableCell>
-                    <TableCell className="text-center font-mono text-xs">{p.estacion}</TableCell>
-                    <TableCell className="text-right font-bold text-secondary">${p.precio.toLocaleString()}</TableCell>
-                    <TableCell className="text-right text-muted-foreground">{p.stockMinimo} kg/un</TableCell>
+                    <TableCell className="text-center font-mono text-[10px]">{p.estacion}</TableCell>
+                    <TableCell className="text-right font-black text-secondary bg-secondary/5">
+                      ${p.precio.toLocaleString()}
+                    </TableCell>
+                    <TableCell className="text-right text-muted-foreground text-xs">{p.stockMinimo} kg/un</TableCell>
                     <TableCell className="text-right">
                       {editingId === p.id ? (
                         <div className="flex justify-end gap-2">
@@ -365,7 +369,7 @@ export default function InventarioPage() {
                         <div className="flex justify-end gap-2">
                           <Button 
                             size="sm" 
-                            className="h-8 bg-primary hover:glow-orange"
+                            className="h-8 bg-primary hover:glow-orange text-[10px]"
                             onClick={() => handleAdjustStock(p.id)}
                           >
                             Guardar
@@ -383,13 +387,13 @@ export default function InventarioPage() {
                         <Button 
                           variant="outline" 
                           size="sm" 
-                          className="h-8 border-primary/50 text-primary hover:bg-primary/10"
+                          className="h-8 border-primary/50 text-primary hover:bg-primary/10 text-[10px]"
                           onClick={() => {
                             setEditingId(p.id);
                             setEditValue(p.stock.toString());
                           }}
                         >
-                          Ajustar
+                          Ajustar Stock
                         </Button>
                       )}
                     </TableCell>
