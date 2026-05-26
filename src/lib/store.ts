@@ -58,13 +58,22 @@ const initialOrdenes: Orden[] = [
 
 export const usePOSStore = create<POSState>((set) => ({
   user: { id: '1', nombre: 'Admin La Cabaña', rol: 'ADMINISTRADOR' },
-  mesas: Array.from({ length: 15 }, (_, i) => ({
-    id: i + 1,
-    numero: i + 1,
-    zona: i < 10 ? 'Interior' : 'Terraza',
-    capacidad: 4,
-    estado: i === 4 ? 'EN PEDIDO' : 'LIBRE',
-  })),
+  mesas: [
+    ...Array.from({ length: 10 }, (_, i) => ({
+      id: i + 1,
+      numero: i + 1,
+      zona: i < 7 ? 'Interior' : 'Terraza' as any,
+      capacidad: 4,
+      estado: i === 4 ? 'EN PEDIDO' : 'LIBRE' as any,
+    })),
+    ...Array.from({ length: 5 }, (_, i) => ({
+      id: 20 + i + 1,
+      numero: 20 + i + 1,
+      zona: 'Segundo Piso' as any,
+      capacidad: 6,
+      estado: 'LIBRE' as any,
+    }))
+  ],
   productos: [
     { id: 'p1', nombre: 'Picaña Mediana', descripcion: 'Corte madurado a la parrilla', precio: 85000, categoria: 'Cortes', estacion: 'ASADO', stock: 45, stockMinimo: 10 },
     { id: 'p2', nombre: 'Costilla al Barril', descripcion: 'Cerdo cocido lentamente', precio: 120000, categoria: 'Cortes', estacion: 'ASADO', stock: 8, stockMinimo: 10 },

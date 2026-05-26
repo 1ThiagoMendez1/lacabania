@@ -52,7 +52,7 @@ export interface Orden {
 export interface Mesa {
   id: number;
   numero: number;
-  zona: 'Interior' | 'Terraza' | 'Privado';
+  zona: 'Interior' | 'Terraza' | 'Privado' | 'Segundo Piso';
   capacidad: number;
   estado: EstadoMesa;
   meseroId?: string;
