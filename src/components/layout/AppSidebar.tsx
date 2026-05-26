@@ -1,4 +1,3 @@
-
 "use client"
 
 import { usePOSStore } from "@/lib/store";
@@ -12,20 +11,13 @@ import {
   Package, 
   BarChart3, 
   Utensils,
-  Users
+  Users,
+  LogOut
 } from "lucide-react";
 import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
 import { cn } from "@/lib/utils";
 import { Badge } from "@/components/ui/badge";
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from "@/components/ui/select";
-import { Rol } from "@/lib/types";
 import {
   Sidebar,
   SidebarContent,
@@ -53,19 +45,11 @@ export const ALL_MENU_ITEMS = [
   { icon: BarChart3, label: "Reportes & AI", href: "/ai-insights" },
 ];
 
-const ROLES: Rol[] = ["ADMINISTRADOR", "MESERO", "COCINERO"];
-const ESTACIONES: { label: string, val: string }[] = [
-  { label: "🔥 Asado", val: "asado" },
-  { label: "🍖 Parrilla", val: "parrilla" },
-  { label: "👨‍🍳 Cocina", val: "cocina" },
-  { label: "🍹 Bar", val: "bar" }
-];
-
 export function AppSidebar() {
   const pathname = usePathname();
-  const router = useRouter();
-  const { user, setUser, productos, permisos } = usePOSStore();
+  const { user, logout, productos, permisos } = usePOSStore();
   const { state } = useSidebar();
+  const router = useRouter();
 
   if (!user) return null;
 
@@ -74,14 +58,9 @@ export function AppSidebar() {
   const filteredMenu = ALL_MENU_ITEMS.filter(item => userPermisos.includes(item.label));
   const lowStockCount = productos.filter(p => p.stock <= p.stockMinimo).length;
 
-  const handleRoleChange = (newRol: Rol) => {
-    setUser({
-      id: Math.random().toString(),
-      nombre: newRol.charAt(0) + newRol.slice(1).toLowerCase() + " Usuario",
-      rol: newRol,
-      estado: 'ACTIVO',
-      fechaIngreso: new Date().toISOString()
-    });
+  const handleLogout = () => {
+    logout();
+    router.push("/login");
   };
 
   return (
@@ -155,45 +134,10 @@ export function AppSidebar() {
             </SidebarMenu>
           </SidebarGroupContent>
         </SidebarGroup>
-
-        {user.rol === 'ADMINISTRADOR' && isExpanded && (
-          <SidebarGroup className="mt-4 animate-in fade-in">
-            <SidebarGroupLabel className="text-muted-foreground/50 text-[10px] uppercase font-bold tracking-widest px-4 mb-2">
-              Simulador
-            </SidebarGroupLabel>
-            <SidebarGroupContent className="px-2 space-y-4">
-              <div className="p-3 bg-accent/30 rounded-2xl border border-border/50 space-y-3">
-                <p className="text-[10px] text-muted-foreground font-semibold uppercase">Cambiar Rol</p>
-                <Select onValueChange={(v) => handleRoleChange(v as Rol)} defaultValue={user.rol}>
-                  <SelectTrigger className="w-full bg-background/50 border-border h-9 text-xs rounded-lg">
-                    <SelectValue placeholder="Rol" />
-                  </SelectTrigger>
-                  <SelectContent className="bg-card border-border shadow-2xl">
-                    {ROLES.map((rol) => (
-                      <SelectItem key={rol} value={rol} className="text-xs">{rol}</SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
-              </div>
-
-              <div className="grid grid-cols-2 gap-2">
-                {ESTACIONES.map((est) => (
-                  <button
-                    key={est.val}
-                    onClick={() => router.push(`/estaciones/${est.val}`)}
-                    className="text-[10px] bg-accent/20 hover:bg-secondary/20 border border-border/50 py-2 px-2 rounded-xl text-left transition-all hover:border-secondary/50 truncate font-semibold"
-                  >
-                    {est.label}
-                  </button>
-                ))}
-              </div>
-            </SidebarGroupContent>
-          </SidebarGroup>
-        )}
       </SidebarContent>
 
       <SidebarFooter className={cn(
-        "p-4 border-t border-border bg-background/30 transition-all duration-300 flex items-center justify-center",
+        "p-4 border-t border-border bg-background/30 transition-all duration-300 flex flex-col items-center justify-center gap-2",
         !isExpanded && "p-2"
       )}>
         <div className={cn(
@@ -210,6 +154,18 @@ export function AppSidebar() {
             </div>
           )}
         </div>
+        
+        <SidebarMenuButton 
+          onClick={handleLogout}
+          tooltip="Cerrar Sesión"
+          className={cn(
+            "h-10 rounded-xl text-destructive hover:bg-destructive/10 border border-transparent hover:border-destructive/30",
+            !isExpanded && "w-11 justify-center p-0"
+          )}
+        >
+          <LogOut className={cn("w-4 h-4", !isExpanded && "mx-auto")} />
+          {isExpanded && <span className="ml-2 font-bold text-xs">Cerrar Sesión</span>}
+        </SidebarMenuButton>
       </SidebarFooter>
     </Sidebar>
   );

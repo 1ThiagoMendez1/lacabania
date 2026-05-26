@@ -11,6 +11,8 @@ interface POSState {
   
   // Actions
   setUser: (user: Usuario | null) => void;
+  login: (pin: string) => Usuario | null;
+  logout: () => void;
   setUsuarios: (usuarios: Usuario[]) => void;
   addUsuario: (usuario: Usuario) => void;
   updateUsuario: (id: string, updates: Partial<Usuario>) => void;
@@ -29,9 +31,9 @@ interface POSState {
 }
 
 const initialUsuarios: Usuario[] = [
-  { id: '1', nombre: 'Admin La Cabaña', rol: 'ADMINISTRADOR', estado: 'ACTIVO', fechaIngreso: '2024-01-01', telefono: '3001234567' },
-  { id: '2', nombre: 'Juan Mesero', rol: 'MESERO', estado: 'ACTIVO', fechaIngreso: '2024-02-15', telefono: '3109876543' },
-  { id: '3', nombre: 'Marta Cocina', rol: 'COCINERO', estado: 'ACTIVO', fechaIngreso: '2024-01-20', telefono: '3201112233' },
+  { id: '1', nombre: 'Admin La Cabaña', rol: 'ADMINISTRADOR', pin: '1234', estado: 'ACTIVO', fechaIngreso: '2024-01-01', telefono: '3001234567' },
+  { id: '2', nombre: 'Juan Mesero', rol: 'MESERO', pin: '2222', estado: 'ACTIVO', fechaIngreso: '2024-02-15', telefono: '3109876543' },
+  { id: '3', nombre: 'Marta Cocina', rol: 'COCINERO', pin: '3333', estado: 'ACTIVO', fechaIngreso: '2024-01-20', telefono: '3201112233' },
 ];
 
 const initialPermisos: Record<Rol, string[]> = {
@@ -74,8 +76,8 @@ const initialOrdenes: Orden[] = [
   }
 ];
 
-export const usePOSStore = create<POSState>((set) => ({
-  user: initialUsuarios[0],
+export const usePOSStore = create<POSState>((set, get) => ({
+  user: null, // Empezamos sin sesión
   usuarios: initialUsuarios,
   permisos: initialPermisos,
   mesas: [
@@ -105,6 +107,15 @@ export const usePOSStore = create<POSState>((set) => ({
   ordenes: initialOrdenes,
 
   setUser: (user) => set({ user }),
+  login: (pin) => {
+    const foundUser = get().usuarios.find(u => u.pin === pin && u.estado === 'ACTIVO');
+    if (foundUser) {
+      set({ user: foundUser });
+      return foundUser;
+    }
+    return null;
+  },
+  logout: () => set({ user: null }),
   setUsuarios: (usuarios) => set({ usuarios }),
   addUsuario: (usuario) => set((state) => ({ usuarios: [...state.usuarios, usuario] })),
   updateUsuario: (id, updates) => set((state) => ({

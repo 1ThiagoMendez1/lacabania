@@ -12,6 +12,7 @@ export interface Usuario {
   id: string;
   nombre: string;
   rol: Rol;
+  pin: string; // PIN de 4 dígitos para login rápido
   telefono?: string;
   estado: 'ACTIVO' | 'INACTIVO';
   fechaIngreso: string;
