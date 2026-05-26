@@ -6,6 +6,8 @@ export type EstadoMesa = 'LIBRE' | 'OCUPADA' | 'EN PEDIDO' | 'LISTA PAGAR' | 'RE
 
 export type EstadoComanda = 'PENDIENTE' | 'EN PREPARACION' | 'LISTO' | 'ENTREGADO';
 
+export type MetodoPago = 'EFECTIVO' | 'TARJETA';
+
 export interface Usuario {
   id: string;
   nombre: string;
@@ -42,6 +44,7 @@ export interface Orden {
   meseroId: string;
   items: ItemOrden[];
   estado: 'ABIERTA' | 'CERRADA' | 'ANULADA';
+  metodoPago?: MetodoPago;
   createdAt: string;
   updatedAt: string;
 }

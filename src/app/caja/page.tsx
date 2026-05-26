@@ -1,4 +1,3 @@
-
 "use client"
 
 import { AppSidebar } from "@/components/layout/AppSidebar";
@@ -9,12 +8,11 @@ import {
   CreditCard, 
   Banknote, 
   Calculator,
-  Trash2,
   Printer,
-  ChevronRight,
   Clock,
   User,
-  CheckCircle2
+  CheckCircle2,
+  AlertCircle
 } from "lucide-react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -24,18 +22,18 @@ import { useState } from "react";
 import { cn } from "@/lib/utils";
 import { useToast } from "@/hooks/use-toast";
 import { Separator } from "@/components/ui/separator";
+import { MetodoPago } from "@/lib/types";
 
 export default function CajaPage() {
   const { ordenes, mesas, closeOrden } = usePOSStore();
   const { toast } = useToast();
   const [selectedMesaId, setSelectedMesaId] = useState<number | null>(null);
+  const [metodoPago, setMetodoPago] = useState<MetodoPago | null>(null);
 
-  // Filtrar mesas que tienen órdenes abiertas
   const mesasConOrden = mesas.filter(m => 
     m.estado === 'OCUPADA' || m.estado === 'EN PEDIDO' || m.estado === 'LISTA PAGAR'
   );
 
-  const activeMesa = mesas.find(m => m.id === selectedMesaId);
   const activeOrden = ordenes.find(o => o.mesaId === selectedMesaId && o.estado === 'ABIERTA');
 
   const subtotal = activeOrden?.items.reduce((acc, item) => acc + (item.precioUnitario * item.cantidad), 0) || 0;
@@ -43,13 +41,21 @@ export default function CajaPage() {
   const total = subtotal + propinaSugerida;
 
   const handleCerrarCuenta = () => {
-    if (!activeOrden || !selectedMesaId) return;
+    if (!activeOrden || !selectedMesaId || !metodoPago) {
+      toast({
+        variant: "destructive",
+        title: "Error",
+        description: "Debes seleccionar un método de pago antes de cerrar la cuenta.",
+      });
+      return;
+    };
 
-    closeOrden(activeOrden.id, selectedMesaId);
+    closeOrden(activeOrden.id, selectedMesaId, metodoPago);
     setSelectedMesaId(null);
+    setMetodoPago(null);
     toast({
       title: "Cuenta Cerrada",
-      description: `La mesa ${selectedMesaId} ha sido liberada y el pago registrado.`,
+      description: `La mesa ${selectedMesaId} ha sido liberada. Pago con ${metodoPago.toLowerCase()} registrado.`,
     });
   };
 
@@ -58,6 +64,11 @@ export default function CajaPage() {
       title: "Imprimiendo Pre-cuenta",
       description: `Enviando a la impresora térmica de caja...`,
     });
+  };
+
+  const handleSelectMesa = (id: number) => {
+    setSelectedMesaId(id);
+    setMetodoPago(null); // Reiniciar método de pago al cambiar de mesa
   };
 
   return (
@@ -103,7 +114,7 @@ export default function CajaPage() {
                   mesasConOrden.map((mesa) => (
                     <button
                       key={mesa.id}
-                      onClick={() => setSelectedMesaId(mesa.id)}
+                      onClick={() => handleSelectMesa(mesa.id)}
                       className={cn(
                         "w-full text-left p-4 rounded-xl border transition-all wood-texture group",
                         selectedMesaId === mesa.id 
@@ -181,13 +192,30 @@ export default function CajaPage() {
                   <div className="bg-accent/40 p-8 border-t border-border">
                     <div className="grid grid-cols-2 gap-8">
                       <div className="space-y-4">
-                        <p className="text-xs font-bold text-muted-foreground uppercase">Método de Pago</p>
+                        <div className="flex items-center justify-between">
+                           <p className="text-xs font-bold text-muted-foreground uppercase">Método de Pago</p>
+                           {!metodoPago && <Badge variant="outline" className="text-[9px] border-primary text-primary flex gap-1"><AlertCircle className="w-3 h-3"/> Requerido</Badge>}
+                        </div>
                         <div className="grid grid-cols-2 gap-2">
-                          <Button variant="outline" className="h-16 flex-col gap-1 border-border bg-background hover:border-secondary hover:text-secondary">
+                          <Button 
+                            variant="outline" 
+                            onClick={() => setMetodoPago('EFECTIVO')}
+                            className={cn(
+                              "h-16 flex-col gap-1 border-border bg-background transition-all",
+                              metodoPago === 'EFECTIVO' ? "border-secondary ring-2 ring-secondary text-secondary" : "hover:border-secondary/50"
+                            )}
+                          >
                             <Banknote className="w-5 h-5" />
                             <span className="text-[10px]">Efectivo</span>
                           </Button>
-                          <Button variant="outline" className="h-16 flex-col gap-1 border-border bg-background hover:border-secondary hover:text-secondary">
+                          <Button 
+                            variant="outline" 
+                            onClick={() => setMetodoPago('TARJETA')}
+                            className={cn(
+                              "h-16 flex-col gap-1 border-border bg-background transition-all",
+                              metodoPago === 'TARJETA' ? "border-secondary ring-2 ring-secondary text-secondary" : "hover:border-secondary/50"
+                            )}
+                          >
                             <CreditCard className="w-5 h-5" />
                             <span className="text-[10px]">Tarjeta</span>
                           </Button>
@@ -209,10 +237,16 @@ export default function CajaPage() {
                           <span className="text-4xl font-black text-secondary">${total.toLocaleString()}</span>
                         </div>
                         <Button 
-                          className="w-full h-14 bg-primary hover:glow-orange text-lg font-bold rounded-xl mt-4"
+                          className={cn(
+                            "w-full h-14 text-lg font-bold rounded-xl mt-4 transition-all",
+                            metodoPago 
+                              ? "bg-primary hover:glow-orange opacity-100" 
+                              : "bg-muted text-muted-foreground cursor-not-allowed opacity-50"
+                          )}
+                          disabled={!metodoPago}
                           onClick={handleCerrarCuenta}
                         >
-                          CERRAR Y REGISTRAR PAGO
+                          {metodoPago ? `CERRAR CUENTA (${metodoPago})` : 'ELIGA MÉTODO DE PAGO'}
                         </Button>
                       </div>
                     </div>

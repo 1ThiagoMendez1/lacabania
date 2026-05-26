@@ -1,6 +1,5 @@
-
 import { create } from 'zustand';
-import { Mesa, Producto, Orden, Usuario, ItemOrden, EstadoComanda } from './types';
+import { Mesa, Producto, Orden, Usuario, ItemOrden, EstadoComanda, MetodoPago } from './types';
 
 interface POSState {
   user: Usuario | null;
@@ -19,10 +18,10 @@ interface POSState {
   updateStock: (productoId: string, cantidad: number) => void;
   adjustStock: (productoId: string, nuevoStock: number) => void;
   addProducto: (producto: Producto) => void;
-  closeOrden: (ordenId: string, mesaId: number) => void;
+  closeOrden: (ordenId: string, mesaId: number, metodoPago: MetodoPago) => void;
 }
 
-// Datos de prueba iniciales para que las estaciones no se vean vacías
+// Datos de prueba iniciales
 const initialOrdenes: Orden[] = [
   {
     id: 'ORD-PROMO-1',
@@ -106,8 +105,8 @@ export const usePOSStore = create<POSState>((set) => ({
   addProducto: (producto) => set((state) => ({
     productos: [...state.productos, producto]
   })),
-  closeOrden: (ordenId, mesaId) => set((state) => ({
-    ordenes: state.ordenes.map(o => o.id === ordenId ? { ...o, estado: 'CERRADA', updatedAt: new Date().toISOString() } : o),
+  closeOrden: (ordenId, mesaId, metodoPago) => set((state) => ({
+    ordenes: state.ordenes.map(o => o.id === ordenId ? { ...o, estado: 'CERRADA', metodoPago, updatedAt: new Date().toISOString() } : o),
     mesas: state.mesas.map(m => m.id === mesaId ? { ...m, estado: 'LIBRE', meseroId: undefined, ordenActivaId: undefined } : m)
   })),
 }));
