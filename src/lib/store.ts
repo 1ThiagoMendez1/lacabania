@@ -11,6 +11,7 @@ interface POSState {
   // Actions
   setUser: (user: Usuario | null) => void;
   updateMesaEstado: (mesaId: number, estado: Mesa['estado'], meseroId?: string) => void;
+  addMesa: (mesa: Mesa) => void;
   addOrden: (orden: Orden) => void;
   updateOrden: (ordenId: string, updates: Partial<Orden>) => void;
   updateItemEstado: (ordenId: string, itemId: string, estado: EstadoComanda) => void;
@@ -76,6 +77,9 @@ export const usePOSStore = create<POSState>((set) => ({
   setUser: (user) => set({ user }),
   updateMesaEstado: (mesaId, estado, meseroId) => set((state) => ({
     mesas: state.mesas.map(m => m.id === mesaId ? { ...m, estado, meseroId } : m)
+  })),
+  addMesa: (mesa) => set((state) => ({
+    mesas: [...state.mesas, mesa].sort((a, b) => a.id - b.id)
   })),
   addOrden: (orden) => set((state) => ({ ordenes: [...state.ordenes, orden] })),
   updateOrden: (ordenId, updates) => set((state) => ({
