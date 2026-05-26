@@ -19,6 +19,7 @@ interface POSState {
   updateStock: (productoId: string, cantidad: number) => void;
   adjustStock: (productoId: string, nuevoStock: number) => void;
   addProducto: (producto: Producto) => void;
+  closeOrden: (ordenId: string, mesaId: number) => void;
 }
 
 // Datos de prueba iniciales para que las estaciones no se vean vacías
@@ -104,5 +105,9 @@ export const usePOSStore = create<POSState>((set) => ({
   })),
   addProducto: (producto) => set((state) => ({
     productos: [...state.productos, producto]
+  })),
+  closeOrden: (ordenId, mesaId) => set((state) => ({
+    ordenes: state.ordenes.map(o => o.id === ordenId ? { ...o, estado: 'CERRADA', updatedAt: new Date().toISOString() } : o),
+    mesas: state.mesas.map(m => m.id === mesaId ? { ...m, estado: 'LIBRE', meseroId: undefined, ordenActivaId: undefined } : m)
   })),
 }));

@@ -20,13 +20,12 @@ import {
   YAxis, 
   CartesianGrid, 
   Tooltip, 
-  ResponsiveContainer,
-  LineChart,
-  Line
+  ResponsiveContainer
 } from "recharts";
 import { cn } from "@/lib/utils";
+import { usePOSStore } from "@/lib/store";
 
-const data = [
+const chartData = [
   { name: '12:00', ventas: 450000 },
   { name: '13:00', ventas: 890000 },
   { name: '14:00', ventas: 1200000 },
@@ -37,20 +36,31 @@ const data = [
   { name: '19:00', ventas: 1100000 },
 ];
 
-const kpis = [
-  { title: "Ventas Hoy", value: "$4.250.000", change: "+12.5%", icon: DollarSign, color: "text-green-500" },
-  { title: "Mesas Activas", value: "12 / 15", change: "80% Ocupación", icon: Utensils, color: "text-secondary" },
-  { title: "Pedidos Pendientes", value: "8", change: "Tiempo prom: 15min", icon: ClipboardCheck, color: "text-primary" },
-  { title: "Ticket Promedio", value: "$85.000", change: "+5% vs ayer", icon: TrendingUp, color: "text-blue-500" },
-];
-
-const stations = [
-  { name: "Asado", icon: Flame, pending: 3, color: "bg-primary" },
-  { name: "Cocina", icon: ChefHat, pending: 4, color: "bg-secondary" },
-  { name: "Bar", icon: Beer, pending: 1, color: "bg-blue-600" },
-];
-
 export default function DashboardPage() {
+  const { ordenes, mesas } = usePOSStore();
+
+  const totalVentasCerradas = ordenes
+    .filter(o => o.estado === 'CERRADA')
+    .reduce((acc, o) => acc + o.items.reduce((sum, i) => sum + (i.precioUnitario * i.cantidad), 0), 0);
+
+  const mesasOcupadas = mesas.filter(m => m.estado === 'OCUPADA' || m.estado === 'EN PEDIDO' || m.estado === 'LISTA PAGAR').length;
+  const pedidosPendientes = ordenes
+    .filter(o => o.estado === 'ABIERTA')
+    .reduce((acc, o) => acc + o.items.filter(i => i.estado === 'PENDIENTE' || i.estado === 'EN PREPARACION').length, 0);
+
+  const kpis = [
+    { title: "Ventas Hoy", value: `$${totalVentasCerradas.toLocaleString()}`, change: "+12.5%", icon: DollarSign, color: "text-green-500" },
+    { title: "Mesas Activas", value: `${mesasOcupadas} / ${mesas.length}`, change: `${Math.round((mesasOcupadas/mesas.length)*100)}% Ocupación`, icon: Utensils, color: "text-secondary" },
+    { title: "Pedidos Pendientes", value: pedidosPendientes.toString(), change: "En estaciones", icon: ClipboardCheck, color: "text-primary" },
+    { title: "Ticket Promedio", value: `$${totalVentasCerradas > 0 ? Math.round(totalVentasCerradas / ordenes.filter(o => o.estado === 'CERRADA').length).toLocaleString() : 0}`, change: "+5% vs ayer", icon: TrendingUp, color: "text-blue-500" },
+  ];
+
+  const stations = [
+    { name: "Asado", icon: Flame, pending: ordenes.filter(o => o.estado === 'ABIERTA').reduce((acc, o) => acc + o.items.filter(i => i.estacion === 'ASADO' && i.estado !== 'LISTO' && i.estado !== 'ENTREGADO').length, 0), color: "bg-primary" },
+    { name: "Cocina", icon: ChefHat, pending: ordenes.filter(o => o.estado === 'ABIERTA').reduce((acc, o) => acc + o.items.filter(i => i.estacion === 'COCINA' && i.estado !== 'LISTO' && i.estado !== 'ENTREGADO').length, 0), color: "bg-secondary" },
+    { name: "Bar", icon: Beer, pending: ordenes.filter(o => o.estado === 'ABIERTA').reduce((acc, o) => acc + o.items.filter(i => i.estacion === 'BAR' && i.estado !== 'LISTO' && i.estado !== 'ENTREGADO').length, 0), color: "bg-blue-600" },
+  ];
+
   return (
     <div className="flex bg-background min-h-screen">
       <AppSidebar />
@@ -63,7 +73,7 @@ export default function DashboardPage() {
           <div className="bg-card px-4 py-2 rounded-lg border border-border flex items-center gap-4">
             <div className="text-right">
               <p className="text-xs font-mono uppercase text-muted-foreground">Cierre Actual</p>
-              <p className="font-bold text-secondary">$2.840.500</p>
+              <p className="font-bold text-secondary">${totalVentasCerradas.toLocaleString()}</p>
             </div>
             <div className="w-px h-8 bg-border" />
             <button className="bg-primary text-primary-foreground px-4 py-2 rounded-md text-sm font-semibold hover:glow-orange transition-all">
@@ -99,7 +109,7 @@ export default function DashboardPage() {
             <CardContent>
               <div className="h-[300px] w-full">
                 <ResponsiveContainer width="100%" height="100%">
-                  <BarChart data={data}>
+                  <BarChart data={chartData}>
                     <CartesianGrid strokeDasharray="3 3" stroke="#2E1D12" />
                     <XAxis dataKey="name" stroke="#A08060" fontSize={12} />
                     <YAxis stroke="#A08060" fontSize={12} tickFormatter={(val) => `$${val/1000}k`} />
