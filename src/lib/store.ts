@@ -62,14 +62,14 @@ export const usePOSStore = create<POSState>((set) => ({
     ...Array.from({ length: 10 }, (_, i) => ({
       id: i + 1,
       numero: i + 1,
-      zona: i < 7 ? 'Interior' : 'Terraza' as any,
+      zona: 'Primer Piso' as const,
       capacidad: 4,
       estado: i === 4 ? 'EN PEDIDO' : 'LIBRE' as any,
     })),
     ...Array.from({ length: 5 }, (_, i) => ({
       id: 20 + i + 1,
       numero: 20 + i + 1,
-      zona: 'Segundo Piso' as any,
+      zona: 'Segundo Piso' as const,
       capacidad: 6,
       estado: 'LIBRE' as any,
     }))

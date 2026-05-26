@@ -39,7 +39,7 @@ export default function MesasPage() {
 
   const [newMesa, setNewMesa] = useState({
     id: "",
-    zona: "Interior" as any,
+    zona: "Primer Piso" as const,
     capacidad: 4
   });
 
@@ -105,10 +105,10 @@ export default function MesasPage() {
 
     addMesa(mesa);
     setIsAddMesaOpen(false);
-    setNewMesa({ id: "", zona: "Interior", capacidad: 4 });
+    setNewMesa({ id: "", zona: "Primer Piso", capacidad: 4 });
     toast({
       title: "Mesa Agregada",
-      description: `Mesa ${mesaId} registrada en zona ${newMesa.zona}.`
+      description: `Mesa ${mesaId} registrada en ${newMesa.zona}.`
     });
   };
 
@@ -143,7 +143,7 @@ export default function MesasPage() {
     });
   };
 
-  const mesasPlanta1 = mesas.filter(m => m.zona !== 'Segundo Piso');
+  const mesasPlanta1 = mesas.filter(m => m.zona === 'Primer Piso');
   const mesasPlanta2 = mesas.filter(m => m.zona === 'Segundo Piso');
 
   return (
@@ -186,12 +186,10 @@ export default function MesasPage() {
                       defaultValue={newMesa.zona}
                     >
                       <SelectTrigger className="col-span-3">
-                        <SelectValue placeholder="Selecciona Zona" />
+                        <SelectValue placeholder="Selecciona Piso" />
                       </SelectTrigger>
                       <SelectContent className="bg-card border-border">
-                        <SelectItem value="Interior">Interior</SelectItem>
-                        <SelectItem value="Terraza">Terraza</SelectItem>
-                        <SelectItem value="Privado">Privado</SelectItem>
+                        <SelectItem value="Primer Piso">Primer Piso</SelectItem>
                         <SelectItem value="Segundo Piso">Segundo Piso</SelectItem>
                       </SelectContent>
                     </Select>
@@ -231,7 +229,7 @@ export default function MesasPage() {
           <TabsList className="bg-accent/30 border border-border p-1 h-12 mb-6">
             <TabsTrigger value="piso1" className="data-[state=active]:bg-primary data-[state=active]:text-white gap-2 px-6">
               <Layers className="w-4 h-4" />
-              Planta Principal
+              Primer Piso
             </TabsTrigger>
             <TabsTrigger value="piso2" className="data-[state=active]:bg-secondary data-[state=active]:text-secondary-foreground gap-2 px-6">
               <Layers className="w-4 h-4" />
@@ -252,7 +250,7 @@ export default function MesasPage() {
                <div className="flex flex-col items-center justify-center py-20 border-2 border-dashed border-border rounded-3xl opacity-40">
                   <Layers className="w-12 h-12 mb-4" />
                   <p className="font-headline text-xl">No hay mesas en el segundo piso</p>
-                  <p className="text-sm">Agrega mesas seleccionando la zona "Segundo Piso"</p>
+                  <p className="text-sm">Agrega mesas seleccionando el "Segundo Piso"</p>
                </div>
             ) : (
               <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-5 gap-6">
@@ -280,12 +278,10 @@ export default function MesasPage() {
                         defaultValue={editMesa.zona}
                       >
                         <SelectTrigger className="bg-background">
-                          <SelectValue placeholder="Zona" />
+                          <SelectValue placeholder="Piso" />
                         </SelectTrigger>
                         <SelectContent className="bg-card border-border">
-                          <SelectItem value="Interior">Interior</SelectItem>
-                          <SelectItem value="Terraza">Terraza</SelectItem>
-                          <SelectItem value="Privado">Privado</SelectItem>
+                          <SelectItem value="Primer Piso">Primer Piso</SelectItem>
                           <SelectItem value="Segundo Piso">Segundo Piso</SelectItem>
                         </SelectContent>
                       </Select>
