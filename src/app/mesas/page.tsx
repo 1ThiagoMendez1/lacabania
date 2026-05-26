@@ -5,7 +5,7 @@ import { AppSidebar } from "@/components/layout/AppSidebar";
 import { usePOSStore } from "@/lib/store";
 import { Badge } from "@/components/ui/badge";
 import { cn } from "@/lib/utils";
-import { Clock, Users, UtensilsCrossed, PlusCircle } from "lucide-react";
+import { Clock, Users, UtensilsCrossed, PlusCircle, Settings, Edit } from "lucide-react";
 import { 
   Dialog, 
   DialogContent, 
@@ -30,9 +30,10 @@ import { useToast } from "@/hooks/use-toast";
 import { Mesa } from "@/lib/types";
 
 export default function MesasPage() {
-  const { mesas, updateMesaEstado, addMesa, user } = usePOSStore();
-  const [selectedMesa, setSelectedMesa] = useState<number | null>(null);
+  const { mesas, updateMesaEstado, updateMesa, addMesa, user } = usePOSStore();
+  const [selectedMesaId, setSelectedMesaId] = useState<number | null>(null);
   const [isAddMesaOpen, setIsAddMesaOpen] = useState(false);
+  const [isEditMode, setIsEditMode] = useState(false);
   const router = useRouter();
   const { toast } = useToast();
 
@@ -41,6 +42,8 @@ export default function MesasPage() {
     zona: "Interior" as any,
     capacidad: 4
   });
+
+  const [editMesa, setEditMesa] = useState<Partial<Mesa>>({});
 
   const getStatusColor = (status: string) => {
     switch (status) {
@@ -96,6 +99,27 @@ export default function MesasPage() {
     toast({
       title: "Mesa Agregada",
       description: `Mesa ${mesaId} registrada en zona ${newMesa.zona}.`
+    });
+  };
+
+  const handleStartEdit = (mesa: Mesa) => {
+    setEditMesa({ ...mesa });
+    setIsEditMode(true);
+  };
+
+  const handleSaveEdit = () => {
+    if (!selectedMesaId || !editMesa.id) return;
+    
+    updateMesa(selectedMesaId, {
+      zona: editMesa.zona,
+      capacidad: editMesa.capacidad,
+      numero: editMesa.numero
+    });
+    
+    setIsEditMode(false);
+    toast({
+      title: "Mesa Actualizada",
+      description: `La información de la mesa ha sido corregida.`
     });
   };
 
@@ -185,10 +209,9 @@ export default function MesasPage() {
 
         <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-5 gap-6">
           {mesas.map((mesa) => (
-            <Dialog key={mesa.id}>
+            <Dialog key={mesa.id} onOpenChange={(open) => { if(!open) setIsEditMode(false); setSelectedMesaId(open ? mesa.id : null); }}>
               <DialogTrigger asChild>
                 <button
-                  onClick={() => setSelectedMesa(mesa.id)}
                   className={cn(
                     "relative group h-40 rounded-2xl border-2 transition-all duration-300 p-4 flex flex-col items-center justify-between wood-texture overflow-hidden",
                     getStatusColor(mesa.estado),
@@ -221,41 +244,88 @@ export default function MesasPage() {
               </DialogTrigger>
               <DialogContent className="bg-card border-border text-foreground">
                 <DialogHeader>
-                  <DialogTitle className="text-2xl font-headline">Gestionar Mesa {mesa.id}</DialogTitle>
+                  <DialogTitle className="text-2xl font-headline">
+                    {isEditMode ? `Editando Mesa ${mesa.id}` : `Gestionar Mesa ${mesa.id}`}
+                  </DialogTitle>
                 </DialogHeader>
-                <div className="py-6 space-y-6">
-                  <div className="grid grid-cols-2 gap-4">
-                    <div className="bg-accent/30 p-4 rounded-xl border border-border">
-                      <p className="text-xs text-muted-foreground mb-1 uppercase tracking-tighter">Zona</p>
-                      <p className="font-bold text-lg">{mesa.zona}</p>
+                
+                {isEditMode ? (
+                  <div className="py-4 space-y-4">
+                    <div className="space-y-2">
+                      <Label>Zona</Label>
+                      <Select 
+                        onValueChange={(v) => setEditMesa({ ...editMesa, zona: v as any })}
+                        defaultValue={editMesa.zona}
+                      >
+                        <SelectTrigger className="bg-background">
+                          <SelectValue placeholder="Zona" />
+                        </SelectTrigger>
+                        <SelectContent className="bg-card border-border">
+                          <SelectItem value="Interior">Interior</SelectItem>
+                          <SelectItem value="Terraza">Terraza</SelectItem>
+                          <SelectItem value="Privado">Privado</SelectItem>
+                        </SelectContent>
+                      </Select>
                     </div>
-                    <div className="bg-accent/30 p-4 rounded-xl border border-border">
-                      <p className="text-xs text-muted-foreground mb-1 uppercase tracking-tighter">Estado</p>
-                      <p className="font-bold text-lg text-secondary">{mesa.estado}</p>
+                    <div className="space-y-2">
+                      <Label>Capacidad</Label>
+                      <Input
+                        type="number"
+                        value={editMesa.capacidad}
+                        onChange={(e) => setEditMesa({ ...editMesa, capacidad: parseInt(e.target.value) })}
+                      />
+                    </div>
+                    <div className="flex gap-2 pt-4">
+                      <Button variant="ghost" className="flex-1" onClick={() => setIsEditMode(false)}>Cancelar</Button>
+                      <Button className="bg-primary flex-1 font-bold" onClick={handleSaveEdit}>GUARDAR CAMBIOS</Button>
                     </div>
                   </div>
-
-                  {mesa.estado === 'LIBRE' ? (
-                    <Button 
-                      className="w-full h-16 text-lg bg-primary hover:glow-orange font-bold rounded-xl"
-                      onClick={() => handleOpenMesa(mesa.id)}
-                    >
-                      ABRIR MESA
-                    </Button>
-                  ) : (
-                    <div className="space-y-3">
-                      <Button 
-                        className="w-full h-14 bg-secondary text-secondary-foreground hover:glow-gold font-bold text-lg"
-                        onClick={() => handleVerPedido(mesa.id)}
-                      >
-                        VER PEDIDO
-                      </Button>
-                      <Button variant="outline" className="w-full h-14 border-primary text-primary hover:bg-primary/10">
-                        CAMBIAR DE MESA
-                      </Button>
+                ) : (
+                  <div className="py-6 space-y-6">
+                    <div className="grid grid-cols-2 gap-4">
+                      <div className="bg-accent/30 p-4 rounded-xl border border-border">
+                        <p className="text-xs text-muted-foreground mb-1 uppercase tracking-tighter">Zona</p>
+                        <p className="font-bold text-lg">{mesa.zona}</p>
+                      </div>
+                      <div className="bg-accent/30 p-4 rounded-xl border border-border">
+                        <p className="text-xs text-muted-foreground mb-1 uppercase tracking-tighter">Estado</p>
+                        <p className="font-bold text-lg text-secondary">{mesa.estado}</p>
+                      </div>
                     </div>
-                  )}
-                </div>
+
+                    <div className="space-y-3">
+                      {mesa.estado === 'LIBRE' ? (
+                        <Button 
+                          className="w-full h-16 text-lg bg-primary hover:glow-orange font-bold rounded-xl"
+                          onClick={() => handleOpenMesa(mesa.id)}
+                        >
+                          ABRIR MESA
+                        </Button>
+                      ) : (
+                        <Button 
+                          className="w-full h-14 bg-secondary text-secondary-foreground hover:glow-gold font-bold text-lg"
+                          onClick={() => handleVerPedido(mesa.id)}
+                        >
+                          VER PEDIDO
+                        </Button>
+                      )}
+                      
+                      <div className="grid grid-cols-2 gap-2">
+                        <Button 
+                          variant="outline" 
+                          className="border-border text-muted-foreground hover:text-foreground gap-2"
+                          onClick={() => handleStartEdit(mesa)}
+                        >
+                          <Edit className="w-4 h-4" />
+                          Editar Detalles
+                        </Button>
+                        <Button variant="outline" className="border-primary text-primary hover:bg-primary/10">
+                          CAMBIAR MESA
+                        </Button>
+                      </div>
+                    </div>
+                  </div>
+                )}
               </DialogContent>
             </Dialog>
           ))}
