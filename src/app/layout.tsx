@@ -24,7 +24,13 @@ export default function RootLayout({
         <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=Playfair+Display:wght@700;900&family=JetBrains+Mono&family=Satisfy&display=swap" rel="stylesheet" />
       </head>
       <body className="font-body antialiased">
-        <SidebarProvider defaultOpen={false}>
+        <SidebarProvider 
+          defaultOpen={false}
+          style={{
+            "--sidebar-width": "16rem",
+            "--sidebar-width-icon": "5rem", // 80px para el modo colapsado
+          } as React.CSSProperties}
+        >
           <div className="flex min-h-screen w-full">
             <AppSidebar />
             <SidebarInset className="flex-1 flex flex-col bg-background">
