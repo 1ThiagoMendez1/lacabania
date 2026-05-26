@@ -10,7 +10,8 @@ import {
   ChefHat, 
   Flame, 
   UtensilsCrossed, 
-  CircleAlert
+  CircleAlert,
+  IdCard
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { useToast } from "@/hooks/use-toast";
@@ -49,7 +50,7 @@ export default function LoginPage() {
       toast({
         variant: "destructive",
         title: "PIN Incorrecto",
-        description: "El código ingresado no coincide con ningún usuario activo.",
+        description: "Los 4 dígitos no coinciden con ningún usuario activo.",
       });
       setPin("");
     }
@@ -87,9 +88,14 @@ export default function LoginPage() {
                 />
               ))}
             </div>
-            <p className="text-sm font-bold text-muted-foreground uppercase tracking-widest flex items-center gap-2">
-              <Lock className="w-3 h-3" /> Ingresa tu PIN
-            </p>
+            <div className="text-center">
+              <p className="text-sm font-bold text-muted-foreground uppercase tracking-widest flex items-center justify-center gap-2 mb-1">
+                <IdCard className="w-4 h-4" /> Acceso de Personal
+              </p>
+              <p className="text-[10px] text-muted-foreground/60 font-medium">
+                Ingresa los últimos 4 dígitos de tu Cédula
+              </p>
+            </div>
           </div>
 
           {/* Keypad */}
@@ -119,24 +125,27 @@ export default function LoginPage() {
               0
             </Button>
             <div className="h-16 flex items-center justify-center">
-              <CircleAlert className="w-6 h-6 text-muted-foreground/20" />
+              <Lock className="w-6 h-6 text-muted-foreground/20" />
             </div>
           </div>
         </div>
 
         {/* Roles Helper (For Demo/Dev) */}
-        <div className="grid grid-cols-3 gap-2 opacity-40 hover:opacity-100 transition-opacity">
-          <div className="text-center">
-            <p className="text-[8px] uppercase font-bold text-muted-foreground">Admin</p>
-            <code className="text-[10px] bg-accent p-1 rounded">1234</code>
-          </div>
-          <div className="text-center">
-            <p className="text-[8px] uppercase font-bold text-muted-foreground">Mesero</p>
-            <code className="text-[10px] bg-accent p-1 rounded">2222</code>
-          </div>
-          <div className="text-center">
-            <p className="text-[8px] uppercase font-bold text-muted-foreground">Cocina</p>
-            <code className="text-[10px] bg-accent p-1 rounded">3333</code>
+        <div className="bg-card/30 p-4 rounded-2xl border border-border/20 backdrop-blur-sm space-y-3">
+          <p className="text-[10px] uppercase font-bold text-center text-muted-foreground tracking-widest">Credenciales de Acceso (Demo)</p>
+          <div className="grid grid-cols-3 gap-2">
+            <div className="text-center bg-accent/20 p-2 rounded-xl">
+              <p className="text-[8px] uppercase font-bold text-primary">Admin</p>
+              <code className="text-[10px] font-bold">6789</code>
+            </div>
+            <div className="text-center bg-accent/20 p-2 rounded-xl">
+              <p className="text-[8px] uppercase font-bold text-secondary">Mesero</p>
+              <code className="text-[10px] font-bold">2033</code>
+            </div>
+            <div className="text-center bg-accent/20 p-2 rounded-xl">
+              <p className="text-[8px] uppercase font-bold text-orange-400">Cocina</p>
+              <code className="text-[10px] font-bold">6655</code>
+            </div>
           </div>
         </div>
       </div>

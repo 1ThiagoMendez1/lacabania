@@ -31,13 +31,13 @@ interface POSState {
 }
 
 const initialUsuarios: Usuario[] = [
-  { id: '1', nombre: 'Admin La Cabaña', rol: 'ADMINISTRADOR', pin: '1234', estado: 'ACTIVO', fechaIngreso: '2024-01-01', telefono: '3001234567' },
-  { id: '2', nombre: 'Juan Mesero', rol: 'MESERO', pin: '2222', estado: 'ACTIVO', fechaIngreso: '2024-02-15', telefono: '3109876543' },
-  { id: '3', nombre: 'Marta Cocina', rol: 'COCINERO', pin: '3333', estado: 'ACTIVO', fechaIngreso: '2024-01-20', telefono: '3201112233' },
+  { id: '1', nombre: 'Admin La Cabaña', cedula: '123456789', rol: 'ADMINISTRADOR', pin: '6789', estado: 'ACTIVO', fechaIngreso: '2024-01-01', telefono: '3001234567' },
+  { id: '2', nombre: 'Juan Mesero', cedula: '1010202033', rol: 'MESERO', pin: '2033', estado: 'ACTIVO', fechaIngreso: '2024-02-15', telefono: '3109876543' },
+  { id: '3', nombre: 'Marta Cocina', cedula: '9988776655', rol: 'COCINERO', pin: '6655', estado: 'ACTIVO', fechaIngreso: '2024-01-20', telefono: '3201112233' },
 ];
 
 const initialPermisos: Record<Rol, string[]> = {
-  ADMINISTRADOR: ["Dashboard", "Mesas", "Asado", "Parrilla", "Cocina", "Bar", "Caja", "Inventario", "Personal", "Reportes & AI", "Permisos"],
+  ADMINISTRADOR: ["Dashboard", "Mesas", "Asado", "Parrilla", "Cocina", "Bar", "Caja", "Inventario", "Personal", "Reportes & AI"],
   MESERO: ["Mesas", "Asado", "Parrilla", "Cocina", "Bar"],
   COCINERO: ["Asado", "Parrilla", "Cocina"],
 };
@@ -77,7 +77,7 @@ const initialOrdenes: Orden[] = [
 ];
 
 export const usePOSStore = create<POSState>((set, get) => ({
-  user: null, // Empezamos sin sesión
+  user: null,
   usuarios: initialUsuarios,
   permisos: initialPermisos,
   mesas: [
@@ -108,6 +108,7 @@ export const usePOSStore = create<POSState>((set, get) => ({
 
   setUser: (user) => set({ user }),
   login: (pin) => {
+    // Busca usuario cuyo PIN (últimos 4 de cédula) coincida
     const foundUser = get().usuarios.find(u => u.pin === pin && u.estado === 'ACTIVO');
     if (foundUser) {
       set({ user: foundUser });
@@ -119,7 +120,14 @@ export const usePOSStore = create<POSState>((set, get) => ({
   setUsuarios: (usuarios) => set({ usuarios }),
   addUsuario: (usuario) => set((state) => ({ usuarios: [...state.usuarios, usuario] })),
   updateUsuario: (id, updates) => set((state) => ({
-    usuarios: state.usuarios.map(u => u.id === id ? { ...u, ...updates } : u)
+    usuarios: state.usuarios.map(u => {
+      if (u.id === id) {
+        const newCedula = updates.cedula || u.cedula;
+        const newPin = newCedula.length >= 4 ? newCedula.slice(-4) : newCedula;
+        return { ...u, ...updates, pin: newPin };
+      }
+      return u;
+    })
   })),
   deleteUsuario: (id) => set((state) => ({
     usuarios: state.usuarios.filter(u => u.id !== id)

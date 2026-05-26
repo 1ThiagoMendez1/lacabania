@@ -15,7 +15,8 @@ import {
   Lock,
   UserCircle,
   AlertCircle,
-  ShieldAlert
+  ShieldAlert,
+  IdCard
 } from "lucide-react";
 import { 
   Table, 
@@ -70,6 +71,7 @@ export default function PersonalPage() {
 
   const [newStaff, setNewStaff] = useState<Partial<Usuario>>({
     nombre: "",
+    cedula: "",
     rol: "MESERO",
     telefono: "",
     estado: "ACTIVO"
@@ -77,7 +79,8 @@ export default function PersonalPage() {
 
   const filteredStaff = usuarios.filter(u => 
     u.nombre.toLowerCase().includes(searchTerm.toLowerCase()) ||
-    u.rol.toLowerCase().includes(searchTerm.toLowerCase())
+    u.rol.toLowerCase().includes(searchTerm.toLowerCase()) ||
+    u.cedula.includes(searchTerm)
   );
 
   const stats = {
@@ -88,18 +91,27 @@ export default function PersonalPage() {
   };
 
   const handleCreateStaff = () => {
-    if (!newStaff.nombre) return;
+    if (!newStaff.nombre || !newStaff.cedula) {
+      toast({ variant: "destructive", title: "Datos Incompletos", description: "El nombre y la cédula son obligatorios." });
+      return;
+    }
+
+    const cedula = newStaff.cedula!;
+    const pin = cedula.length >= 4 ? cedula.slice(-4) : cedula;
+
     const staff: Usuario = {
       id: `u-${Date.now()}`,
       nombre: newStaff.nombre!,
+      cedula: cedula,
       rol: (newStaff.rol as Rol) || "MESERO",
+      pin: pin,
       telefono: newStaff.telefono || "",
       estado: "ACTIVO",
       fechaIngreso: new Date().toISOString().split('T')[0],
     };
     addUsuario(staff);
     setIsDialogOpen(false);
-    setNewStaff({ nombre: "", rol: "MESERO", telefono: "", estado: "ACTIVO" });
+    setNewStaff({ nombre: "", cedula: "", rol: "MESERO", telefono: "", estado: "ACTIVO" });
     toast({ title: "Personal Registrado", description: `${staff.nombre} ha sido agregado al equipo.` });
   };
 
@@ -183,7 +195,7 @@ export default function PersonalPage() {
               <div className="flex gap-4">
                 <div className="relative w-64">
                   <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
-                  <Input placeholder="Buscar..." className="pl-10 bg-background" value={searchTerm} onChange={(e) => setSearchTerm(e.target.value)} />
+                  <Input placeholder="Buscar por nombre o cédula..." className="pl-10 bg-background" value={searchTerm} onChange={(e) => setSearchTerm(e.target.value)} />
                 </div>
                 <Dialog open={isDialogOpen} onOpenChange={setIsDialogOpen}>
                   <DialogTrigger asChild>
@@ -197,6 +209,11 @@ export default function PersonalPage() {
                       <div className="space-y-2">
                         <Label>Nombre Completo</Label>
                         <Input value={newStaff.nombre} onChange={(e) => setNewStaff({...newStaff, nombre: e.target.value})} placeholder="Ej: Pedro Pérez" />
+                      </div>
+                      <div className="space-y-2">
+                        <Label>Cédula de Ciudadanía</Label>
+                        <Input value={newStaff.cedula} onChange={(e) => setNewStaff({...newStaff, cedula: e.target.value})} placeholder="Número de documento" />
+                        <p className="text-[10px] text-muted-foreground">El PIN de acceso serán los últimos 4 dígitos.</p>
                       </div>
                       <div className="grid grid-cols-2 gap-4">
                         <div className="space-y-2">
@@ -229,6 +246,7 @@ export default function PersonalPage() {
                 <TableHeader className="bg-accent/50">
                   <TableRow className="border-border">
                     <TableHead>Integrante</TableHead>
+                    <TableHead>Documento</TableHead>
                     <TableHead>Cargo</TableHead>
                     <TableHead>Contacto</TableHead>
                     <TableHead>Ingreso</TableHead>
@@ -244,6 +262,11 @@ export default function PersonalPage() {
                           {u.nombre[0]}
                         </div>
                         {u.nombre}
+                      </TableCell>
+                      <TableCell>
+                        <div className="flex items-center gap-2 text-xs font-mono">
+                          <IdCard className="w-3 h-3 text-muted-foreground" /> {u.cedula}
+                        </div>
                       </TableCell>
                       <TableCell>{getRoleBadge(u.rol)}</TableCell>
                       <TableCell>

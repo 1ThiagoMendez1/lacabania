@@ -11,8 +11,9 @@ export type MetodoPago = 'EFECTIVO' | 'TARJETA' | 'TRANSFERENCIA';
 export interface Usuario {
   id: string;
   nombre: string;
+  cedula: string;
   rol: Rol;
-  pin: string; // PIN de 4 dígitos para login rápido
+  pin: string; // Últimos 4 dígitos de la cédula
   telefono?: string;
   estado: 'ACTIVO' | 'INACTIVO';
   fechaIngreso: string;
