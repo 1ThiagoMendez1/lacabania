@@ -124,15 +124,15 @@ export default function OrderPage() {
           </div>
         )}
       </ScrollArea>
-      <div className="pt-6 border-t bg-background">
-        <div className="flex justify-between items-center mb-4">
-          <span className="text-muted-foreground font-medium">Total:</span>
-          <span className="text-2xl font-black text-secondary">${cartTotal.toLocaleString()}</span>
+      <div className="pt-6 pb-8 lg:pb-0 border-t bg-background/80 backdrop-blur-sm">
+        <div className="flex justify-between items-center mb-6">
+          <span className="text-muted-foreground font-bold uppercase tracking-wider text-xs">Total a Pagar</span>
+          <span className="text-3xl font-black text-secondary">${cartTotal.toLocaleString()}</span>
         </div>
         <Button 
           disabled={cart.length === 0} 
           onClick={handleSendOrder} 
-          className="w-full h-14 text-lg font-bold rounded-xl shadow-lg hover:glow-orange transition-all"
+          className="w-full h-16 text-lg font-bold rounded-2xl shadow-xl hover:glow-orange transition-all bg-primary hover:bg-primary/90"
         >
           ENVIAR A COCINA
         </Button>
@@ -158,20 +158,22 @@ export default function OrderPage() {
         <div className="lg:hidden">
           <Sheet>
             <SheetTrigger asChild>
-              <Button variant="secondary" className="relative gap-2 font-bold h-10 px-4 rounded-full">
-                <ShoppingCart className="w-4 h-4" />
+              <Button variant="secondary" className="relative gap-2 font-bold h-10 px-4 rounded-full bg-accent/50 border-secondary/30">
+                <ShoppingCart className="w-4 h-4 text-secondary" />
                 {cartItemsCount > 0 && (
-                  <Badge className="absolute -top-2 -right-2 h-5 w-5 flex items-center justify-center p-0 bg-primary border-2 border-background">
+                  <Badge className="absolute -top-2 -right-2 h-5 w-5 flex items-center justify-center p-0 bg-primary border-2 border-background animate-in zoom-in">
                     {cartItemsCount}
                   </Badge>
                 )}
                 <span className="hidden sm:inline">Comanda</span>
               </Button>
             </SheetTrigger>
-            <SheetContent side="bottom" className="h-[85vh] rounded-t-3xl border-t-4 border-t-primary paper-texture p-6">
-              <SheetHeader className="mb-4">
+            <SheetContent side="bottom" className="h-[85vh] rounded-t-[3rem] border-t-4 border-t-primary paper-texture p-6 pt-8">
+              <SheetHeader className="mb-6">
                 <SheetTitle className="text-2xl font-headline flex items-center gap-2">
-                  <ShoppingCart className="w-6 h-6 text-primary" />
+                  <div className="p-2 bg-primary/10 rounded-lg">
+                    <ShoppingCart className="w-6 h-6 text-primary" />
+                  </div>
                   Tu Pedido
                 </SheetTitle>
               </SheetHeader>
@@ -274,17 +276,19 @@ export default function OrderPage() {
         {cartItemsCount > 0 && (
           <Sheet>
             <SheetTrigger asChild>
-              <Button size="icon" className="h-16 w-16 rounded-full shadow-2xl glow-orange animate-in zoom-in duration-300">
+              <Button size="icon" className="h-16 w-16 rounded-full shadow-2xl glow-orange animate-in zoom-in duration-300 bg-primary text-white hover:bg-primary/90">
                 <ShoppingCart className="w-7 h-7" />
                 <Badge className="absolute -top-1 -right-1 h-7 w-7 flex items-center justify-center p-0 bg-secondary text-secondary-foreground border-4 border-background text-xs font-bold">
                   {cartItemsCount}
                 </Badge>
               </Button>
             </SheetTrigger>
-            <SheetContent side="bottom" className="h-[85vh] rounded-t-3xl border-t-4 border-t-primary paper-texture p-6">
-              <SheetHeader className="mb-4">
+            <SheetContent side="bottom" className="h-[85vh] rounded-t-[3rem] border-t-4 border-t-primary paper-texture p-6 pt-8">
+              <SheetHeader className="mb-6">
                 <SheetTitle className="text-2xl font-headline flex items-center gap-2">
-                  <ShoppingCart className="w-6 h-6 text-primary" />
+                  <div className="p-2 bg-primary/10 rounded-lg">
+                    <ShoppingCart className="w-6 h-6 text-primary" />
+                  </div>
                   Tu Pedido
                 </SheetTitle>
               </SheetHeader>
