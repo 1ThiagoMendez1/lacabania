@@ -12,7 +12,8 @@ import {
   Clock,
   User,
   CheckCircle2,
-  AlertCircle
+  AlertCircle,
+  Smartphone
 } from "lucide-react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -196,7 +197,7 @@ export default function CajaPage() {
                            <p className="text-xs font-bold text-muted-foreground uppercase">Método de Pago</p>
                            {!metodoPago && <Badge variant="outline" className="text-[9px] border-primary text-primary flex gap-1"><AlertCircle className="w-3 h-3"/> Requerido</Badge>}
                         </div>
-                        <div className="grid grid-cols-2 gap-2">
+                        <div className="grid grid-cols-3 gap-2">
                           <Button 
                             variant="outline" 
                             onClick={() => setMetodoPago('EFECTIVO')}
@@ -218,6 +219,17 @@ export default function CajaPage() {
                           >
                             <CreditCard className="w-5 h-5" />
                             <span className="text-[10px]">Tarjeta</span>
+                          </Button>
+                          <Button 
+                            variant="outline" 
+                            onClick={() => setMetodoPago('TRANSFERENCIA')}
+                            className={cn(
+                              "h-16 flex-col gap-1 border-border bg-background transition-all",
+                              metodoPago === 'TRANSFERENCIA' ? "border-secondary ring-2 ring-secondary text-secondary" : "hover:border-secondary/50"
+                            )}
+                          >
+                            <Smartphone className="w-5 h-5" />
+                            <span className="text-[10px]">Transferencia</span>
                           </Button>
                         </div>
                       </div>

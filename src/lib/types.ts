@@ -6,7 +6,7 @@ export type EstadoMesa = 'LIBRE' | 'OCUPADA' | 'EN PEDIDO' | 'LISTA PAGAR' | 'RE
 
 export type EstadoComanda = 'PENDIENTE' | 'EN PREPARACION' | 'LISTO' | 'ENTREGADO';
 
-export type MetodoPago = 'EFECTIVO' | 'TARJETA';
+export type MetodoPago = 'EFECTIVO' | 'TARJETA' | 'TRANSFERENCIA';
 
 export interface Usuario {
   id: string;
