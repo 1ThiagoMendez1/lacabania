@@ -88,25 +88,26 @@ export function AppSidebar() {
   const isExpanded = state === "expanded";
 
   return (
-    <Sidebar collapsible="icon" className="border-r border-border bg-card wood-texture shadow-xl">
-      <SidebarHeader className="p-4 flex items-center justify-center">
-        {isExpanded ? (
-          <div className="w-full">
-            <h1 className="font-decorative text-3xl text-secondary truncate">La Cabaña 🤠</h1>
-            <p className="text-[9px] font-mono text-muted-foreground mt-1 uppercase tracking-widest text-center">
-              Sistema POS v1.0
+    <Sidebar collapsible="offcanvas" className="border-r border-border bg-sidebar wood-texture shadow-2xl">
+      <SidebarHeader className="p-6 border-b border-border/50 bg-background/20">
+        <div className="flex flex-col items-center justify-center gap-2">
+          <div className="w-12 h-12 bg-primary/20 rounded-2xl flex items-center justify-center text-3xl shadow-inner border border-primary/30">
+            🤠
+          </div>
+          <div className="text-center">
+            <h1 className="font-headline text-xl text-secondary leading-tight">La Cabaña</h1>
+            <p className="text-[10px] font-mono text-muted-foreground uppercase tracking-widest">
+              POS SYSTEM v1.0
             </p>
           </div>
-        ) : (
-          <span className="text-2xl">🤠</span>
-        )}
+        </div>
       </SidebarHeader>
 
-      <SidebarContent>
+      <SidebarContent className="px-2 py-4">
         <SidebarGroup>
-          <SidebarGroupLabel className={cn(!isExpanded && "hidden")}>Menu Principal</SidebarGroupLabel>
+          <SidebarGroupLabel className="text-muted-foreground/50 text-[10px] uppercase font-bold tracking-widest px-4 mb-2">Navegación</SidebarGroupLabel>
           <SidebarGroupContent>
-            <SidebarMenu>
+            <SidebarMenu className="gap-1">
               {filteredMenu.map((item) => {
                 const isActive = pathname === item.href || pathname.startsWith(item.href + "/");
                 return (
@@ -116,15 +117,17 @@ export function AppSidebar() {
                       isActive={isActive}
                       tooltip={item.label}
                       className={cn(
-                        "transition-all duration-200",
-                        isActive && "bg-primary text-primary-foreground glow-orange"
+                        "h-11 px-4 rounded-xl transition-all duration-200 hover:bg-sidebar-accent group",
+                        isActive && "bg-primary text-primary-foreground shadow-lg glow-orange hover:bg-primary/90"
                       )}
                     >
                       <Link href={item.href}>
-                        <item.icon className={cn("w-5 h-5", isActive ? "text-white" : "text-secondary")} />
-                        <span>{item.label}</span>
-                        {item.label === "Inventario" && lowStockCount > 0 && isExpanded && (
-                          <Badge className="ml-auto bg-destructive text-[10px] h-4 px-1">{lowStockCount}</Badge>
+                        <item.icon className={cn("w-5 h-5", isActive ? "text-white" : "text-secondary group-hover:text-primary transition-colors")} />
+                        <span className="font-medium">{item.label}</span>
+                        {item.label === "Inventario" && lowStockCount > 0 && (
+                          <Badge className="ml-auto bg-destructive text-[10px] h-5 px-1.5 border-2 border-sidebar-background">
+                            {lowStockCount}
+                          </Badge>
                         )}
                       </Link>
                     </SidebarMenuButton>
@@ -135,56 +138,47 @@ export function AppSidebar() {
           </SidebarGroupContent>
         </SidebarGroup>
 
-        {isExpanded && (
-          <SidebarGroup>
-            <SidebarGroupLabel className="flex items-center gap-2">
-              <PlayCircle className="w-3 h-3" />
-              <span>Simulador de Roles</span>
-            </SidebarGroupLabel>
-            <SidebarGroupContent className="px-2">
-              <div className="space-y-2 mt-2">
-                <Select onValueChange={(v) => handleRoleChange(v as Rol)} defaultValue={user.rol}>
-                  <SelectTrigger className="w-full bg-background/50 border-border h-8 text-[11px]">
-                    <SelectValue placeholder="Rol" />
-                  </SelectTrigger>
-                  <SelectContent className="bg-card border-border">
-                    {ROLES.map((rol) => (
-                      <SelectItem key={rol} value={rol} className="text-xs">{rol}</SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
-
-                <div className="grid grid-cols-2 gap-1">
-                  {ESTACIONES.map((est) => (
-                    <button
-                      key={est.val}
-                      onClick={() => router.push(`/estaciones/${est.val}`)}
-                      className="text-[10px] bg-accent/50 hover:bg-secondary/20 border border-border py-1 px-2 rounded-md text-left transition-colors truncate"
-                    >
-                      {est.label}
-                    </button>
+        <SidebarGroup className="mt-4">
+          <SidebarGroupLabel className="text-muted-foreground/50 text-[10px] uppercase font-bold tracking-widest px-4 mb-2">Simulador</SidebarGroupLabel>
+          <SidebarGroupContent className="px-2 space-y-4">
+            <div className="p-3 bg-accent/30 rounded-2xl border border-border/50 space-y-3">
+              <p className="text-[10px] text-muted-foreground font-semibold uppercase">Cambiar Rol</p>
+              <Select onValueChange={(v) => handleRoleChange(v as Rol)} defaultValue={user.rol}>
+                <SelectTrigger className="w-full bg-background/50 border-border h-9 text-xs rounded-lg">
+                  <SelectValue placeholder="Rol" />
+                </SelectTrigger>
+                <SelectContent className="bg-card border-border shadow-2xl">
+                  {ROLES.map((rol) => (
+                    <SelectItem key={rol} value={rol} className="text-xs">{rol}</SelectItem>
                   ))}
-                </div>
-              </div>
-            </SidebarGroupContent>
-          </SidebarGroup>
-        )}
+                </SelectContent>
+              </Select>
+            </div>
+
+            <div className="grid grid-cols-2 gap-2">
+              {ESTACIONES.map((est) => (
+                <button
+                  key={est.val}
+                  onClick={() => router.push(`/estaciones/${est.val}`)}
+                  className="text-[10px] bg-accent/20 hover:bg-secondary/20 border border-border/50 py-2 px-2 rounded-xl text-left transition-all hover:border-secondary/50 truncate font-semibold"
+                >
+                  {est.label}
+                </button>
+              ))}
+            </div>
+          </SidebarGroupContent>
+        </SidebarGroup>
       </SidebarContent>
 
-      <SidebarFooter className="p-4 border-t border-border bg-background/20">
-        <div className={cn(
-          "flex items-center gap-3 bg-accent/50 rounded-xl border border-border/50 transition-all",
-          isExpanded ? "p-3" : "p-1 justify-center"
-        )}>
-          <div className="w-8 h-8 rounded-full bg-primary flex items-center justify-center text-primary-foreground text-xs font-bold border border-secondary shrink-0">
+      <SidebarFooter className="p-4 border-t border-border bg-background/30">
+        <div className="flex items-center gap-3 p-3 bg-primary/10 rounded-2xl border border-primary/20 transition-all">
+          <div className="w-9 h-9 rounded-full bg-primary flex items-center justify-center text-primary-foreground text-sm font-bold border-2 border-secondary/50 shadow-lg shrink-0">
             {user.nombre[0]}
           </div>
-          {isExpanded && (
-            <div className="flex flex-col min-w-0">
-              <span className="text-xs font-semibold truncate">{user.nombre}</span>
-              <span className="text-[9px] text-muted-foreground font-mono uppercase">{user.rol}</span>
-            </div>
-          )}
+          <div className="flex flex-col min-w-0">
+            <span className="text-xs font-bold truncate text-foreground">{user.nombre}</span>
+            <span className="text-[9px] text-primary font-bold uppercase tracking-tighter">{user.rol}</span>
+          </div>
         </div>
       </SidebarFooter>
     </Sidebar>
