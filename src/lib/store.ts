@@ -1,3 +1,4 @@
+
 import { create } from 'zustand';
 import { Mesa, Producto, Orden, Usuario, ItemOrden, EstadoComanda, MetodoPago, Rol } from './types';
 
@@ -7,6 +8,7 @@ interface POSState {
   mesas: Mesa[];
   productos: Producto[];
   ordenes: Orden[];
+  permisos: Record<Rol, string[]>;
   
   // Actions
   setUser: (user: Usuario | null) => void;
@@ -22,8 +24,9 @@ interface POSState {
   updateItemEstado: (ordenId: string, itemId: string, estado: EstadoComanda) => void;
   updateStock: (productoId: string, cantidad: number) => void;
   adjustStock: (productoId: string, nuevoStock: number) => void;
-  addProducto: (producto) => void;
+  addProducto: (producto: Producto) => void;
   closeOrden: (ordenId: string, mesaId: number, metodoPago: MetodoPago) => void;
+  togglePermiso: (rol: Rol, menuLabel: string) => void;
 }
 
 const initialUsuarios: Usuario[] = [
@@ -32,6 +35,14 @@ const initialUsuarios: Usuario[] = [
   { id: '3', nombre: 'Marta Cocina', rol: 'COCINERO', estado: 'ACTIVO', fechaIngreso: '2024-01-20', telefono: '3201112233' },
   { id: '4', nombre: 'Carlos Bar', rol: 'BARTENDER', estado: 'ACTIVO', fechaIngreso: '2024-03-01', telefono: '3154445566' },
 ];
+
+const initialPermisos: Record<Rol, string[]> = {
+  ADMINISTRADOR: ["Dashboard", "Mesas", "Asado", "Parrilla", "Cocina", "Bar", "Caja", "Inventario", "Personal", "Reportes & AI", "Permisos"],
+  CAJERO: ["Dashboard", "Mesas", "Caja", "Inventario"],
+  MESERO: ["Mesas"],
+  COCINERO: ["Asado", "Parrilla", "Cocina"],
+  BARTENDER: ["Bar"],
+};
 
 const initialOrdenes: Orden[] = [
   {
@@ -70,6 +81,7 @@ const initialOrdenes: Orden[] = [
 export const usePOSStore = create<POSState>((set) => ({
   user: initialUsuarios[0],
   usuarios: initialUsuarios,
+  permisos: initialPermisos,
   mesas: [
     ...Array.from({ length: 10 }, (_, i) => ({
       id: i + 1,
@@ -138,4 +150,17 @@ export const usePOSStore = create<POSState>((set) => ({
     ordenes: state.ordenes.map(o => o.id === ordenId ? { ...o, estado: 'CERRADA', metodoPago, updatedAt: new Date().toISOString() } : o),
     mesas: state.mesas.map(m => m.id === mesaId ? { ...m, estado: 'LIBRE', meseroId: undefined, ordenActivaId: undefined } : m)
   })),
+  togglePermiso: (rol, label) => set((state) => {
+    const rolPermisos = state.permisos[rol] || [];
+    const exists = rolPermisos.includes(label);
+    const updated = exists 
+      ? rolPermisos.filter(p => p !== label)
+      : [...rolPermisos, label];
+    return {
+      permisos: {
+        ...state.permisos,
+        [rol]: updated
+      }
+    };
+  }),
 }));

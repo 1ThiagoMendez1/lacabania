@@ -1,3 +1,4 @@
+
 "use client"
 
 import { usePOSStore } from "@/lib/store";
@@ -12,7 +13,9 @@ import {
   BarChart3, 
   PlayCircle,
   Utensils,
-  Users
+  Users,
+  ShieldCheck,
+  Settings
 } from "lucide-react";
 import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
@@ -40,17 +43,18 @@ import {
   SidebarGroupContent
 } from "@/components/ui/sidebar";
 
-const menuItems = [
-  { icon: LayoutDashboard, label: "Dashboard", href: "/dashboard", roles: ["ADMINISTRADOR", "CAJERO"] },
-  { icon: UtensilsCrossed, label: "Mesas", href: "/mesas", roles: ["ADMINISTRADOR", "CAJERO", "MESERO"] },
-  { icon: Flame, label: "Asado", href: "/estaciones/asado", roles: ["ADMINISTRADOR", "COCINERO"] },
-  { icon: Utensils, label: "Parrilla", href: "/estaciones/parrilla", roles: ["ADMINISTRADOR", "COCINERO"] },
-  { icon: ChefHat, label: "Cocina", href: "/estaciones/cocina", roles: ["ADMINISTRADOR", "COCINERO"] },
-  { icon: Beer, label: "Bar", href: "/estaciones/bar", roles: ["ADMINISTRADOR", "BARTENDER"] },
-  { icon: CircleDollarSign, label: "Caja", href: "/caja", roles: ["ADMINISTRADOR", "CAJERO"] },
-  { icon: Package, label: "Inventario", href: "/inventario", roles: ["ADMINISTRADOR", "CAJERO"] },
-  { icon: Users, label: "Personal", href: "/personal", roles: ["ADMINISTRADOR"] },
-  { icon: BarChart3, label: "Reportes & AI", href: "/ai-insights", roles: ["ADMINISTRADOR"] },
+export const ALL_MENU_ITEMS = [
+  { icon: LayoutDashboard, label: "Dashboard", href: "/dashboard" },
+  { icon: UtensilsCrossed, label: "Mesas", href: "/mesas" },
+  { icon: Flame, label: "Asado", href: "/estaciones/asado" },
+  { icon: Utensils, label: "Parrilla", href: "/estaciones/parrilla" },
+  { icon: ChefHat, label: "Cocina", href: "/estaciones/cocina" },
+  { icon: Beer, label: "Bar", href: "/estaciones/bar" },
+  { icon: CircleDollarSign, label: "Caja", href: "/caja" },
+  { icon: Package, label: "Inventario", href: "/inventario" },
+  { icon: Users, label: "Personal", href: "/personal" },
+  { icon: BarChart3, label: "Reportes & AI", href: "/ai-insights" },
+  { icon: ShieldCheck, label: "Permisos", href: "/configuracion/permisos" },
 ];
 
 const ROLES: Rol[] = ["ADMINISTRADOR", "CAJERO", "MESERO", "COCINERO", "BARTENDER"];
@@ -64,16 +68,18 @@ const ESTACIONES: { label: string, val: string }[] = [
 export function AppSidebar() {
   const pathname = usePathname();
   const router = useRouter();
-  const { user, setUser, productos } = usePOSStore();
+  const { user, setUser, productos, permisos } = usePOSStore();
   const { state } = useSidebar();
 
   if (!user) return null;
 
-  const filteredMenu = menuItems.filter(item => item.roles.includes(user.rol));
+  // Filtrar menús según los permisos del rol del usuario
+  const userPermisos = permisos[user.rol] || [];
+  const filteredMenu = ALL_MENU_ITEMS.filter(item => userPermisos.includes(item.label));
+  
   const lowStockCount = productos.filter(p => p.stock <= p.stockMinimo).length;
 
   const handleRoleChange = (newRol: Rol) => {
-    // Buscamos un usuario con ese rol o simulamos uno
     setUser({
       id: Math.random().toString(),
       nombre: newRol.charAt(0) + newRol.slice(1).toLowerCase() + " Usuario",
@@ -137,7 +143,7 @@ export function AppSidebar() {
           <SidebarGroup>
             <SidebarGroupLabel className="flex items-center gap-2">
               <PlayCircle className="w-3 h-3" />
-              <span>Simulador</span>
+              <span>Simulador de Roles</span>
             </SidebarGroupLabel>
             <SidebarGroupContent className="px-2">
               <div className="space-y-2 mt-2">
