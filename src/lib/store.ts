@@ -36,7 +36,7 @@ const initialUsuarios: Usuario[] = [
 
 const initialPermisos: Record<Rol, string[]> = {
   ADMINISTRADOR: ["Dashboard", "Mesas", "Asado", "Parrilla", "Cocina", "Bar", "Caja", "Inventario", "Personal", "Reportes & AI", "Permisos"],
-  MESERO: ["Mesas"],
+  MESERO: ["Mesas", "Asado", "Parrilla", "Cocina", "Bar"],
   COCINERO: ["Asado", "Parrilla", "Cocina"],
 };
 
