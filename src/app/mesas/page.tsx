@@ -75,6 +75,15 @@ export default function MesasPage() {
     router.push(`/pedidos/${mesaId}`);
   };
 
+  const handleAddMesaDialogOpenChange = (open: boolean) => {
+    if (open) {
+      // Calcular el siguiente ID disponible
+      const nextId = mesas.length > 0 ? Math.max(...mesas.map(m => m.id)) + 1 : 1;
+      setNewMesa(prev => ({ ...prev, id: nextId.toString() }));
+    }
+    setIsAddMesaOpen(open);
+  };
+
   const handleAddMesa = () => {
     const mesaId = parseInt(newMesa.id);
     if (isNaN(mesaId)) {
@@ -157,7 +166,7 @@ export default function MesasPage() {
           </div>
           
           <div className="flex gap-4">
-            <Dialog open={isAddMesaOpen} onOpenChange={setIsAddMesaOpen}>
+            <Dialog open={isAddMesaOpen} onOpenChange={handleAddMesaDialogOpenChange}>
               <DialogTrigger asChild>
                 <Button className="bg-secondary text-secondary-foreground hover:glow-gold font-bold gap-2">
                   <PlusCircle className="w-5 h-5" />
@@ -174,13 +183,14 @@ export default function MesasPage() {
                     <Input
                       id="id"
                       type="number"
-                      className="col-span-3"
+                      className="col-span-3 bg-accent/20"
                       value={newMesa.id}
-                      onChange={(e) => setNewMesa({ ...newMesa, id: e.target.value })}
+                      readOnly
+                      placeholder="Consecutivo automático..."
                     />
                   </div>
                   <div className="grid grid-cols-4 items-center gap-4">
-                    <Label htmlFor="zona" className="text-right">Zona</Label>
+                    <Label htmlFor="zona" className="text-right">Piso</Label>
                     <Select 
                       onValueChange={(v) => setNewMesa({ ...newMesa, zona: v as any })}
                       defaultValue={newMesa.zona}
@@ -201,7 +211,7 @@ export default function MesasPage() {
                       type="number"
                       className="col-span-3"
                       value={newMesa.capacidad}
-                      onChange={(e) => setNewMesa({ ...newMesa, capacidad: parseInt(e.target.value) })}
+                      onChange={(e) => setNewMesa({ ...newMesa, capacidad: parseInt(e.target.value) || 0 })}
                     />
                   </div>
                 </div>
@@ -262,7 +272,6 @@ export default function MesasPage() {
           </TabsContent>
         </Tabs>
 
-        {/* Re-use of Edit/Management Dialog logic through the child components */}
         <Dialog open={isEditMode} onOpenChange={setIsEditMode}>
             <DialogContent className="bg-card border-border text-foreground">
                 <DialogHeader>
@@ -272,7 +281,7 @@ export default function MesasPage() {
                 </DialogHeader>
                 <div className="py-4 space-y-4">
                     <div className="space-y-2">
-                      <Label>Zona</Label>
+                      <Label>Piso</Label>
                       <Select 
                         onValueChange={(v) => setEditMesa({ ...editMesa, zona: v as any })}
                         defaultValue={editMesa.zona}
@@ -291,7 +300,7 @@ export default function MesasPage() {
                       <Input
                         type="number"
                         value={editMesa.capacidad}
-                        onChange={(e) => setEditMesa({ ...editMesa, capacidad: parseInt(e.target.value) })}
+                        onChange={(e) => setEditMesa({ ...editMesa, capacidad: parseInt(e.target.value) || 0 })}
                       />
                     </div>
                     <div className="flex gap-2 pt-4">
