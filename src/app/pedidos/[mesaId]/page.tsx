@@ -124,7 +124,7 @@ export default function OrderPage() {
           </div>
         )}
       </ScrollArea>
-      <div className="pt-6 pb-8 lg:pb-0 border-t bg-background/80 backdrop-blur-sm">
+      <div className="pt-6 pb-12 lg:pb-0 border-t bg-background/80 backdrop-blur-sm">
         <div className="flex justify-between items-center mb-6">
           <span className="text-muted-foreground font-bold uppercase tracking-wider text-xs">Total a Pagar</span>
           <span className="text-3xl font-black text-secondary">${cartTotal.toLocaleString()}</span>
