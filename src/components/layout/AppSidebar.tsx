@@ -90,8 +90,8 @@ export function AppSidebar() {
       className="border-r border-border bg-sidebar wood-texture shadow-2xl transition-all duration-300 ease-in-out"
     >
       <SidebarHeader className={cn(
-        "p-4 border-b border-border/50 bg-background/20 transition-all duration-300 flex flex-col items-center",
-        !isExpanded && "px-0"
+        "p-4 border-b border-border/50 bg-background/20 transition-all duration-300 flex flex-col items-center justify-center",
+        !isExpanded && "p-2"
       )}>
         <div className="flex flex-col items-center justify-center gap-2 w-full">
           <div className="w-11 h-11 bg-primary/20 rounded-2xl flex items-center justify-center text-2xl shadow-inner border border-primary/30 shrink-0">
@@ -109,7 +109,7 @@ export function AppSidebar() {
       </SidebarHeader>
 
       <SidebarContent className="px-2 py-4">
-        <SidebarGroup>
+        <SidebarGroup className="p-0">
           {isExpanded && (
             <SidebarGroupLabel className="text-muted-foreground/50 text-[10px] uppercase font-bold tracking-widest px-4 mb-2 animate-in fade-in">
               Navegación
@@ -120,7 +120,7 @@ export function AppSidebar() {
               {filteredMenu.map((item) => {
                 const isActive = pathname === item.href || pathname.startsWith(item.href + "/");
                 return (
-                  <SidebarMenuItem key={item.href}>
+                  <SidebarMenuItem key={item.href} className="flex justify-center">
                     <SidebarMenuButton
                       asChild
                       isActive={isActive}
@@ -128,10 +128,10 @@ export function AppSidebar() {
                       className={cn(
                         "h-11 rounded-xl transition-all duration-200 hover:bg-sidebar-accent group flex items-center",
                         isActive && "bg-primary text-primary-foreground shadow-lg glow-orange hover:bg-primary/90",
-                        !isExpanded ? "justify-center p-0 w-full" : "px-3"
+                        !isExpanded ? "justify-center p-0 w-11" : "px-3"
                       )}
                     >
-                      <Link href={item.href} className={cn("flex items-center w-full", !isExpanded && "justify-center")}>
+                      <Link href={item.href} className={cn("flex items-center", !isExpanded ? "justify-center w-full" : "w-full")}>
                         <item.icon className={cn(
                           "w-5 h-5 shrink-0 transition-colors", 
                           isActive ? "text-white" : "text-secondary group-hover:text-primary",
@@ -193,8 +193,8 @@ export function AppSidebar() {
       </SidebarContent>
 
       <SidebarFooter className={cn(
-        "p-4 border-t border-border bg-background/30 transition-all duration-300",
-        !isExpanded && "px-0 flex items-center justify-center"
+        "p-4 border-t border-border bg-background/30 transition-all duration-300 flex items-center justify-center",
+        !isExpanded && "p-2"
       )}>
         <div className={cn(
           "flex items-center bg-primary/10 rounded-2xl border border-primary/20 transition-all overflow-hidden",
