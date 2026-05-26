@@ -90,18 +90,18 @@ export function AppSidebar() {
       className="border-r border-border bg-sidebar wood-texture shadow-2xl transition-all duration-300 ease-in-out"
     >
       <SidebarHeader className={cn(
-        "p-4 border-b border-border/50 bg-background/20 transition-all duration-300",
-        !isExpanded && "items-center px-2"
+        "p-4 border-b border-border/50 bg-background/20 transition-all duration-300 flex flex-col items-center",
+        !isExpanded && "px-0"
       )}>
-        <div className="flex flex-col items-center justify-center gap-2">
-          <div className="w-12 h-12 bg-primary/20 rounded-2xl flex items-center justify-center text-3xl shadow-inner border border-primary/30 shrink-0">
+        <div className="flex flex-col items-center justify-center gap-2 w-full">
+          <div className="w-11 h-11 bg-primary/20 rounded-2xl flex items-center justify-center text-2xl shadow-inner border border-primary/30 shrink-0">
             🤠
           </div>
           {isExpanded && (
             <div className="text-center animate-in fade-in duration-500">
-              <h1 className="font-headline text-xl text-secondary leading-tight">La Cabaña</h1>
-              <p className="text-[10px] font-mono text-muted-foreground uppercase tracking-widest">
-                POS SYSTEM v1.0
+              <h1 className="font-headline text-lg text-secondary leading-tight">La Cabaña</h1>
+              <p className="text-[9px] font-mono text-muted-foreground uppercase tracking-widest">
+                POS SYSTEM
               </p>
             </div>
           )}
@@ -126,18 +126,19 @@ export function AppSidebar() {
                       isActive={isActive}
                       tooltip={item.label}
                       className={cn(
-                        "h-11 rounded-xl transition-all duration-200 hover:bg-sidebar-accent group",
+                        "h-11 rounded-xl transition-all duration-200 hover:bg-sidebar-accent group flex items-center",
                         isActive && "bg-primary text-primary-foreground shadow-lg glow-orange hover:bg-primary/90",
-                        !isExpanded && "justify-center px-0"
+                        !isExpanded ? "justify-center p-0 w-full" : "px-3"
                       )}
                     >
-                      <Link href={item.href} className={cn(!isExpanded && "justify-center")}>
+                      <Link href={item.href} className={cn("flex items-center w-full", !isExpanded && "justify-center")}>
                         <item.icon className={cn(
-                          "w-5 h-5 shrink-0", 
-                          isActive ? "text-white" : "text-secondary group-hover:text-primary transition-colors"
+                          "w-5 h-5 shrink-0 transition-colors", 
+                          isActive ? "text-white" : "text-secondary group-hover:text-primary",
+                          !isExpanded && "mx-auto"
                         )} />
                         {isExpanded && (
-                          <span className="font-medium animate-in slide-in-from-left-2 duration-300">
+                          <span className="font-medium ml-3 animate-in slide-in-from-left-2 duration-300">
                             {item.label}
                           </span>
                         )}
@@ -193,11 +194,11 @@ export function AppSidebar() {
 
       <SidebarFooter className={cn(
         "p-4 border-t border-border bg-background/30 transition-all duration-300",
-        !isExpanded && "px-2 flex items-center justify-center"
+        !isExpanded && "px-0 flex items-center justify-center"
       )}>
         <div className={cn(
-          "flex items-center gap-3 bg-primary/10 rounded-2xl border border-primary/20 transition-all overflow-hidden",
-          isExpanded ? "p-3 w-full" : "p-2 w-12 h-12 justify-center"
+          "flex items-center bg-primary/10 rounded-2xl border border-primary/20 transition-all overflow-hidden",
+          isExpanded ? "p-3 w-full gap-3" : "p-0 w-11 h-11 justify-center"
         )}>
           <div className="w-8 h-8 rounded-full bg-primary flex items-center justify-center text-primary-foreground text-sm font-bold border-2 border-secondary/50 shadow-lg shrink-0">
             {user.nombre[0]}
