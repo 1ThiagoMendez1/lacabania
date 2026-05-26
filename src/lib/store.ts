@@ -1,14 +1,19 @@
 import { create } from 'zustand';
-import { Mesa, Producto, Orden, Usuario, ItemOrden, EstadoComanda, MetodoPago } from './types';
+import { Mesa, Producto, Orden, Usuario, ItemOrden, EstadoComanda, MetodoPago, Rol } from './types';
 
 interface POSState {
   user: Usuario | null;
+  usuarios: Usuario[];
   mesas: Mesa[];
   productos: Producto[];
   ordenes: Orden[];
   
   // Actions
   setUser: (user: Usuario | null) => void;
+  setUsuarios: (usuarios: Usuario[]) => void;
+  addUsuario: (usuario: Usuario) => void;
+  updateUsuario: (id: string, updates: Partial<Usuario>) => void;
+  deleteUsuario: (id: string) => void;
   updateMesaEstado: (mesaId: number, estado: Mesa['estado'], meseroId?: string) => void;
   updateMesa: (mesaId: number, updates: Partial<Mesa>) => void;
   addMesa: (mesa: Mesa) => void;
@@ -17,16 +22,22 @@ interface POSState {
   updateItemEstado: (ordenId: string, itemId: string, estado: EstadoComanda) => void;
   updateStock: (productoId: string, cantidad: number) => void;
   adjustStock: (productoId: string, nuevoStock: number) => void;
-  addProducto: (producto: Producto) => void;
+  addProducto: (producto) => void;
   closeOrden: (ordenId: string, mesaId: number, metodoPago: MetodoPago) => void;
 }
 
-// Datos de prueba iniciales
+const initialUsuarios: Usuario[] = [
+  { id: '1', nombre: 'Admin La Cabaña', rol: 'ADMINISTRADOR', estado: 'ACTIVO', fechaIngreso: '2024-01-01', telefono: '3001234567' },
+  { id: '2', nombre: 'Juan Mesero', rol: 'MESERO', estado: 'ACTIVO', fechaIngreso: '2024-02-15', telefono: '3109876543' },
+  { id: '3', nombre: 'Marta Cocina', rol: 'COCINERO', estado: 'ACTIVO', fechaIngreso: '2024-01-20', telefono: '3201112233' },
+  { id: '4', nombre: 'Carlos Bar', rol: 'BARTENDER', estado: 'ACTIVO', fechaIngreso: '2024-03-01', telefono: '3154445566' },
+];
+
 const initialOrdenes: Orden[] = [
   {
     id: 'ORD-PROMO-1',
     mesaId: 5,
-    meseroId: '1',
+    meseroId: '2',
     estado: 'ABIERTA',
     createdAt: new Date().toISOString(),
     updatedAt: new Date().toISOString(),
@@ -57,7 +68,8 @@ const initialOrdenes: Orden[] = [
 ];
 
 export const usePOSStore = create<POSState>((set) => ({
-  user: { id: '1', nombre: 'Admin La Cabaña', rol: 'ADMINISTRADOR' },
+  user: initialUsuarios[0],
+  usuarios: initialUsuarios,
   mesas: [
     ...Array.from({ length: 10 }, (_, i) => ({
       id: i + 1,
@@ -85,6 +97,14 @@ export const usePOSStore = create<POSState>((set) => ({
   ordenes: initialOrdenes,
 
   setUser: (user) => set({ user }),
+  setUsuarios: (usuarios) => set({ usuarios }),
+  addUsuario: (usuario) => set((state) => ({ usuarios: [...state.usuarios, usuario] })),
+  updateUsuario: (id, updates) => set((state) => ({
+    usuarios: state.usuarios.map(u => u.id === id ? { ...u, ...updates } : u)
+  })),
+  deleteUsuario: (id) => set((state) => ({
+    usuarios: state.usuarios.filter(u => u.id !== id)
+  })),
   updateMesaEstado: (mesaId, estado, meseroId) => set((state) => ({
     mesas: state.mesas.map(m => m.id === mesaId ? { ...m, estado, meseroId } : m)
   })),

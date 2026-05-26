@@ -12,6 +12,9 @@ export interface Usuario {
   id: string;
   nombre: string;
   rol: Rol;
+  telefono?: string;
+  estado: 'ACTIVO' | 'INACTIVO';
+  fechaIngreso: string;
 }
 
 export interface Producto {

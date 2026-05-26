@@ -1,4 +1,3 @@
-
 "use client"
 
 import { usePOSStore } from "@/lib/store";
@@ -12,7 +11,8 @@ import {
   Package, 
   BarChart3, 
   PlayCircle,
-  Utensils
+  Utensils,
+  Users
 } from "lucide-react";
 import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
@@ -49,6 +49,7 @@ const menuItems = [
   { icon: Beer, label: "Bar", href: "/estaciones/bar", roles: ["ADMINISTRADOR", "BARTENDER"] },
   { icon: CircleDollarSign, label: "Caja", href: "/caja", roles: ["ADMINISTRADOR", "CAJERO"] },
   { icon: Package, label: "Inventario", href: "/inventario", roles: ["ADMINISTRADOR", "CAJERO"] },
+  { icon: Users, label: "Personal", href: "/personal", roles: ["ADMINISTRADOR"] },
   { icon: BarChart3, label: "Reportes & AI", href: "/ai-insights", roles: ["ADMINISTRADOR"] },
 ];
 
@@ -72,10 +73,13 @@ export function AppSidebar() {
   const lowStockCount = productos.filter(p => p.stock <= p.stockMinimo).length;
 
   const handleRoleChange = (newRol: Rol) => {
+    // Buscamos un usuario con ese rol o simulamos uno
     setUser({
-      ...user,
+      id: Math.random().toString(),
+      nombre: newRol.charAt(0) + newRol.slice(1).toLowerCase() + " Usuario",
       rol: newRol,
-      nombre: newRol.charAt(0) + newRol.slice(1).toLowerCase() + " Usuario"
+      estado: 'ACTIVO',
+      fechaIngreso: new Date().toISOString()
     });
   };
 
