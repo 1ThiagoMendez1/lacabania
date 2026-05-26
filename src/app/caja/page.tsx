@@ -50,26 +50,27 @@ export default function CajaPage() {
   };
 
   return (
-    <main className="p-8 flex flex-col h-full">
+    <main className="p-4 md:p-8 flex flex-col h-full bg-background">
       <header className="flex justify-between items-end mb-8">
         <div>
           <div className="flex items-center gap-3 mb-2">
             <div className="p-2 bg-secondary/10 rounded-lg"><CircleDollarSign className="w-8 h-8 text-secondary" /></div>
-            <h2 className="text-3xl font-headline text-foreground">Caja y Facturación</h2>
+            <h2 className="text-2xl md:text-3xl font-headline text-foreground">Caja y Facturación</h2>
           </div>
-          <p className="text-muted-foreground">Gestión de cobros y cierre de mesas 🤠</p>
+          <p className="text-sm text-muted-foreground">Gestión de cobros y cierre de mesas 🤠</p>
         </div>
       </header>
 
-      <div className="flex-1 flex gap-8 overflow-hidden">
-        <div className="w-80 flex flex-col gap-4">
+      <div className="flex-1 flex flex-col lg:flex-row gap-8 overflow-hidden">
+        {/* Listado de Mesas */}
+        <div className="w-full lg:w-80 flex flex-col gap-4">
           <h3 className="text-sm font-bold uppercase tracking-wider text-muted-foreground flex items-center gap-2">
             <Calculator className="w-4 h-4" /> Mesas Pendientes
           </h3>
-          <ScrollArea className="flex-1">
+          <ScrollArea className="flex-1 h-[200px] lg:h-full">
             <div className="space-y-3 pr-4">
               {mesasConOrden.length === 0 ? (
-                <div className="text-center py-20 opacity-30">
+                <div className="text-center py-10 lg:py-20 opacity-30">
                   <CheckCircle2 className="w-12 h-12 mx-auto mb-4" />
                   <p className="font-headline">Sin cuentas</p>
                 </div>
@@ -84,7 +85,7 @@ export default function CajaPage() {
                     )}
                   >
                     <div className="flex justify-between mb-2"><span className="text-xl font-black">MESA {mesa.id}</span></div>
-                    <div className="flex items-center gap-2 text-xs text-muted-foreground"><Clock className="w-3 h-3" /><span>Activa</span></div>
+                    <div className="flex items-center gap-2 text-xs text-muted-foreground"><Clock className="w-3 h-3" /><span>Cuenta Activa</span></div>
                   </button>
                 ))
               )}
@@ -92,48 +93,108 @@ export default function CajaPage() {
           </ScrollArea>
         </div>
 
-        <div className="flex-1">
+        {/* Detalle de Cuenta */}
+        <div className="flex-1 overflow-hidden h-full">
           {activeOrden ? (
             <Card className="h-full bg-card border-border paper-texture flex flex-col overflow-hidden">
               <CardHeader className="bg-accent/20 border-b border-border flex flex-row items-center justify-between">
-                <div className="flex items-center gap-4"><Receipt className="w-6 h-6 text-primary" /><div><CardTitle className="font-headline text-xl">Mesa {selectedMesaId}</CardTitle></div></div>
+                <div className="flex items-center gap-4">
+                  <Receipt className="w-6 h-6 text-primary" />
+                  <div>
+                    <CardTitle className="font-headline text-xl text-foreground">Mesa {selectedMesaId}</CardTitle>
+                    <p className="text-[10px] uppercase text-muted-foreground font-mono">Orden: {activeOrden.id}</p>
+                  </div>
+                </div>
               </CardHeader>
-              <CardContent className="flex-1 flex flex-col p-0">
+              <CardContent className="flex-1 flex flex-col p-0 overflow-hidden">
                 <ScrollArea className="flex-1 p-6">
                   <table className="w-full text-sm">
-                    {activeOrden.items.map((item) => (
-                      <tr key={item.id} className="border-b border-border/30">
-                        <td className="py-3 font-bold">{item.cantidad}x</td>
-                        <td className="py-3">{item.nombre}</td>
-                        <td className="py-3 text-right font-bold">${(item.precioUnitario * item.cantidad).toLocaleString()}</td>
-                      </tr>
-                    ))}
+                    <tbody>
+                      {activeOrden.items.map((item) => (
+                        <tr key={item.id} className="border-b border-border/30">
+                          <td className="py-3 font-bold pr-2">{item.cantidad}x</td>
+                          <td className="py-3 text-foreground">{item.nombre}</td>
+                          <td className="py-3 text-right font-bold text-foreground">${(item.precioUnitario * item.cantidad).toLocaleString()}</td>
+                        </tr>
+                      ))}
+                    </tbody>
                   </table>
                 </ScrollArea>
-                <div className="bg-accent/40 p-8 border-t border-border">
-                  <div className="grid grid-cols-2 gap-8">
+                
+                <div className="bg-accent/40 p-4 md:p-8 border-t border-border">
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
+                    {/* Metodos de Pago */}
                     <div className="space-y-4">
-                      <p className="text-xs font-bold text-muted-foreground uppercase">Método de Pago</p>
-                      <div className="grid grid-cols-3 gap-2">
-                        <Button variant="outline" onClick={() => setMetodoPago('EFECTIVO')} className={cn("h-16 flex-col gap-1", metodoPago === 'EFECTIVO' && "border-secondary ring-2 text-secondary")}><Banknote className="w-5 h-5" /><span className="text-[10px]">Efectivo</span></Button>
-                        <Button variant="outline" onClick={() => setMetodoPago('TARJETA')} className={cn("h-16 flex-col gap-1", metodoPago === 'TARJETA' && "border-secondary ring-2 text-secondary")}><CreditCard className="w-5 h-5" /><span className="text-[10px]">Tarjeta</span></Button>
-                        <Button variant="outline" onClick={() => setMetodoPago('TRANSFERENCIA')} className={cn("h-16 flex-col gap-1", metodoPago === 'TRANSFERENCIA' && "border-secondary ring-2 text-secondary")}><Smartphone className="w-5 h-5" /><span className="text-[10px]">Transfer</span></Button>
+                      <p className="text-xs font-bold text-muted-foreground uppercase tracking-widest">Método de Pago</p>
+                      <div className="grid grid-cols-3 gap-3">
+                        <Button 
+                          variant="outline" 
+                          onClick={() => setMetodoPago('EFECTIVO')} 
+                          className={cn(
+                            "h-20 flex-col gap-2 transition-all border-border hover:bg-secondary/10", 
+                            metodoPago === 'EFECTIVO' && "border-secondary ring-2 bg-secondary/20 text-secondary ring-secondary/50"
+                          )}
+                        >
+                          <Banknote className="w-6 h-6" />
+                          <span className="text-xs font-bold">Efectivo</span>
+                        </Button>
+                        <Button 
+                          variant="outline" 
+                          onClick={() => setMetodoPago('TARJETA')} 
+                          className={cn(
+                            "h-20 flex-col gap-2 transition-all border-border hover:bg-secondary/10", 
+                            metodoPago === 'TARJETA' && "border-secondary ring-2 bg-secondary/20 text-secondary ring-secondary/50"
+                          )}
+                        >
+                          <CreditCard className="w-6 h-6" />
+                          <span className="text-xs font-bold">Tarjeta</span>
+                        </Button>
+                        <Button 
+                          variant="outline" 
+                          onClick={() => setMetodoPago('TRANSFERENCIA')} 
+                          className={cn(
+                            "h-20 flex-col gap-2 transition-all border-border hover:bg-secondary/10", 
+                            metodoPago === 'TRANSFERENCIA' && "border-secondary ring-2 bg-secondary/20 text-secondary ring-secondary/50"
+                          )}
+                        >
+                          <Smartphone className="w-6 h-6" />
+                          <span className="text-xs font-bold">Transfer</span>
+                        </Button>
                       </div>
                     </div>
+
+                    {/* Totales */}
                     <div className="space-y-3">
-                      <div className="flex justify-between text-sm"><span>Subtotal:</span><span className="font-bold">${subtotal.toLocaleString()}</span></div>
-                      <div className="flex justify-between text-sm"><span>Servicio (10%):</span><span className="font-bold">${propinaSugerida.toLocaleString()}</span></div>
-                      <Separator />
-                      <div className="flex justify-between items-end"><span className="text-lg font-headline">TOTAL:</span><span className="text-4xl font-black text-secondary">${total.toLocaleString()}</span></div>
-                      <Button className="w-full h-14 text-lg font-bold rounded-xl mt-4" disabled={!metodoPago} onClick={handleCerrarCuenta}>{metodoPago ? `CERRAR (${metodoPago})` : 'ELIGE PAGO'}</Button>
+                      <div className="flex justify-between text-sm text-muted-foreground">
+                        <span>Subtotal:</span>
+                        <span className="font-bold text-foreground">${subtotal.toLocaleString()}</span>
+                      </div>
+                      <div className="flex justify-between text-sm text-muted-foreground">
+                        <span>Servicio Sugerido (10%):</span>
+                        <span className="font-bold text-foreground">${propinaSugerida.toLocaleString()}</span>
+                      </div>
+                      <Separator className="bg-border/50" />
+                      <div className="flex justify-between items-end py-2">
+                        <span className="text-lg font-headline text-foreground">TOTAL:</span>
+                        <span className="text-4xl font-black text-secondary glow-gold-text">${total.toLocaleString()}</span>
+                      </div>
+                      <Button 
+                        className="w-full h-14 text-lg font-bold rounded-xl mt-4 shadow-lg hover:glow-orange transition-all" 
+                        disabled={!metodoPago} 
+                        onClick={handleCerrarCuenta}
+                      >
+                        {metodoPago ? `CONFIRMAR PAGO EN ${metodoPago}` : 'SELECCIONA PAGO'}
+                      </Button>
                     </div>
                   </div>
                 </div>
               </CardContent>
             </Card>
           ) : (
-            <div className="h-full border-2 border-dashed border-border rounded-3xl flex flex-col items-center justify-center text-muted-foreground bg-accent/5">
-              <Receipt className="w-12 h-12 mb-4" /><h3 className="text-xl font-headline">Selecciona una mesa</h3>
+            <div className="h-full border-2 border-dashed border-border rounded-3xl flex flex-col items-center justify-center text-muted-foreground bg-accent/5 p-8">
+              <Receipt className="w-16 h-16 mb-4 opacity-20" />
+              <h3 className="text-xl font-headline">Selecciona una mesa para cobrar</h3>
+              <p className="text-sm text-center mt-2 max-w-xs">Elige una de las mesas activas a la izquierda para ver el detalle de su cuenta.</p>
             </div>
           )}
         </div>
