@@ -1,6 +1,10 @@
+
 import type {Metadata} from 'next';
 import './globals.css';
 import { Toaster } from "@/components/ui/toaster"
+import { SidebarProvider, SidebarInset, SidebarTrigger } from "@/components/ui/sidebar"
+import { AppSidebar } from "@/components/layout/AppSidebar"
+import { Separator } from "@/components/ui/separator"
 
 export const metadata: Metadata = {
   title: 'La Cabaña POS | Sistema de Gestión',
@@ -20,7 +24,21 @@ export default function RootLayout({
         <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=Playfair+Display:wght@700;900&family=JetBrains+Mono&family=Satisfy&display=swap" rel="stylesheet" />
       </head>
       <body className="font-body antialiased">
-        {children}
+        <SidebarProvider>
+          <div className="flex min-h-screen w-full">
+            <AppSidebar />
+            <SidebarInset className="flex-1 flex flex-col bg-background">
+              <header className="flex h-12 shrink-0 items-center gap-2 border-b px-4 bg-background/50 backdrop-blur-sm sticky top-0 z-30">
+                <SidebarTrigger />
+                <Separator orientation="vertical" className="mr-2 h-4" />
+                <span className="text-[10px] font-mono uppercase tracking-widest text-muted-foreground">La Cabaña POS v1.0</span>
+              </header>
+              <div className="flex-1 overflow-auto">
+                {children}
+              </div>
+            </SidebarInset>
+          </div>
+        </SidebarProvider>
         <Toaster />
       </body>
     </html>
