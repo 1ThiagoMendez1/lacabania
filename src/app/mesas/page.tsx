@@ -5,7 +5,7 @@ import { AppSidebar } from "@/components/layout/AppSidebar";
 import { usePOSStore } from "@/lib/store";
 import { Badge } from "@/components/ui/badge";
 import { cn } from "@/lib/utils";
-import { Clock, Users, UtensilsCrossed, PlusCircle, Settings, Edit } from "lucide-react";
+import { Clock, Users, UtensilsCrossed, PlusCircle, Settings, Edit, Ban, CheckCircle } from "lucide-react";
 import { 
   Dialog, 
   DialogContent, 
@@ -52,11 +52,21 @@ export default function MesasPage() {
       case 'EN PEDIDO': return 'bg-yellow-500/20 border-yellow-500 text-yellow-500';
       case 'LISTA PAGAR': return 'bg-orange-500/20 border-orange-500 text-orange-500';
       case 'RESERVADA': return 'bg-blue-500/20 border-blue-500 text-blue-500';
+      case 'FUERA SERVICIO': return 'bg-slate-500/20 border-slate-500 text-slate-500 opacity-60 grayscale';
       default: return 'bg-muted';
     }
   };
 
   const handleOpenMesa = (mesaId: number) => {
+    const mesa = mesas.find(m => m.id === mesaId);
+    if (mesa?.estado === 'FUERA SERVICIO') {
+      toast({
+        variant: "destructive",
+        title: "Mesa No Disponible",
+        description: "Esta mesa se encuentra fuera de servicio actualmente."
+      });
+      return;
+    }
     updateMesaEstado(mesaId, 'OCUPADA', user?.id);
     router.push(`/pedidos/${mesaId}`);
   };
@@ -113,13 +123,23 @@ export default function MesasPage() {
     updateMesa(selectedMesaId, {
       zona: editMesa.zona,
       capacidad: editMesa.capacidad,
-      numero: editMesa.numero
+      numero: editMesa.numero,
+      estado: editMesa.estado
     });
     
     setIsEditMode(false);
     toast({
       title: "Mesa Actualizada",
       description: `La información de la mesa ha sido corregida.`
+    });
+  };
+
+  const toggleFueraServicio = (mesa: Mesa) => {
+    const nuevoEstado = mesa.estado === 'FUERA SERVICIO' ? 'LIBRE' : 'FUERA SERVICIO';
+    updateMesaEstado(mesa.id, nuevoEstado);
+    toast({
+      title: nuevoEstado === 'FUERA SERVICIO' ? "Mesa Inhabilitada" : "Mesa Habilitada",
+      description: `La mesa ${mesa.id} ahora está ${nuevoEstado.toLowerCase()}.`
     });
   };
 
@@ -196,12 +216,8 @@ export default function MesasPage() {
                 <span className="text-xs">Libre</span>
               </div>
               <div className="flex items-center gap-2">
-                <div className="w-3 h-3 rounded-full bg-red-500" />
-                <span className="text-xs">Ocupada</span>
-              </div>
-              <div className="flex items-center gap-2">
-                <div className="w-3 h-3 rounded-full bg-yellow-500" />
-                <span className="text-xs">Esperando</span>
+                <div className="w-3 h-3 rounded-full bg-slate-500" />
+                <span className="text-xs">Fuera Serv.</span>
               </div>
             </div>
           </div>
@@ -219,18 +235,21 @@ export default function MesasPage() {
                   )}
                 >
                   <div className="absolute top-0 right-0 p-2 opacity-10">
-                    <UtensilsCrossed className="w-12 h-12" />
+                    {mesa.estado === 'FUERA SERVICIO' ? <Ban className="w-12 h-12" /> : <UtensilsCrossed className="w-12 h-12" />}
                   </div>
                   
                   <div className="w-full flex justify-between items-start">
                     <span className="text-[10px] font-mono font-bold px-2 py-0.5 rounded-full bg-background/50 border border-current">
                       {mesa.zona}
                     </span>
-                    {mesa.estado !== 'LIBRE' && (
+                    {mesa.estado !== 'LIBRE' && mesa.estado !== 'FUERA SERVICIO' && (
                       <div className="flex items-center gap-1 text-[10px] font-mono">
                         <Clock className="w-3 h-3" />
                         <span>12m</span>
                       </div>
+                    )}
+                    {mesa.estado === 'FUERA SERVICIO' && (
+                       <Badge variant="outline" className="text-[8px] border-slate-500 text-slate-500 font-bold">MANTENIMIENTO</Badge>
                     )}
                   </div>
 
@@ -289,7 +308,9 @@ export default function MesasPage() {
                       </div>
                       <div className="bg-accent/30 p-4 rounded-xl border border-border">
                         <p className="text-xs text-muted-foreground mb-1 uppercase tracking-tighter">Estado</p>
-                        <p className="font-bold text-lg text-secondary">{mesa.estado}</p>
+                        <p className={cn("font-bold text-lg", mesa.estado === 'FUERA SERVICIO' ? 'text-slate-500' : 'text-secondary')}>
+                          {mesa.estado}
+                        </p>
                       </div>
                     </div>
 
@@ -301,6 +322,11 @@ export default function MesasPage() {
                         >
                           ABRIR MESA
                         </Button>
+                      ) : mesa.estado === 'FUERA SERVICIO' ? (
+                        <div className="bg-destructive/10 border border-destructive/20 p-4 rounded-xl text-center">
+                           <Ban className="w-8 h-8 text-destructive mx-auto mb-2" />
+                           <p className="text-sm font-bold text-destructive">Esta mesa no puede recibir pedidos</p>
+                        </div>
                       ) : (
                         <Button 
                           className="w-full h-14 bg-secondary text-secondary-foreground hover:glow-gold font-bold text-lg"
@@ -319,8 +345,22 @@ export default function MesasPage() {
                           <Edit className="w-4 h-4" />
                           Editar Detalles
                         </Button>
-                        <Button variant="outline" className="border-primary text-primary hover:bg-primary/10">
-                          CAMBIAR MESA
+                        <Button 
+                          variant="outline" 
+                          className={cn(
+                            "gap-2",
+                            mesa.estado === 'FUERA SERVICIO' 
+                              ? "border-green-500 text-green-500 hover:bg-green-500/10" 
+                              : "border-slate-500 text-slate-500 hover:bg-slate-500/10"
+                          )}
+                          onClick={() => toggleFueraServicio(mesa)}
+                          disabled={mesa.estado !== 'LIBRE' && mesa.estado !== 'FUERA SERVICIO'}
+                        >
+                          {mesa.estado === 'FUERA SERVICIO' ? (
+                            <><CheckCircle className="w-4 h-4" /> Habilitar</>
+                          ) : (
+                            <><Ban className="w-4 h-4" /> Inhabilitar</>
+                          )}
                         </Button>
                       </div>
                     </div>

@@ -2,7 +2,7 @@ export type Rol = 'ADMINISTRADOR' | 'CAJERO' | 'MESERO' | 'COCINERO' | 'BARTENDE
 
 export type Estacion = 'ASADO' | 'PARRILLA' | 'COCINA' | 'BAR';
 
-export type EstadoMesa = 'LIBRE' | 'OCUPADA' | 'EN PEDIDO' | 'LISTA PAGAR' | 'RESERVADA';
+export type EstadoMesa = 'LIBRE' | 'OCUPADA' | 'EN PEDIDO' | 'LISTA PAGAR' | 'RESERVADA' | 'FUERA SERVICIO';
 
 export type EstadoComanda = 'PENDIENTE' | 'EN PREPARACION' | 'LISTO' | 'ENTREGADO';
 
