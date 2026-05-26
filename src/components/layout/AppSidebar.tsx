@@ -13,9 +13,7 @@ import {
   BarChart3, 
   PlayCircle,
   Utensils,
-  Users,
-  ShieldCheck,
-  Settings
+  Users
 } from "lucide-react";
 import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
@@ -54,7 +52,6 @@ export const ALL_MENU_ITEMS = [
   { icon: Package, label: "Inventario", href: "/inventario" },
   { icon: Users, label: "Personal", href: "/personal" },
   { icon: BarChart3, label: "Reportes & AI", href: "/ai-insights" },
-  { icon: ShieldCheck, label: "Permisos", href: "/configuracion/permisos" },
 ];
 
 const ROLES: Rol[] = ["ADMINISTRADOR", "CAJERO", "MESERO", "COCINERO", "BARTENDER"];
