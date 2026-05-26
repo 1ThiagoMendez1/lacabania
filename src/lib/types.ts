@@ -1,4 +1,4 @@
-export type Rol = 'ADMINISTRADOR' | 'CAJERO' | 'MESERO' | 'COCINERO' | 'BARTENDER';
+export type Rol = 'ADMINISTRADOR' | 'MESERO' | 'COCINERO';
 
 export type Estacion = 'ASADO' | 'PARRILLA' | 'COCINA' | 'BAR';
 

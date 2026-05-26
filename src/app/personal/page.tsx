@@ -1,4 +1,3 @@
-
 "use client"
 
 import { usePOSStore } from "@/lib/store";
@@ -61,7 +60,7 @@ import { ALL_MENU_ITEMS } from "@/components/layout/AppSidebar";
 import { Checkbox } from "@/components/ui/checkbox";
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 
-const ROLES: Rol[] = ["ADMINISTRADOR", "CAJERO", "MESERO", "COCINERO", "BARTENDER"];
+const ROLES: Rol[] = ["ADMINISTRADOR", "MESERO", "COCINERO"];
 
 export default function PersonalPage() {
   const { usuarios, addUsuario, updateUsuario, deleteUsuario, permisos, togglePermiso, user } = usePOSStore();
@@ -118,10 +117,8 @@ export default function PersonalPage() {
   const getRoleBadge = (rol: Rol) => {
     switch (rol) {
       case 'ADMINISTRADOR': return <Badge className="bg-purple-500/20 text-purple-500 border-purple-500/50">ADMIN</Badge>;
-      case 'CAJERO': return <Badge className="bg-blue-500/20 text-blue-500 border-blue-500/50">CAJA</Badge>;
       case 'MESERO': return <Badge className="bg-green-500/20 text-green-500 border-green-500/50">MESERO</Badge>;
       case 'COCINERO': return <Badge className="bg-orange-500/20 text-orange-500 border-orange-500/50">COCINA</Badge>;
-      case 'BARTENDER': return <Badge className="bg-cyan-500/20 text-cyan-500 border-cyan-500/50">BAR</Badge>;
       default: return <Badge variant="outline">{rol}</Badge>;
     }
   };
@@ -208,10 +205,8 @@ export default function PersonalPage() {
                             <SelectTrigger><SelectValue placeholder="Selecciona Rol" /></SelectTrigger>
                             <SelectContent className="bg-card border-border">
                               <SelectItem value="ADMINISTRADOR">Administrador</SelectItem>
-                              <SelectItem value="CAJERO">Cajero</SelectItem>
                               <SelectItem value="MESERO">Mesero</SelectItem>
                               <SelectItem value="COCINERO">Cocinero</SelectItem>
-                              <SelectItem value="BARTENDER">Bartender</SelectItem>
                             </SelectContent>
                           </Select>
                         </div>

@@ -1,4 +1,3 @@
-
 import { create } from 'zustand';
 import { Mesa, Producto, Orden, Usuario, ItemOrden, EstadoComanda, MetodoPago, Rol } from './types';
 
@@ -33,15 +32,12 @@ const initialUsuarios: Usuario[] = [
   { id: '1', nombre: 'Admin La Cabaña', rol: 'ADMINISTRADOR', estado: 'ACTIVO', fechaIngreso: '2024-01-01', telefono: '3001234567' },
   { id: '2', nombre: 'Juan Mesero', rol: 'MESERO', estado: 'ACTIVO', fechaIngreso: '2024-02-15', telefono: '3109876543' },
   { id: '3', nombre: 'Marta Cocina', rol: 'COCINERO', estado: 'ACTIVO', fechaIngreso: '2024-01-20', telefono: '3201112233' },
-  { id: '4', nombre: 'Carlos Bar', rol: 'BARTENDER', estado: 'ACTIVO', fechaIngreso: '2024-03-01', telefono: '3154445566' },
 ];
 
 const initialPermisos: Record<Rol, string[]> = {
   ADMINISTRADOR: ["Dashboard", "Mesas", "Asado", "Parrilla", "Cocina", "Bar", "Caja", "Inventario", "Personal", "Reportes & AI", "Permisos"],
-  CAJERO: ["Dashboard", "Mesas", "Caja", "Inventario"],
   MESERO: ["Mesas"],
   COCINERO: ["Asado", "Parrilla", "Cocina"],
-  BARTENDER: ["Bar"],
 };
 
 const initialOrdenes: Orden[] = [

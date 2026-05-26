@@ -1,4 +1,3 @@
-
 "use client"
 
 import { usePOSStore } from "@/lib/store";
@@ -54,7 +53,7 @@ export const ALL_MENU_ITEMS = [
   { icon: BarChart3, label: "Reportes & AI", href: "/ai-insights" },
 ];
 
-const ROLES: Rol[] = ["ADMINISTRADOR", "CAJERO", "MESERO", "COCINERO", "BARTENDER"];
+const ROLES: Rol[] = ["ADMINISTRADOR", "MESERO", "COCINERO"];
 const ESTACIONES: { label: string, val: string }[] = [
   { label: "🔥 Asado", val: "asado" },
   { label: "🍖 Parrilla", val: "parrilla" },
