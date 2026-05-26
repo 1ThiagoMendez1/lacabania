@@ -1,3 +1,4 @@
+
 "use client"
 
 import { usePOSStore } from "@/lib/store";
@@ -138,36 +139,38 @@ export function AppSidebar() {
           </SidebarGroupContent>
         </SidebarGroup>
 
-        <SidebarGroup className="mt-4">
-          <SidebarGroupLabel className="text-muted-foreground/50 text-[10px] uppercase font-bold tracking-widest px-4 mb-2">Simulador</SidebarGroupLabel>
-          <SidebarGroupContent className="px-2 space-y-4">
-            <div className="p-3 bg-accent/30 rounded-2xl border border-border/50 space-y-3">
-              <p className="text-[10px] text-muted-foreground font-semibold uppercase">Cambiar Rol</p>
-              <Select onValueChange={(v) => handleRoleChange(v as Rol)} defaultValue={user.rol}>
-                <SelectTrigger className="w-full bg-background/50 border-border h-9 text-xs rounded-lg">
-                  <SelectValue placeholder="Rol" />
-                </SelectTrigger>
-                <SelectContent className="bg-card border-border shadow-2xl">
-                  {ROLES.map((rol) => (
-                    <SelectItem key={rol} value={rol} className="text-xs">{rol}</SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
-            </div>
+        {user.rol === 'ADMINISTRADOR' && (
+          <SidebarGroup className="mt-4">
+            <SidebarGroupLabel className="text-muted-foreground/50 text-[10px] uppercase font-bold tracking-widest px-4 mb-2">Simulador</SidebarGroupLabel>
+            <SidebarGroupContent className="px-2 space-y-4">
+              <div className="p-3 bg-accent/30 rounded-2xl border border-border/50 space-y-3">
+                <p className="text-[10px] text-muted-foreground font-semibold uppercase">Cambiar Rol</p>
+                <Select onValueChange={(v) => handleRoleChange(v as Rol)} defaultValue={user.rol}>
+                  <SelectTrigger className="w-full bg-background/50 border-border h-9 text-xs rounded-lg">
+                    <SelectValue placeholder="Rol" />
+                  </SelectTrigger>
+                  <SelectContent className="bg-card border-border shadow-2xl">
+                    {ROLES.map((rol) => (
+                      <SelectItem key={rol} value={rol} className="text-xs">{rol}</SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
 
-            <div className="grid grid-cols-2 gap-2">
-              {ESTACIONES.map((est) => (
-                <button
-                  key={est.val}
-                  onClick={() => router.push(`/estaciones/${est.val}`)}
-                  className="text-[10px] bg-accent/20 hover:bg-secondary/20 border border-border/50 py-2 px-2 rounded-xl text-left transition-all hover:border-secondary/50 truncate font-semibold"
-                >
-                  {est.label}
-                </button>
-              ))}
-            </div>
-          </SidebarGroupContent>
-        </SidebarGroup>
+              <div className="grid grid-cols-2 gap-2">
+                {ESTACIONES.map((est) => (
+                  <button
+                    key={est.val}
+                    onClick={() => router.push(`/estaciones/${est.val}`)}
+                    className="text-[10px] bg-accent/20 hover:bg-secondary/20 border border-border/50 py-2 px-2 rounded-xl text-left transition-all hover:border-secondary/50 truncate font-semibold"
+                  >
+                    {est.label}
+                  </button>
+                ))}
+              </div>
+            </SidebarGroupContent>
+          </SidebarGroup>
+        )}
       </SidebarContent>
 
       <SidebarFooter className="p-4 border-t border-border bg-background/30">
