@@ -1,3 +1,4 @@
+
 "use client"
 
 import { useState, useEffect } from "react";
@@ -15,18 +16,25 @@ import {
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { useToast } from "@/hooks/use-toast";
+import { ALL_MENU_ITEMS } from "@/components/layout/AppSidebar";
 
 export default function LoginPage() {
   const [pin, setPin] = useState("");
-  const { login, user } = usePOSStore();
+  const { login, user, permisos } = usePOSStore();
   const router = useRouter();
   const { toast } = useToast();
 
+  const getRedirectPath = (rol: string) => {
+    const userPermisos = permisos[rol as any] || [];
+    const firstAllowedItem = ALL_MENU_ITEMS.find(item => userPermisos.includes(item.label));
+    return firstAllowedItem ? firstAllowedItem.href : "/dashboard";
+  };
+
   useEffect(() => {
     if (user) {
-      router.push("/dashboard");
+      router.push(getRedirectPath(user.rol));
     }
-  }, [user, router]);
+  }, [user, router, permisos]);
 
   const handleKeyPress = (num: string) => {
     if (pin.length < 4) {
@@ -45,7 +53,7 @@ export default function LoginPage() {
         title: "¡Bienvenido!",
         description: `Hola ${success.nombre}, que tengas un excelente turno.`,
       });
-      router.push("/dashboard");
+      router.push(getRedirectPath(success.rol));
     } else {
       toast({
         variant: "destructive",

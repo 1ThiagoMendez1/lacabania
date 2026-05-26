@@ -1,22 +1,43 @@
+
 "use client"
 
 import { usePOSStore } from "@/lib/store";
 import { usePathname, useRouter } from "next/navigation";
 import { useEffect } from "react";
 import { SidebarInset, SidebarTrigger } from "@/components/ui/sidebar"
-import { AppSidebar } from "@/components/layout/AppSidebar"
+import { AppSidebar, ALL_MENU_ITEMS } from "@/components/layout/AppSidebar"
 import { Separator } from "@/components/ui/separator"
 
 export default function AuthWrapper({ children }: { children: React.ReactNode }) {
-  const { user } = usePOSStore();
+  const { user, permisos } = usePOSStore();
   const pathname = usePathname();
   const router = useRouter();
 
   useEffect(() => {
     if (!user && pathname !== "/login") {
       router.push("/login");
+      return;
     }
-  }, [user, pathname, router]);
+
+    if (user && pathname !== "/login") {
+      const userPermisos = permisos[user.rol] || [];
+      
+      // Permitir subrutas de secciones permitidas (ej: /pedidos/1 si tiene acceso a Mesas)
+      const isAllowed = ALL_MENU_ITEMS.some(item => {
+        const isExactMatch = pathname === item.href;
+        const isSubRoute = pathname.startsWith(item.href + "/");
+        return (isExactMatch || isSubRoute) && userPermisos.includes(item.label);
+      });
+
+      // Si no es una ruta permitida y no es la raíz (que redirige), enviarlo a su primera página permitida
+      if (!isAllowed && pathname !== "/") {
+        const firstAllowedItem = ALL_MENU_ITEMS.find(item => userPermisos.includes(item.label));
+        if (firstAllowedItem && pathname !== firstAllowedItem.href) {
+          router.push(firstAllowedItem.href);
+        }
+      }
+    }
+  }, [user, pathname, router, permisos]);
 
   if (pathname === "/login") {
     return <>{children}</>;
