@@ -6,12 +6,12 @@ import { useParams } from "next/navigation";
 import { Card, CardContent, CardHeader } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
-import { Clock, Flame, Utensils, Beer, ChefHat, AlertCircle, User, Timer } from "lucide-react";
+import { Clock, Flame, Utensils, Beer, ChefHat, AlertCircle, User, Timer, AlertTriangle } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { Estacion, EstadoComanda } from "@/lib/types";
 import { useState, useEffect } from "react";
 
-// Componente para manejar el tiempo transcurrido y evitar errores de hidratación
+// Componente para manejar el tiempo transcurrido y mostrar alertas visuales
 function TimeElapsed({ createdAt }: { createdAt: string }) {
   const [elapsed, setElapsed] = useState<number>(0);
 
@@ -27,18 +27,34 @@ function TimeElapsed({ createdAt }: { createdAt: string }) {
     return () => clearInterval(interval);
   }, [createdAt]);
 
-  const isOverdue = elapsed >= 20;
-  const isWarning = elapsed >= 10 && elapsed < 20;
+  // Lógica de semáforo para tiempos de entrega
+  const isCritical = elapsed >= 60; // Más de 1 hora
+  const isOverdue = elapsed >= 30 && elapsed < 60; // Retraso significativo
+  const isWarning = elapsed >= 15 && elapsed < 30; // Tiempo de atención
+  const isGood = elapsed < 15; // Buen tiempo
 
   return (
-    <div className={cn(
-      "flex items-center gap-1.5 px-3 py-1 rounded-full font-mono text-xs font-bold transition-colors",
-      isOverdue ? "bg-destructive text-destructive-foreground animate-pulse" : 
-      isWarning ? "bg-yellow-500 text-black" : 
-      "bg-secondary/20 text-secondary"
-    )}>
-      <Timer className="w-3.5 h-3.5" />
-      <span>{elapsed} MIN</span>
+    <div className="flex flex-col items-end gap-1">
+      <div className={cn(
+        "flex items-center gap-1.5 px-3 py-1 rounded-full font-mono text-xs font-bold transition-all border",
+        isCritical ? "bg-black text-red-500 border-red-500 animate-bounce shadow-[0_0_10px_rgba(239,68,68,0.5)]" : 
+        isOverdue ? "bg-destructive text-destructive-foreground border-transparent animate-pulse" : 
+        isWarning ? "bg-yellow-500 text-black border-transparent" : 
+        "bg-green-500/20 text-green-500 border-green-500/30"
+      )}>
+        <Timer className={cn("w-3.5 h-3.5", isCritical && "animate-spin")} />
+        <span>{elapsed} MIN</span>
+      </div>
+      
+      {isCritical && (
+        <div className="flex items-center gap-1 text-[10px] font-black text-red-500 uppercase animate-pulse">
+          <AlertTriangle className="w-3 h-3" />
+          <span>¡VALIDAR CON MESERO!</span>
+        </div>
+      )}
+      {isGood && (
+        <span className="text-[9px] text-green-500 font-bold uppercase tracking-tighter">✓ Buen Tiempo</span>
+      )}
     </div>
   );
 }
@@ -74,7 +90,6 @@ export default function StationPage() {
   const handleAction = (orderId: string, itemId: string, currentEstado: EstadoComanda) => {
     let nextEstado: EstadoComanda = 'EN PREPARACION';
     if (currentEstado === 'EN PREPARACION') nextEstado = 'LISTO';
-    // Se elimina el paso de "ENTREGADO" ya que eso lo hace el mesero
     updateItemEstado(orderId, itemId, nextEstado);
   };
 
@@ -106,7 +121,7 @@ export default function StationPage() {
           {ordersWithItems.map((order) => (
             <Card key={order.id} className="bg-card border-t-4 border-t-primary paper-texture overflow-hidden flex flex-col">
               <CardHeader className="bg-accent/20 border-b py-4 space-y-3">
-                <div className="flex justify-between items-center">
+                <div className="flex justify-between items-start">
                   <span className="text-2xl font-black font-headline">MESA {order.mesaId}</span>
                   <TimeElapsed createdAt={order.createdAt} />
                 </div>
