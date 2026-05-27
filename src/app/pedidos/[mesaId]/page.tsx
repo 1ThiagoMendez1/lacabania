@@ -1,3 +1,4 @@
+
 "use client"
 
 import { usePOSStore } from "@/lib/store";
@@ -16,10 +17,13 @@ import {
   ShoppingCart,
   Utensils,
   X,
-  CheckCircle2
+  CheckCircle2,
+  MessageSquarePlus,
+  StickyNote
 } from "lucide-react";
 import { useState } from "react";
 import { Input } from "@/components/ui/input";
+import { Textarea } from "@/components/ui/textarea";
 import { cn } from "@/lib/utils";
 import { ItemOrden, Producto } from "@/lib/types";
 import {
@@ -39,7 +43,22 @@ import {
   AlertDialogHeader,
   AlertDialogTitle,
 } from "@/components/ui/alert-dialog";
+import {
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+  DialogFooter,
+} from "@/components/ui/dialog";
 import { Separator } from "@/components/ui/separator";
+import { Label } from "@/components/ui/label";
+
+type CartItem = {
+  producto: Producto;
+  cantidad: number;
+  notas?: string;
+  tempId: string;
+};
 
 export default function OrderPage() {
   const { mesaId } = useParams();
@@ -49,8 +68,11 @@ export default function OrderPage() {
   const mesa = mesas.find(m => m.id === Number(mesaId));
   const [searchTerm, setSearchTerm] = useState("");
   const [selectedCategory, setSelectedCategory] = useState("TODOS");
-  const [cart, setCart] = useState<{producto: Producto, cantidad: number}[]>([]);
+  const [cart, setCart] = useState<CartItem[]>([]);
   const [showConfirmDialog, setShowConfirmDialog] = useState(false);
+  
+  const [noteEditingItem, setNoteEditingItem] = useState<CartItem | null>(null);
+  const [tempNote, setTempNote] = useState("");
 
   const categories = ["TODOS", ...new Set(productos.map(p => p.categoria))];
   const filteredProducts = productos.filter(p => 
@@ -65,18 +87,32 @@ export default function OrderPage() {
     setCart(prev => {
       const existing = prev.find(item => item.producto.id === product.id);
       if (existing) return prev.map(item => item.producto.id === product.id ? { ...item, cantidad: item.cantidad + 1 } : item);
-      return [...prev, { producto: product, cantidad: 1 }];
+      return [...prev, { producto: product, cantidad: 1, tempId: Math.random().toString(36).substr(2, 9) }];
     });
   };
 
-  const removeFromCart = (productId: string) => {
+  const removeFromCart = (tempId: string) => {
     setCart(prev => {
-      const existing = prev.find(item => item.producto.id === productId);
+      const existing = prev.find(item => item.tempId === tempId);
       if (existing && existing.cantidad > 1) {
-        return prev.map(item => item.producto.id === productId ? { ...item, cantidad: item.cantidad - 1 } : item);
+        return prev.map(item => item.tempId === tempId ? { ...item, cantidad: item.cantidad - 1 } : item);
       }
-      return prev.filter(item => item.producto.id !== productId);
+      return prev.filter(item => item.tempId !== tempId);
     });
+  };
+
+  const openNoteEditor = (item: CartItem) => {
+    setNoteEditingItem(item);
+    setTempNote(item.notas || "");
+  };
+
+  const saveNote = () => {
+    if (!noteEditingItem) return;
+    setCart(prev => prev.map(item => 
+      item.tempId === noteEditingItem.tempId ? { ...item, notas: tempNote } : item
+    ));
+    setNoteEditingItem(null);
+    setTempNote("");
   };
 
   const handleSendOrder = () => {
@@ -87,6 +123,7 @@ export default function OrderPage() {
       nombre: item.producto.nombre,
       cantidad: item.cantidad,
       precioUnitario: item.producto.precio,
+      notas: item.notas,
       estacion: item.producto.estacion,
       estado: 'PENDIENTE',
       createdAt: new Date().toISOString()
@@ -117,19 +154,41 @@ export default function OrderPage() {
         ) : (
           <div className="space-y-3 py-4">
             {cart.map(item => (
-              <div key={item.producto.id} className="flex justify-between items-center p-3 bg-accent/30 rounded-xl border border-border/50">
-                <div className="flex-1">
-                  <p className="text-sm font-bold">{item.producto.nombre}</p>
-                  <p className="text-xs text-secondary font-mono">${(item.producto.precio * item.cantidad).toLocaleString()}</p>
+              <div key={item.tempId} className="flex flex-col gap-2 p-3 bg-accent/30 rounded-xl border border-border/50">
+                <div className="flex justify-between items-start">
+                  <div className="flex-1">
+                    <p className="text-sm font-bold">{item.producto.nombre}</p>
+                    <p className="text-xs text-secondary font-mono">${(item.producto.precio * item.cantidad).toLocaleString()}</p>
+                  </div>
+                  <div className="flex items-center gap-3">
+                    <Button variant="outline" size="icon" className="h-7 w-7 rounded-full" onClick={() => removeFromCart(item.tempId)}>
+                      <Minus className="w-3 h-3" />
+                    </Button>
+                    <span className="text-sm font-bold w-4 text-center">{item.cantidad}</span>
+                    <Button variant="outline" size="icon" className="h-7 w-7 rounded-full" onClick={() => addToCart(item.producto)}>
+                      <Plus className="w-3 h-3" />
+                    </Button>
+                  </div>
                 </div>
-                <div className="flex items-center gap-3">
-                  <Button variant="outline" size="icon" className="h-7 w-7 rounded-full" onClick={() => removeFromCart(item.producto.id)}>
-                    <Minus className="w-3 h-3" />
+                
+                <div className="flex items-center gap-2">
+                  <Button 
+                    variant="ghost" 
+                    size="sm" 
+                    className={cn(
+                      "h-7 text-[10px] font-bold px-2 rounded-lg gap-1.5",
+                      item.notas ? "bg-primary/20 text-primary border border-primary/20" : "bg-accent/50 text-muted-foreground"
+                    )}
+                    onClick={() => openNoteEditor(item)}
+                  >
+                    <MessageSquarePlus className="w-3 h-3" />
+                    {item.notas ? "Editar Nota" : "Agregar Nota"}
                   </Button>
-                  <span className="text-sm font-bold w-4 text-center">{item.cantidad}</span>
-                  <Button variant="outline" size="icon" className="h-7 w-7 rounded-full" onClick={() => addToCart(item.producto)}>
-                    <Plus className="w-3 h-3" />
-                  </Button>
+                  {item.notas && (
+                    <div className="flex-1 truncate italic text-[10px] text-primary/80 bg-primary/5 px-2 py-1 rounded-md border border-primary/10">
+                      "{item.notas}"
+                    </div>
+                  )}
                 </div>
               </div>
             ))}
@@ -166,7 +225,6 @@ export default function OrderPage() {
           </div>
         </div>
         
-        {/* Mobile Cart Trigger */}
         <div className="lg:hidden">
           <Sheet>
             <SheetTrigger asChild>
@@ -198,7 +256,6 @@ export default function OrderPage() {
       <div className="flex-1 flex flex-col lg:flex-row gap-0 lg:gap-8 p-0 lg:p-8 overflow-hidden">
         {/* Menu Section */}
         <div className="flex-1 flex flex-col gap-4 p-4 lg:p-0 overflow-hidden">
-          {/* Search and Categories */}
           <div className="space-y-4">
             <div className="relative group">
               <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground group-focus-within:text-primary transition-colors" />
@@ -231,7 +288,6 @@ export default function OrderPage() {
             </ScrollArea>
           </div>
 
-          {/* Product Grid */}
           <ScrollArea className="flex-1 -mx-4 px-4 lg:-mx-2 lg:px-2">
             <div className="grid grid-cols-2 sm:grid-cols-2 md:grid-cols-3 xl:grid-cols-4 gap-3 md:gap-4 py-2">
               {filteredProducts.map(p => (
@@ -296,15 +352,22 @@ export default function OrderPage() {
             </AlertDialogDescription>
           </AlertDialogHeader>
           
-          <div className="my-4 space-y-2 max-h-[40vh] overflow-auto pr-2">
+          <div className="my-4 space-y-4 max-h-[40vh] overflow-auto pr-2">
             {cart.map(item => (
-              <div key={item.producto.id} className="flex justify-between items-center text-sm">
-                <span className="font-medium text-muted-foreground">{item.cantidad}x <span className="text-foreground">{item.producto.nombre}</span></span>
-                <span className="font-bold">${(item.producto.precio * item.cantidad).toLocaleString()}</span>
+              <div key={item.tempId} className="flex flex-col gap-1 border-b border-border/30 pb-2">
+                <div className="flex justify-between items-center text-sm">
+                  <span className="font-medium text-muted-foreground">{item.cantidad}x <span className="text-foreground">{item.producto.nombre}</span></span>
+                  <span className="font-bold">${(item.producto.precio * item.cantidad).toLocaleString()}</span>
+                </div>
+                {item.notas && (
+                  <p className="text-[10px] text-primary bg-primary/5 px-2 py-1 rounded-md italic">
+                    <StickyNote className="w-3 h-3 inline mr-1 mb-0.5" />
+                    "{item.notas}"
+                  </p>
+                )}
               </div>
             ))}
-            <Separator className="my-4" />
-            <div className="flex justify-between items-center">
+            <div className="flex justify-between items-center pt-2">
               <span className="text-lg font-headline">TOTAL</span>
               <span className="text-2xl font-black text-secondary">${cartTotal.toLocaleString()}</span>
             </div>
@@ -322,7 +385,36 @@ export default function OrderPage() {
         </AlertDialogContent>
       </AlertDialog>
 
-      {/* Floating Action Button for Mobile Cart (Fallback/Direct) */}
+      {/* Note Editor Dialog */}
+      <Dialog open={!!noteEditingItem} onOpenChange={(open) => !open && setNoteEditingItem(null)}>
+        <DialogContent className="bg-card border-border paper-texture">
+          <DialogHeader>
+            <DialogTitle className="text-xl font-headline">Observaciones Especiales</DialogTitle>
+          </DialogHeader>
+          <div className="space-y-4 py-4">
+            <div className="space-y-2">
+              <Label className="text-xs uppercase font-bold text-muted-foreground">Producto</Label>
+              <p className="font-bold text-lg">{noteEditingItem?.producto.nombre}</p>
+            </div>
+            <div className="space-y-2">
+              <Label htmlFor="item-notes">Instrucciones de preparación</Label>
+              <Textarea 
+                id="item-notes" 
+                placeholder="Ej: Término medio, sin cebolla, salsa aparte..." 
+                className="h-32 bg-background border-border"
+                value={tempNote}
+                onChange={(e) => setTempNote(e.target.value)}
+              />
+            </div>
+          </div>
+          <DialogFooter>
+            <Button variant="ghost" onClick={() => setNoteEditingItem(null)}>Cancelar</Button>
+            <Button className="bg-primary font-bold px-8" onClick={saveNote}>GUARDAR NOTA</Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      {/* Floating Action Button for Mobile Cart */}
       <div className="lg:hidden fixed bottom-6 right-6 z-40">
         {cartItemsCount > 0 && (
           <Sheet>
