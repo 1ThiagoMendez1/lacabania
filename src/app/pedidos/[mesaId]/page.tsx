@@ -190,15 +190,18 @@ export default function OrderPage() {
           </div>
         )}
       </ScrollArea>
-      <div className="pt-6 pb-6 lg:pb-0 border-t bg-background/80 backdrop-blur-sm">
+      <div className="mt-auto pt-6 pb-12 lg:pb-6 border-t bg-card/80 backdrop-blur-xl -mx-6 px-6 rounded-t-3xl shadow-[0_-10px_40px_-15px_rgba(0,0,0,0.5)]">
         <div className="flex justify-between items-center mb-6">
-          <span className="text-muted-foreground font-bold uppercase tracking-wider text-[10px]">Subtotal Pedido</span>
-          <span className="text-3xl font-black text-secondary">${cartTotal.toLocaleString()}</span>
+          <div className="flex flex-col">
+            <span className="text-muted-foreground font-black uppercase tracking-[0.2em] text-[10px]">Subtotal Pedido</span>
+            <span className="text-[10px] text-primary font-mono mt-0.5">{cartItemsCount} productos registrados</span>
+          </div>
+          <span className="text-3xl font-black text-secondary glow-gold-text tracking-tighter">${cartTotal.toLocaleString()}</span>
         </div>
         <Button 
           disabled={cart.length === 0} 
           onClick={() => setShowConfirmDialog(true)} 
-          className="w-full h-14 md:h-16 text-lg font-bold rounded-2xl shadow-xl hover:glow-orange transition-all bg-primary active:scale-95"
+          className="w-full h-14 md:h-16 text-lg font-black rounded-2xl shadow-2xl hover:glow-orange transition-all bg-primary active:scale-95 border-b-4 border-primary-foreground/20"
         >
           ENVIAR A COCINA
         </Button>
@@ -233,7 +236,7 @@ export default function OrderPage() {
                 <span className="hidden sm:inline">Comanda</span>
               </Button>
             </SheetTrigger>
-            <SheetContent side="bottom" className="h-[90vh] rounded-t-[3rem] border-t-4 border-t-primary paper-texture p-6 pt-8">
+            <SheetContent side="bottom" className="h-[90vh] rounded-t-[3rem] border-t-4 border-t-primary paper-texture p-6 pt-8 overflow-hidden">
               <SheetHeader className="mb-4">
                 <SheetTitle className="text-2xl font-headline flex items-center gap-2">
                   <div className="p-2 bg-primary/10 rounded-lg">
@@ -321,7 +324,7 @@ export default function OrderPage() {
         </div>
 
         {/* Desktop Cart Section */}
-        <Card className="hidden lg:flex w-96 bg-card border-border paper-texture flex-col shadow-2xl">
+        <Card className="hidden lg:flex w-96 bg-card border-border paper-texture flex-col shadow-2xl overflow-hidden">
           <CardHeader className="border-b bg-accent/20">
             <CardTitle className="text-xl font-headline flex items-center gap-2">
               <ShoppingCart className="w-5 h-5 text-primary" />
@@ -426,7 +429,7 @@ export default function OrderPage() {
                 </Badge>
               </Button>
             </SheetTrigger>
-            <SheetContent side="bottom" className="h-[90vh] rounded-t-[3.5rem] border-t-4 border-t-primary paper-texture p-6 pt-10">
+            <SheetContent side="bottom" className="h-[90vh] rounded-t-[3.5rem] border-t-4 border-t-primary paper-texture p-6 pt-10 overflow-hidden">
               <SheetHeader className="mb-6">
                 <SheetTitle className="text-2xl font-headline flex items-center gap-3">
                   <div className="p-2.5 bg-primary/10 rounded-2xl">
