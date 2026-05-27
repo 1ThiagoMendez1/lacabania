@@ -22,14 +22,18 @@ export default function AuthWrapper({ children }: { children: React.ReactNode })
     if (user && pathname !== "/login") {
       const userPermisos = permisos[user.rol] || [];
       
-      // Permitir subrutas de secciones permitidas (ej: /pedidos/1 si tiene acceso a Mesas)
+      // Validar si la ruta actual está permitida para el rol del usuario
       const isAllowed = ALL_MENU_ITEMS.some(item => {
         const isExactMatch = pathname === item.href;
         const isSubRoute = pathname.startsWith(item.href + "/");
-        return (isExactMatch || isSubRoute) && userPermisos.includes(item.label);
+        
+        // Caso especial: La ruta /pedidos/[id] depende del permiso de "Mesas"
+        const isPedidosRoute = pathname.startsWith("/pedidos/") && item.label === "Mesas";
+        
+        return (isExactMatch || isSubRoute || isPedidosRoute) && userPermisos.includes(item.label);
       });
 
-      // Si no es una ruta permitida y no es la raíz (que redirige), enviarlo a su primera página permitida
+      // Si no es una ruta permitida y no es la raíz, redirigir a la primera opción válida
       if (!isAllowed && pathname !== "/") {
         const firstAllowedItem = ALL_MENU_ITEMS.find(item => userPermisos.includes(item.label));
         if (firstAllowedItem && pathname !== firstAllowedItem.href) {
