@@ -4,7 +4,7 @@
 import { usePOSStore } from "@/lib/store";
 import { Badge } from "@/components/ui/badge";
 import { cn } from "@/lib/utils";
-import { Clock, Users, UtensilsCrossed, PlusCircle, Edit, Ban, CheckCircle, Layers, AlertCircle } from "lucide-react";
+import { Clock, Users, UtensilsCrossed, PlusCircle, Edit, Ban, CheckCircle, Layers, AlertCircle, MapPin, Activity, Info } from "lucide-react";
 import { 
   Dialog, 
   DialogContent, 
@@ -325,57 +325,125 @@ function MesaCard({ mesa, onOpenMesa, onVerPedido, onStartEdit, onToggleFueraSer
               </div>
             </button>
           </DialogTrigger>
-          <DialogContent className="bg-card border-border text-foreground paper-texture max-w-[90vw] rounded-[2rem]">
-            <DialogHeader>
-              <DialogTitle className="text-xl md:text-2xl font-headline">Mesa {mesa.id}</DialogTitle>
-            </DialogHeader>
-            <div className="py-4 space-y-4">
-                <div className="grid grid-cols-2 gap-3">
-                  <div className="bg-accent/30 p-3 md:p-4 rounded-xl border border-border">
-                    <p className="text-[10px] text-muted-foreground mb-0.5 uppercase tracking-tighter">Zona</p>
-                    <p className="font-bold text-sm md:text-lg">{mesa.zona}</p>
+          <DialogContent className="bg-card border-border text-foreground paper-texture max-w-[95vw] sm:max-w-[450px] rounded-[2.5rem] overflow-hidden p-0">
+            <div className="relative p-6 sm:p-8 space-y-6">
+              <div className="absolute top-0 right-0 p-8 opacity-5 pointer-events-none">
+                <UtensilsCrossed className="w-32 h-32" />
+              </div>
+
+              <DialogHeader className="relative z-10">
+                <div className="flex items-center gap-4 mb-2">
+                  <div className="w-12 h-12 bg-primary/20 rounded-2xl flex items-center justify-center text-2xl shadow-inner border border-primary/20">
+                    🤠
                   </div>
-                  <div className="bg-accent/30 p-3 md:p-4 rounded-xl border border-border">
-                    <p className="text-[10px] text-muted-foreground mb-0.5 uppercase tracking-tighter">Estado</p>
-                    <p className={cn("font-bold text-sm md:text-lg", mesa.estado === 'FUERA SERVICIO' ? 'text-slate-500' : 'text-secondary')}>{mesa.estado}</p>
+                  <div>
+                    <DialogTitle className="text-3xl font-headline tracking-tighter">Mesa {mesa.id}</DialogTitle>
+                    <p className="text-[10px] uppercase font-bold tracking-widest text-muted-foreground">Detalle de Gestión</p>
                   </div>
                 </div>
+              </DialogHeader>
 
-                {delayLevel !== 'none' && (
-                  <div className={cn(
-                    "p-3 md:p-4 rounded-xl border-2 flex items-center gap-3",
-                    delayLevel === 'critical' ? "bg-red-500/10 border-red-500/30 text-red-500" : "bg-yellow-500/10 border-yellow-500/30 text-yellow-500"
+              <div className="grid grid-cols-2 gap-4 relative z-10">
+                <div className="bg-accent/40 p-4 rounded-3xl border border-border/50 shadow-sm backdrop-blur-sm group hover:bg-accent/60 transition-colors">
+                  <div className="flex items-center gap-2 mb-2">
+                    <MapPin className="w-3.5 h-3.5 text-primary" />
+                    <span className="text-[9px] text-muted-foreground uppercase font-black tracking-widest">Ubicación</span>
+                  </div>
+                  <p className="font-headline text-lg sm:text-xl">{mesa.zona}</p>
+                </div>
+                
+                <div className={cn(
+                  "bg-accent/40 p-4 rounded-3xl border border-border/50 shadow-sm backdrop-blur-sm group hover:bg-accent/60 transition-colors",
+                  mesa.estado === 'LIBRE' ? "border-green-500/20" : "border-secondary/20"
+                )}>
+                  <div className="flex items-center gap-2 mb-2">
+                    <Activity className={cn("w-3.5 h-3.5", mesa.estado === 'LIBRE' ? "text-green-500" : "text-secondary")} />
+                    <span className="text-[9px] text-muted-foreground uppercase font-black tracking-widest">Estado</span>
+                  </div>
+                  <p className={cn(
+                    "font-headline text-lg sm:text-xl",
+                    mesa.estado === 'FUERA SERVICIO' ? 'text-slate-500' : 'text-secondary'
                   )}>
-                    <AlertCircle className="w-5 h-5 shrink-0" />
-                    <div>
-                      <p className="text-xs md:text-sm font-black uppercase">¡Atención: Tiempo Excedido!</p>
-                      <p className="text-[9px] md:text-[10px] opacity-80">Validar prioridad con cocina urgentemente.</p>
-                    </div>
-                  </div>
-                )}
+                    {mesa.estado}
+                  </p>
+                </div>
+              </div>
 
-                <div className="space-y-3 pt-2">
-                  {mesa.estado === 'LIBRE' ? (
-                    <Button className="w-full h-14 md:h-16 text-lg bg-primary hover:glow-orange font-bold rounded-xl" onClick={() => onOpenMesa(mesa.id)}>ABRIR MESA</Button>
-                  ) : mesa.estado === 'FUERA SERVICIO' ? (
-                    <div className="bg-destructive/10 border border-destructive/20 p-4 rounded-xl text-center">
-                       <Ban className="w-6 h-6 text-destructive mx-auto mb-2" />
-                       <p className="text-xs font-bold text-destructive">Mesa Inhabilitada</p>
-                    </div>
-                  ) : (
-                    <Button className="w-full h-14 bg-secondary text-secondary-foreground hover:glow-gold font-bold text-lg rounded-xl" onClick={() => onVerPedido(mesa.id)}>VER PEDIDO</Button>
-                  )}
-                  
-                  <div className="grid grid-cols-2 gap-2">
-                    <Button variant="outline" className="h-12 border-border text-muted-foreground hover:text-foreground gap-2 rounded-xl" onClick={() => onStartEdit(mesa)}>
-                      <Edit className="w-4 h-4" /> Editar
-                    </Button>
-                    <Button variant="outline" className={cn("h-12 gap-2 rounded-xl", mesa.estado === 'FUERA SERVICIO' ? "border-green-500 text-green-500" : "border-slate-500 text-slate-500")} onClick={() => onToggleFueraServicio(mesa)} disabled={mesa.estado !== 'LIBRE' && mesa.estado !== 'FUERA SERVICIO'}>
-                      {mesa.estado === 'FUERA SERVICIO' ? <CheckCircle className="w-4 h-4" /> : <Ban className="w-4 h-4" />}
-                      {mesa.estado === 'FUERA SERVICIO' ? "Habilitar" : "Bloquear"}
-                    </Button>
+              {delayLevel !== 'none' && (
+                <div className={cn(
+                  "p-4 rounded-3xl border-2 flex items-center gap-4 animate-in fade-in slide-in-from-top-2 duration-500",
+                  delayLevel === 'critical' ? "bg-red-500/10 border-red-500/30 text-red-500" : "bg-yellow-500/10 border-yellow-500/30 text-yellow-500"
+                )}>
+                  <div className={cn(
+                    "w-10 h-10 rounded-full flex items-center justify-center shrink-0",
+                    delayLevel === 'critical' ? "bg-red-500/20" : "bg-yellow-500/20"
+                  )}>
+                    <AlertCircle className="w-5 h-5 animate-pulse" />
+                  </div>
+                  <div>
+                    <p className="text-sm font-black uppercase tracking-tighter">¡Atención: Retraso Detectado!</p>
+                    <p className="text-[10px] opacity-80 leading-tight">Es necesario validar prioridad con la cocina de inmediato.</p>
                   </div>
                 </div>
+              )}
+
+              <div className="space-y-4 pt-2 relative z-10">
+                {mesa.estado === 'LIBRE' ? (
+                  <Button 
+                    className="w-full h-16 text-xl bg-primary hover:glow-orange font-bold rounded-[1.25rem] transition-all hover:scale-[1.02] shadow-xl group" 
+                    onClick={() => onOpenMesa(mesa.id)}
+                  >
+                    <PlusCircle className="w-6 h-6 mr-2 transition-transform group-hover:rotate-90" />
+                    ABRIR MESA
+                  </Button>
+                ) : mesa.estado === 'FUERA SERVICIO' ? (
+                  <div className="bg-destructive/10 border border-destructive/20 p-6 rounded-3xl text-center space-y-2">
+                     <Ban className="w-8 h-8 text-destructive mx-auto" />
+                     <h4 className="text-sm font-black text-destructive uppercase tracking-widest">Inhabilitada</h4>
+                     <p className="text-[10px] text-muted-foreground">Esta mesa no puede recibir pedidos actualmente.</p>
+                  </div>
+                ) : (
+                  <Button 
+                    className="w-full h-16 bg-secondary text-secondary-foreground hover:glow-gold font-bold text-xl rounded-[1.25rem] transition-all hover:scale-[1.02] shadow-xl group" 
+                    onClick={() => onVerPedido(mesa.id)}
+                  >
+                    <UtensilsCrossed className="w-6 h-6 mr-2 transition-transform group-hover:scale-110" />
+                    GESTIONAR PEDIDO
+                  </Button>
+                )}
+                
+                <div className="grid grid-cols-2 gap-3">
+                  <Button 
+                    variant="outline" 
+                    className="h-14 border-border/50 bg-background/50 hover:bg-accent/50 text-muted-foreground hover:text-foreground gap-2 rounded-2xl transition-all" 
+                    onClick={() => onStartEdit(mesa)}
+                  >
+                    <Edit className="w-4 h-4" /> 
+                    <span className="text-xs font-bold uppercase tracking-widest">Editar</span>
+                  </Button>
+                  
+                  <Button 
+                    variant="outline" 
+                    className={cn(
+                      "h-14 gap-2 rounded-2xl transition-all border-border/50 bg-background/50", 
+                      mesa.estado === 'FUERA SERVICIO' ? "hover:border-green-500 hover:text-green-500" : "hover:border-destructive/50 hover:text-destructive"
+                    )} 
+                    onClick={() => onToggleFueraServicio(mesa)} 
+                    disabled={mesa.estado !== 'LIBRE' && mesa.estado !== 'FUERA SERVICIO'}
+                  >
+                    {mesa.estado === 'FUERA SERVICIO' ? <CheckCircle className="w-4 h-4" /> : <Ban className="w-4 h-4" />}
+                    <span className="text-xs font-bold uppercase tracking-widest">
+                      {mesa.estado === 'FUERA SERVICIO' ? "Habilitar" : "Bloquear"}
+                    </span>
+                  </Button>
+                </div>
+              </div>
+
+              <div className="pt-4 text-center">
+                <p className="text-[8px] font-mono uppercase tracking-[0.3em] text-muted-foreground opacity-30">
+                  La Cabaña POS • Control de Salón
+                </p>
+              </div>
             </div>
           </DialogContent>
         </Dialog>
