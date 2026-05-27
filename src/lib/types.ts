@@ -17,6 +17,7 @@ export interface Usuario {
   telefono?: string;
   estado: 'ACTIVO' | 'INACTIVO';
   fechaIngreso: string;
+  fotoDocumento?: string; // Data URI de la foto del documento
 }
 
 export interface Producto {

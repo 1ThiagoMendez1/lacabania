@@ -1,4 +1,3 @@
-
 "use client"
 
 import { usePOSStore } from "@/lib/store";
@@ -17,7 +16,9 @@ import {
   UserCircle,
   AlertCircle,
   ShieldAlert,
-  IdCard
+  IdCard,
+  FileImage,
+  Image as ImageIcon
 } from "lucide-react";
 import { 
   Table, 
@@ -75,7 +76,8 @@ export default function PersonalPage() {
     cedula: "",
     rol: "MESERO",
     telefono: "",
-    estado: "ACTIVO"
+    estado: "ACTIVO",
+    fotoDocumento: ""
   });
 
   const filteredStaff = usuarios.filter(u => 
@@ -89,6 +91,17 @@ export default function PersonalPage() {
     activos: usuarios.filter(u => u.estado === 'ACTIVO').length,
     meseros: usuarios.filter(u => u.rol === 'MESERO').length,
     cocina: usuarios.filter(u => u.rol === 'COCINERO').length,
+  };
+
+  const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (file) {
+      const reader = new FileReader();
+      reader.onloadend = () => {
+        setNewStaff({ ...newStaff, fotoDocumento: reader.result as string });
+      };
+      reader.readAsDataURL(file);
+    }
   };
 
   const handleCreateStaff = () => {
@@ -109,10 +122,11 @@ export default function PersonalPage() {
       telefono: newStaff.telefono || "",
       estado: "ACTIVO",
       fechaIngreso: new Date().toISOString().split('T')[0],
+      fotoDocumento: newStaff.fotoDocumento
     };
     addUsuario(staff);
     setIsDialogOpen(false);
-    setNewStaff({ nombre: "", cedula: "", rol: "MESERO", telefono: "", estado: "ACTIVO" });
+    setNewStaff({ nombre: "", cedula: "", rol: "MESERO", telefono: "", estado: "ACTIVO", fotoDocumento: "" });
     toast({ title: "Personal Registrado", description: `${staff.nombre} ha sido agregado al equipo.` });
   };
 
@@ -206,33 +220,55 @@ export default function PersonalPage() {
                       <UserPlus className="w-5 h-5" /> Nuevo
                     </Button>
                   </DialogTrigger>
-                  <DialogContent className="bg-card border-border text-foreground">
+                  <DialogContent className="bg-card border-border text-foreground max-w-2xl">
                     <DialogHeader><DialogTitle className="text-2xl font-headline">Nuevo Integrante</DialogTitle></DialogHeader>
-                    <div className="grid gap-4 py-4">
-                      <div className="space-y-2">
-                        <Label>Nombre Completo</Label>
-                        <Input value={newStaff.nombre} onChange={(e) => setNewStaff({...newStaff, nombre: e.target.value})} placeholder="Ej: Pedro Pérez" />
-                      </div>
-                      <div className="space-y-2">
-                        <Label>Cédula de Ciudadanía</Label>
-                        <Input value={newStaff.cedula} onChange={(e) => setNewStaff({...newStaff, cedula: e.target.value})} placeholder="Número de documento" />
-                        <p className="text-[10px] text-muted-foreground">El PIN de acceso serán los últimos 4 dígitos.</p>
-                      </div>
-                      <div className="grid grid-cols-2 gap-4">
-                        <div className="space-y-2">
-                          <Label>Rol / Cargo</Label>
-                          <Select onValueChange={(val) => setNewStaff({...newStaff, rol: val as Rol})} defaultValue="MESERO">
-                            <SelectTrigger><SelectValue placeholder="Selecciona Rol" /></SelectTrigger>
-                            <SelectContent className="bg-card border-border">
-                              <SelectItem value="ADMINISTRADOR">Administrador</SelectItem>
-                              <SelectItem value="MESERO">Mesero</SelectItem>
-                              <SelectItem value="COCINERO">Cocinero</SelectItem>
-                            </SelectContent>
-                          </Select>
+                    <div className="grid gap-6 py-4">
+                      <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                        <div className="space-y-4">
+                          <div className="space-y-2">
+                            <Label>Nombre Completo</Label>
+                            <Input value={newStaff.nombre} onChange={(e) => setNewStaff({...newStaff, nombre: e.target.value})} placeholder="Ej: Pedro Pérez" />
+                          </div>
+                          <div className="space-y-2">
+                            <Label>Cédula de Ciudadanía</Label>
+                            <Input value={newStaff.cedula} onChange={(e) => setNewStaff({...newStaff, cedula: e.target.value})} placeholder="Número de documento" />
+                            <p className="text-[10px] text-muted-foreground">El PIN de acceso serán los últimos 4 dígitos.</p>
+                          </div>
+                          <div className="space-y-2">
+                            <Label>Rol / Cargo</Label>
+                            <Select onValueChange={(val) => setNewStaff({...newStaff, rol: val as Rol})} defaultValue="MESERO">
+                              <SelectTrigger><SelectValue placeholder="Selecciona Rol" /></SelectTrigger>
+                              <SelectContent className="bg-card border-border">
+                                <SelectItem value="ADMINISTRADOR">Administrador</SelectItem>
+                                <SelectItem value="MESERO">Mesero</SelectItem>
+                                <SelectItem value="COCINERO">Cocinero</SelectItem>
+                              </SelectContent>
+                            </Select>
+                          </div>
+                          <div className="space-y-2">
+                            <Label>Teléfono</Label>
+                            <Input value={newStaff.telefono} onChange={(e) => setNewStaff({...newStaff, telefono: e.target.value})} placeholder="300 123 4567" />
+                          </div>
                         </div>
-                        <div className="space-y-2">
-                          <Label>Teléfono</Label>
-                          <Input value={newStaff.telefono} onChange={(e) => setNewStaff({...newStaff, telefono: e.target.value})} placeholder="300 123 4567" />
+
+                        <div className="space-y-4">
+                          <Label>Documento de Identidad (Foto)</Label>
+                          <div className="border-2 border-dashed border-border rounded-xl p-4 flex flex-col items-center justify-center gap-4 bg-accent/10 min-h-[200px] relative overflow-hidden group">
+                            {newStaff.fotoDocumento ? (
+                              <>
+                                <img src={newStaff.fotoDocumento} alt="Documento" className="absolute inset-0 w-full h-full object-cover" />
+                                <div className="absolute inset-0 bg-black/60 opacity-0 group-hover:opacity-100 flex items-center justify-center transition-opacity">
+                                  <Button variant="outline" size="sm" className="bg-background text-foreground" onClick={() => setNewStaff({...newStaff, fotoDocumento: ""})}>Cambiar Foto</Button>
+                                </div>
+                              </>
+                            ) : (
+                              <>
+                                <FileImage className="w-12 h-12 text-muted-foreground opacity-30" />
+                                <p className="text-xs text-muted-foreground text-center">Haz clic para cargar la foto del documento</p>
+                                <Input type="file" accept="image/*" className="absolute inset-0 opacity-0 cursor-pointer" onChange={handleFileChange} />
+                              </>
+                            )}
+                          </div>
                         </div>
                       </div>
                     </div>
@@ -269,6 +305,19 @@ export default function PersonalPage() {
                       <TableCell>
                         <div className="flex items-center gap-2 text-xs font-mono">
                           <IdCard className="w-3 h-3 text-muted-foreground" /> {u.cedula}
+                          {u.fotoDocumento && (
+                            <Dialog>
+                              <DialogTrigger asChild>
+                                <Button variant="ghost" size="icon" className="h-6 w-6 text-primary"><ImageIcon className="w-3 h-3" /></Button>
+                              </DialogTrigger>
+                              <DialogContent className="max-w-3xl bg-card border-border">
+                                <DialogHeader><DialogTitle>Documento de {u.nombre}</DialogTitle></DialogHeader>
+                                <div className="aspect-video w-full rounded-lg overflow-hidden border">
+                                  <img src={u.fotoDocumento} alt="Doc" className="w-full h-full object-contain" />
+                                </div>
+                              </DialogContent>
+                            </Dialog>
+                          )}
                         </div>
                       </TableCell>
                       <TableCell>{getRoleBadge(u.rol)}</TableCell>
@@ -388,4 +437,3 @@ export default function PersonalPage() {
     </main>
   );
 }
-
