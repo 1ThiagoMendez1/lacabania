@@ -10,13 +10,9 @@ import { ScrollArea, ScrollBar } from "@/components/ui/scroll-area";
 import { 
   Plus, 
   Minus, 
-  Trash2, 
-  Send, 
   ChevronLeft,
   Search,
   ShoppingCart,
-  Utensils,
-  X,
   CheckCircle2,
   MessageSquarePlus,
   StickyNote
@@ -50,7 +46,6 @@ import {
   DialogTitle,
   DialogFooter,
 } from "@/components/ui/dialog";
-import { Separator } from "@/components/ui/separator";
 import { Label } from "@/components/ui/label";
 
 type CartItem = {
@@ -161,12 +156,12 @@ export default function OrderPage() {
                     <p className="text-xs text-secondary font-mono">${(item.producto.precio * item.cantidad).toLocaleString()}</p>
                   </div>
                   <div className="flex items-center gap-3">
-                    <Button variant="outline" size="icon" className="h-7 w-7 rounded-full" onClick={() => removeFromCart(item.tempId)}>
-                      <Minus className="w-3 h-3" />
+                    <Button variant="outline" size="icon" className="h-8 w-8 rounded-full border-border/50" onClick={(e) => { e.stopPropagation(); removeFromCart(item.tempId); }}>
+                      <Minus className="w-3.5 h-3.5" />
                     </Button>
-                    <span className="text-sm font-bold w-4 text-center">{item.cantidad}</span>
-                    <Button variant="outline" size="icon" className="h-7 w-7 rounded-full" onClick={() => addToCart(item.producto)}>
-                      <Plus className="w-3 h-3" />
+                    <span className="text-sm font-black w-4 text-center">{item.cantidad}</span>
+                    <Button variant="outline" size="icon" className="h-8 w-8 rounded-full border-border/50" onClick={(e) => { e.stopPropagation(); addToCart(item.producto); }}>
+                      <Plus className="w-3.5 h-3.5" />
                     </Button>
                   </div>
                 </div>
@@ -176,13 +171,13 @@ export default function OrderPage() {
                     variant="ghost" 
                     size="sm" 
                     className={cn(
-                      "h-7 text-[10px] font-bold px-2 rounded-lg gap-1.5",
+                      "h-8 text-[10px] font-bold px-3 rounded-xl gap-1.5",
                       item.notas ? "bg-primary/20 text-primary border border-primary/20" : "bg-accent/50 text-muted-foreground"
                     )}
-                    onClick={() => openNoteEditor(item)}
+                    onClick={(e) => { e.stopPropagation(); openNoteEditor(item); }}
                   >
-                    <MessageSquarePlus className="w-3 h-3" />
-                    {item.notas ? "Editar Nota" : "Agregar Nota"}
+                    <MessageSquarePlus className="w-3.5 h-3.5" />
+                    {item.notas ? "Cambiar Nota" : "Petición Especial"}
                   </Button>
                   {item.notas && (
                     <div className="flex-1 truncate italic text-[10px] text-primary/80 bg-primary/5 px-2 py-1 rounded-md border border-primary/10">
@@ -195,15 +190,15 @@ export default function OrderPage() {
           </div>
         )}
       </ScrollArea>
-      <div className="pt-6 pb-12 lg:pb-0 border-t bg-background/80 backdrop-blur-sm">
+      <div className="pt-6 pb-6 lg:pb-0 border-t bg-background/80 backdrop-blur-sm">
         <div className="flex justify-between items-center mb-6">
-          <span className="text-muted-foreground font-bold uppercase tracking-wider text-xs">Total a Pagar</span>
+          <span className="text-muted-foreground font-bold uppercase tracking-wider text-[10px]">Subtotal Pedido</span>
           <span className="text-3xl font-black text-secondary">${cartTotal.toLocaleString()}</span>
         </div>
         <Button 
           disabled={cart.length === 0} 
           onClick={() => setShowConfirmDialog(true)} 
-          className="w-full h-16 text-lg font-bold rounded-2xl shadow-xl hover:glow-orange transition-all bg-primary hover:bg-primary/90"
+          className="w-full h-14 md:h-16 text-lg font-bold rounded-2xl shadow-xl hover:glow-orange transition-all bg-primary active:scale-95"
         >
           ENVIAR A COCINA
         </Button>
@@ -214,37 +209,37 @@ export default function OrderPage() {
   return (
     <main className="flex flex-col h-svh bg-background">
       {/* Header */}
-      <header className="p-4 md:p-6 flex justify-between items-center border-b bg-card/50 backdrop-blur-md sticky top-0 z-20">
-        <div className="flex items-center gap-3 md:gap-4">
-          <Button variant="ghost" size="icon" onClick={() => router.back()} className="rounded-full">
+      <header className="p-3 md:p-6 flex justify-between items-center border-b bg-card/50 backdrop-blur-md sticky top-0 z-20">
+        <div className="flex items-center gap-2 md:gap-4">
+          <Button variant="ghost" size="icon" onClick={() => router.back()} className="rounded-full active:scale-90">
             <ChevronLeft className="w-6 h-6" />
           </Button>
           <div>
             <h2 className="text-xl md:text-3xl font-headline">Mesa {mesa.id}</h2>
-            <p className="text-[10px] text-muted-foreground uppercase tracking-widest">{mesa.zona}</p>
+            <p className="text-[9px] text-muted-foreground uppercase tracking-widest">{mesa.zona}</p>
           </div>
         </div>
         
         <div className="lg:hidden">
           <Sheet>
             <SheetTrigger asChild>
-              <Button variant="secondary" className="relative gap-2 font-bold h-10 px-4 rounded-full bg-accent/50 border-secondary/30">
+              <Button variant="secondary" className="relative gap-2 font-bold h-10 px-4 rounded-full bg-accent/50 border-secondary/30 active:scale-95">
                 <ShoppingCart className="w-4 h-4 text-secondary" />
                 {cartItemsCount > 0 && (
-                  <Badge className="absolute -top-2 -right-2 h-5 w-5 flex items-center justify-center p-0 bg-primary border-2 border-background animate-in zoom-in">
+                  <Badge className="absolute -top-1.5 -right-1.5 h-5 w-5 flex items-center justify-center p-0 bg-primary border-2 border-background animate-in zoom-in text-[10px] font-black">
                     {cartItemsCount}
                   </Badge>
                 )}
                 <span className="hidden sm:inline">Comanda</span>
               </Button>
             </SheetTrigger>
-            <SheetContent side="bottom" className="h-[85vh] rounded-t-[3rem] border-t-4 border-t-primary paper-texture p-6 pt-8">
-              <SheetHeader className="mb-6">
+            <SheetContent side="bottom" className="h-[90vh] rounded-t-[3rem] border-t-4 border-t-primary paper-texture p-6 pt-8">
+              <SheetHeader className="mb-4">
                 <SheetTitle className="text-2xl font-headline flex items-center gap-2">
                   <div className="p-2 bg-primary/10 rounded-lg">
                     <ShoppingCart className="w-6 h-6 text-primary" />
                   </div>
-                  Tu Pedido
+                  Pedido Actual
                 </SheetTitle>
               </SheetHeader>
               <CartSummary />
@@ -255,20 +250,20 @@ export default function OrderPage() {
 
       <div className="flex-1 flex flex-col lg:flex-row gap-0 lg:gap-8 p-0 lg:p-8 overflow-hidden">
         {/* Menu Section */}
-        <div className="flex-1 flex flex-col gap-4 p-4 lg:p-0 overflow-hidden">
-          <div className="space-y-4">
+        <div className="flex-1 flex flex-col gap-3 p-3 lg:p-0 overflow-hidden">
+          <div className="space-y-3">
             <div className="relative group">
-              <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground group-focus-within:text-primary transition-colors" />
+              <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
               <Input 
-                placeholder="¿Qué desea el cliente?..." 
-                className="pl-10 h-12 bg-card/50 border-border focus-visible:ring-primary rounded-xl" 
+                placeholder="Buscar plato o bebida..." 
+                className="pl-10 h-11 bg-card/50 border-border focus-visible:ring-primary rounded-xl text-sm" 
                 value={searchTerm} 
                 onChange={(e) => setSearchTerm(e.target.value)} 
               />
             </div>
             
             <ScrollArea className="w-full">
-              <div className="flex gap-2 pb-2">
+              <div className="flex gap-2 pb-1.5">
                 {categories.map(cat => (
                   <Button 
                     key={cat} 
@@ -276,7 +271,7 @@ export default function OrderPage() {
                     size="sm" 
                     onClick={() => setSelectedCategory(cat)}
                     className={cn(
-                      "rounded-full px-4 h-8 transition-all",
+                      "rounded-full px-4 h-8 transition-all active:scale-95 text-xs font-bold",
                       selectedCategory === cat ? "shadow-md glow-orange" : "bg-card/30"
                     )}
                   >
@@ -288,28 +283,28 @@ export default function OrderPage() {
             </ScrollArea>
           </div>
 
-          <ScrollArea className="flex-1 -mx-4 px-4 lg:-mx-2 lg:px-2">
-            <div className="grid grid-cols-2 sm:grid-cols-2 md:grid-cols-3 xl:grid-cols-4 gap-3 md:gap-4 py-2">
+          <ScrollArea className="flex-1 -mx-3 px-3 lg:-mx-2 lg:px-2">
+            <div className="grid grid-cols-2 sm:grid-cols-3 xl:grid-cols-4 gap-3 md:gap-4 py-2">
               {filteredProducts.map(p => (
                 <Card 
                   key={p.id} 
-                  className="bg-card/40 border-border/50 cursor-pointer hover:border-primary/50 hover:bg-accent/20 transition-all active:scale-95 flex flex-col group overflow-hidden"
+                  className="bg-card/40 border-border/50 active:scale-95 transition-all flex flex-col group overflow-hidden touch-manipulation"
                   onClick={() => addToCart(p)}
                 >
-                  <CardContent className="p-3 md:p-5 flex flex-col justify-between h-full relative">
+                  <CardContent className="p-3 md:p-5 flex flex-col justify-between h-full min-h-[140px] relative">
                     <div className="mb-2">
-                      <Badge variant="outline" className="text-[8px] md:text-[9px] mb-2 font-mono uppercase tracking-tighter opacity-70">
+                      <Badge variant="outline" className="text-[7px] md:text-[9px] mb-2 font-mono uppercase tracking-tighter opacity-60">
                         {p.categoria}
                       </Badge>
-                      <h4 className="font-bold text-sm md:text-base leading-tight group-hover:text-primary transition-colors">
+                      <h4 className="font-bold text-xs md:text-base leading-tight group-active:text-primary transition-colors line-clamp-2">
                         {p.nombre}
                       </h4>
                     </div>
-                    <div className="flex justify-between items-end mt-4">
-                      <span className="text-base md:text-xl font-black text-secondary">
+                    <div className="flex justify-between items-end mt-2">
+                      <span className="text-sm md:text-xl font-black text-secondary">
                         ${p.precio.toLocaleString()}
                       </span>
-                      <div className="p-1 bg-primary/10 rounded-lg group-hover:bg-primary group-hover:text-white transition-all">
+                      <div className="p-1.5 bg-primary/10 rounded-xl group-active:bg-primary group-active:text-white transition-all shadow-inner">
                         <Plus className="w-4 h-4" />
                       </div>
                     </div>
@@ -317,8 +312,8 @@ export default function OrderPage() {
                 </Card>
               ))}
               {filteredProducts.length === 0 && (
-                <div className="col-span-full py-20 text-center opacity-30 italic">
-                  No encontramos nada con ese nombre... 🤠
+                <div className="col-span-full py-20 text-center opacity-30 italic text-sm">
+                  Sin resultados para esta búsqueda 🤠
                 </div>
               )}
             </div>
@@ -341,45 +336,49 @@ export default function OrderPage() {
 
       {/* Confirmation Dialog */}
       <AlertDialog open={showConfirmDialog} onOpenChange={setShowConfirmDialog}>
-        <AlertDialogContent className="max-w-md bg-card border-border paper-texture">
+        <AlertDialogContent className="max-w-[90vw] md:max-w-md bg-card border-border paper-texture rounded-[2rem]">
           <AlertDialogHeader>
-            <AlertDialogTitle className="text-2xl font-headline flex items-center gap-2">
+            <AlertDialogTitle className="text-xl md:text-2xl font-headline flex items-center gap-2">
               <CheckCircle2 className="w-6 h-6 text-green-500" />
-              Verificar Comanda
+              Validar Comanda
             </AlertDialogTitle>
-            <AlertDialogDescription className="text-foreground">
-              Por favor, confirma el pedido de la <strong>Mesa {mesaId}</strong> con el cliente antes de enviarlo a cocina.
+            <AlertDialogDescription className="text-foreground text-sm">
+              Verifica los platos y las peticiones especiales con el cliente de la <strong>Mesa {mesaId}</strong>.
             </AlertDialogDescription>
           </AlertDialogHeader>
           
-          <div className="my-4 space-y-4 max-h-[40vh] overflow-auto pr-2">
+          <div className="my-4 space-y-3 max-h-[40vh] overflow-auto pr-2 border-y border-border/30 py-4">
             {cart.map(item => (
-              <div key={item.tempId} className="flex flex-col gap-1 border-b border-border/30 pb-2">
-                <div className="flex justify-between items-center text-sm">
-                  <span className="font-medium text-muted-foreground">{item.cantidad}x <span className="text-foreground">{item.producto.nombre}</span></span>
-                  <span className="font-bold">${(item.producto.precio * item.cantidad).toLocaleString()}</span>
+              <div key={item.tempId} className="flex flex-col gap-1.5">
+                <div className="flex justify-between items-center text-xs md:text-sm">
+                  <span className="font-bold flex gap-2">
+                    <span className="text-primary">{item.cantidad}x</span> 
+                    <span>{item.producto.nombre}</span>
+                  </span>
+                  <span className="font-bold text-secondary">${(item.producto.precio * item.cantidad).toLocaleString()}</span>
                 </div>
                 {item.notas && (
-                  <p className="text-[10px] text-primary bg-primary/5 px-2 py-1 rounded-md italic">
-                    <StickyNote className="w-3 h-3 inline mr-1 mb-0.5" />
-                    "{item.notas}"
-                  </p>
+                  <div className="text-[10px] text-primary bg-primary/5 px-2.5 py-1.5 rounded-xl border border-primary/10 italic flex gap-2">
+                    <StickyNote className="w-3 h-3 shrink-0 mt-0.5" />
+                    <span>"{item.notas}"</span>
+                  </div>
                 )}
               </div>
             ))}
-            <div className="flex justify-between items-center pt-2">
-              <span className="text-lg font-headline">TOTAL</span>
-              <span className="text-2xl font-black text-secondary">${cartTotal.toLocaleString()}</span>
-            </div>
           </div>
 
-          <AlertDialogFooter className="gap-2 sm:gap-0">
-            <AlertDialogCancel className="rounded-xl border-border">Volver</AlertDialogCancel>
+          <div className="flex justify-between items-center mb-6 px-1">
+            <span className="text-sm font-headline uppercase tracking-widest text-muted-foreground">Total Final</span>
+            <span className="text-2xl font-black text-secondary">${cartTotal.toLocaleString()}</span>
+          </div>
+
+          <AlertDialogFooter className="gap-2 sm:gap-3">
+            <AlertDialogCancel className="rounded-xl border-border h-12">Corregir</AlertDialogCancel>
             <AlertDialogAction 
               onClick={handleSendOrder}
-              className="rounded-xl bg-primary hover:bg-primary/90 font-bold px-8 shadow-lg glow-orange"
+              className="rounded-xl bg-primary hover:bg-primary/90 font-bold px-8 shadow-lg glow-orange h-12"
             >
-              CONFIRMAR Y ENVIAR
+              CONFIRMAR PEDIDO
             </AlertDialogAction>
           </AlertDialogFooter>
         </AlertDialogContent>
@@ -387,29 +386,30 @@ export default function OrderPage() {
 
       {/* Note Editor Dialog */}
       <Dialog open={!!noteEditingItem} onOpenChange={(open) => !open && setNoteEditingItem(null)}>
-        <DialogContent className="bg-card border-border paper-texture">
+        <DialogContent className="max-w-[90vw] bg-card border-border paper-texture rounded-[2rem]">
           <DialogHeader>
-            <DialogTitle className="text-xl font-headline">Observaciones Especiales</DialogTitle>
+            <DialogTitle className="text-lg md:text-xl font-headline">Nota para Cocina</DialogTitle>
           </DialogHeader>
           <div className="space-y-4 py-4">
-            <div className="space-y-2">
-              <Label className="text-xs uppercase font-bold text-muted-foreground">Producto</Label>
-              <p className="font-bold text-lg">{noteEditingItem?.producto.nombre}</p>
+            <div className="space-y-1">
+              <Label className="text-[10px] uppercase font-black text-primary tracking-widest">Producto seleccionado</Label>
+              <p className="font-black text-lg">{noteEditingItem?.producto.nombre}</p>
             </div>
             <div className="space-y-2">
-              <Label htmlFor="item-notes">Instrucciones de preparación</Label>
+              <Label htmlFor="item-notes" className="text-xs font-bold">Instrucciones del cliente</Label>
               <Textarea 
                 id="item-notes" 
                 placeholder="Ej: Término medio, sin cebolla, salsa aparte..." 
-                className="h-32 bg-background border-border"
+                className="h-28 bg-background border-border rounded-xl focus-visible:ring-primary text-sm"
                 value={tempNote}
                 onChange={(e) => setTempNote(e.target.value)}
+                autoFocus
               />
             </div>
           </div>
-          <DialogFooter>
-            <Button variant="ghost" onClick={() => setNoteEditingItem(null)}>Cancelar</Button>
-            <Button className="bg-primary font-bold px-8" onClick={saveNote}>GUARDAR NOTA</Button>
+          <DialogFooter className="gap-2">
+            <Button variant="ghost" className="rounded-xl" onClick={() => setNoteEditingItem(null)}>Cerrar</Button>
+            <Button className="bg-primary font-bold px-8 rounded-xl h-12 active:scale-95" onClick={saveNote}>LISTO</Button>
           </DialogFooter>
         </DialogContent>
       </Dialog>
@@ -419,20 +419,20 @@ export default function OrderPage() {
         {cartItemsCount > 0 && (
           <Sheet>
             <SheetTrigger asChild>
-              <Button size="icon" className="h-16 w-16 rounded-full shadow-2xl glow-orange animate-in zoom-in duration-300 bg-primary text-white hover:bg-primary/90">
+              <Button size="icon" className="h-16 w-16 rounded-full shadow-2xl shadow-primary/40 glow-orange animate-in zoom-in duration-300 bg-primary text-white hover:bg-primary/90 active:scale-90 border-4 border-background">
                 <ShoppingCart className="w-7 h-7" />
-                <Badge className="absolute -top-1 -right-1 h-7 w-7 flex items-center justify-center p-0 bg-secondary text-secondary-foreground border-4 border-background text-xs font-bold">
+                <Badge className="absolute -top-1 -right-1 h-7 w-7 flex items-center justify-center p-0 bg-secondary text-secondary-foreground border-4 border-background text-[11px] font-black shadow-lg">
                   {cartItemsCount}
                 </Badge>
               </Button>
             </SheetTrigger>
-            <SheetContent side="bottom" className="h-[85vh] rounded-t-[3rem] border-t-4 border-t-primary paper-texture p-6 pt-8">
+            <SheetContent side="bottom" className="h-[90vh] rounded-t-[3.5rem] border-t-4 border-t-primary paper-texture p-6 pt-10">
               <SheetHeader className="mb-6">
-                <SheetTitle className="text-2xl font-headline flex items-center gap-2">
-                  <div className="p-2 bg-primary/10 rounded-lg">
+                <SheetTitle className="text-2xl font-headline flex items-center gap-3">
+                  <div className="p-2.5 bg-primary/10 rounded-2xl">
                     <ShoppingCart className="w-6 h-6 text-primary" />
                   </div>
-                  Tu Pedido
+                  Resumen de Pedido
                 </SheetTitle>
               </SheetHeader>
               <CartSummary />

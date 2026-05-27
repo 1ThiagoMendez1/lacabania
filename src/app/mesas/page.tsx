@@ -123,19 +123,19 @@ export default function MesasPage() {
   const mesasPlanta2 = mesas.filter(m => m.zona === 'Segundo Piso');
 
   return (
-    <main className="p-8">
-      <header className="flex justify-between items-end mb-8">
+    <main className="p-4 md:p-8">
+      <header className="flex flex-col sm:flex-row justify-between items-start sm:items-end mb-8 gap-4">
         <div>
-          <h2 className="text-3xl font-headline text-foreground">Mapa de Mesas</h2>
-          <p className="text-muted-foreground">Selecciona una mesa para gestionar pedidos</p>
+          <h2 className="text-2xl md:text-3xl font-headline text-foreground">Mapa de Mesas</h2>
+          <p className="text-sm text-muted-foreground">Selecciona una mesa para gestionar pedidos</p>
         </div>
         
-        <div className="flex gap-4">
+        {user?.rol === 'ADMINISTRADOR' && (
           <Dialog open={isAddMesaOpen} onOpenChange={handleAddMesaDialogOpenChange}>
             <DialogTrigger asChild>
-              <Button className="bg-secondary text-secondary-foreground hover:glow-gold font-bold gap-2">
+              <Button className="w-full sm:w-auto bg-secondary text-secondary-foreground hover:glow-gold font-bold gap-2 rounded-xl">
                 <PlusCircle className="w-5 h-5" />
-                Agregar Nueva Mesa
+                Nueva Mesa
               </Button>
             </DialogTrigger>
             <DialogContent className="bg-card border-border text-foreground">
@@ -170,23 +170,23 @@ export default function MesasPage() {
               </DialogFooter>
             </DialogContent>
           </Dialog>
-        </div>
+        )}
       </header>
 
       <Tabs defaultValue="piso1" className="w-full">
-        <TabsList className="bg-accent/30 border border-border p-1 h-12 mb-6">
-          <TabsTrigger value="piso1" className="data-[state=active]:bg-primary data-[state=active]:text-white gap-2 px-6">
+        <TabsList className="bg-accent/30 border border-border p-1 h-12 mb-6 w-full sm:w-auto overflow-x-auto overflow-y-hidden">
+          <TabsTrigger value="piso1" className="flex-1 sm:flex-none data-[state=active]:bg-primary data-[state=active]:text-white gap-2 px-6">
             <Layers className="w-4 h-4" />
-            Primer Piso
+            1er Piso
           </TabsTrigger>
-          <TabsTrigger value="piso2" className="data-[state=active]:bg-secondary data-[state=active]:text-secondary-foreground gap-2 px-6">
+          <TabsTrigger value="piso2" className="flex-1 sm:flex-none data-[state=active]:bg-secondary data-[state=active]:text-secondary-foreground gap-2 px-6">
             <Layers className="w-4 h-4" />
-            Segundo Piso
+            2do Piso
           </TabsTrigger>
         </TabsList>
 
         <TabsContent value="piso1">
-          <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-5 gap-6">
+          <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-5 gap-4 md:gap-6">
             {mesasPlanta1.map((mesa) => (
               <MesaCard 
                 key={mesa.id} 
@@ -203,7 +203,7 @@ export default function MesasPage() {
         </TabsContent>
 
         <TabsContent value="piso2">
-          <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-5 gap-6">
+          <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-5 gap-4 md:gap-6">
             {mesasPlanta2.map((mesa) => (
               <MesaCard 
                 key={mesa.id} 
@@ -242,7 +242,7 @@ export default function MesasPage() {
                   </div>
                   <div className="flex gap-2 pt-4">
                     <Button variant="ghost" className="flex-1" onClick={() => setIsEditMode(false)}>Cancelar</Button>
-                    <Button className="bg-primary flex-1 font-bold" onClick={handleSaveEdit}>GUARDAR CAMBIOS</Button>
+                    <Button className="bg-primary flex-1 font-bold" onClick={handleSaveEdit}>GUARDAR</Button>
                   </div>
               </div>
           </DialogContent>
@@ -281,97 +281,98 @@ function MesaCard({ mesa, onOpenMesa, onVerPedido, onStartEdit, onToggleFueraSer
           <DialogTrigger asChild>
             <button
               className={cn(
-                "relative group h-40 rounded-3xl border-2 transition-all duration-500 p-5 flex flex-col items-center justify-between wood-texture overflow-hidden",
+                "relative group h-32 md:h-40 rounded-3xl border-2 transition-all duration-500 p-4 md:p-5 flex flex-col items-center justify-between wood-texture overflow-hidden active:scale-95",
                 getStatusColor(mesa.estado),
-                delayLevel === 'critical' ? "ring-2 ring-red-500 ring-offset-2 ring-offset-background animate-pulse" : 
+                delayLevel === 'critical' ? "ring-2 ring-red-500 ring-offset-2 ring-offset-background animate-pulse shadow-[0_0_15px_rgba(239,68,68,0.4)]" : 
                 delayLevel === 'warning' ? "ring-2 ring-yellow-500/50 ring-offset-1 ring-offset-background" : 
-                "hover:scale-[1.02] shadow-lg hover:shadow-xl"
+                "hover:scale-[1.02] shadow-lg"
               )}
             >
               <div className="absolute top-0 right-0 p-3 opacity-10">
-                {mesa.estado === 'FUERA SERVICIO' ? <Ban className="w-14 h-14" /> : <UtensilsCrossed className="w-14 h-14" />}
+                {mesa.estado === 'FUERA SERVICIO' ? <Ban className="w-10 h-10 md:w-14 md:h-14" /> : <UtensilsCrossed className="w-10 h-10 md:w-14 md:h-14" />}
               </div>
               
               <div className="w-full flex justify-between items-start z-10">
-                <span className="text-[9px] font-mono font-black px-2.5 py-1 rounded-lg bg-background/40 backdrop-blur-sm border border-current/20">
-                  {mesa.zona}
+                <span className="text-[8px] md:text-[9px] font-mono font-black px-2 py-0.5 md:px-2.5 md:py-1 rounded-lg bg-background/40 backdrop-blur-sm border border-current/20">
+                  {mesa.zona === 'Primer Piso' ? '1er' : '2do'}
                 </span>
                 {delayLevel !== 'none' && (
                   <div className="flex items-center">
                     <div className={cn(
-                      "w-2.5 h-2.5 rounded-full animate-ping absolute",
+                      "w-2 md:w-2.5 h-2 md:h-2.5 rounded-full animate-ping absolute",
                       delayLevel === 'critical' ? "bg-red-500" : "bg-yellow-500"
                     )} />
                     <div className={cn(
-                      "w-2.5 h-2.5 rounded-full relative",
+                      "w-2 md:w-2.5 h-2 md:h-2.5 rounded-full relative",
                       delayLevel === 'critical' ? "bg-red-500" : "bg-yellow-500"
                     )} />
                   </div>
                 )}
               </div>
 
-              <div className="flex flex-col items-center gap-1 z-10">
-                <span className="text-6xl font-headline font-black tracking-tighter">{mesa.id}</span>
-                <div className="flex items-center gap-1.5 opacity-60">
-                  <Users className="w-3.5 h-3.5" />
-                  <span className="text-[10px] font-bold uppercase tracking-widest">{mesa.capacidad} PERS</span>
+              <div className="flex flex-col items-center gap-0 md:gap-1 z-10">
+                <span className="text-4xl md:text-6xl font-headline font-black tracking-tighter">{mesa.id}</span>
+                <div className="flex items-center gap-1 opacity-60">
+                  <Users className="w-3 h-3 md:w-3.5 md:h-3.5" />
+                  <span className="text-[9px] md:text-[10px] font-bold uppercase tracking-widest">{mesa.capacidad} P</span>
                 </div>
               </div>
 
               <div className="w-full flex justify-center z-10">
-                 <Badge variant="outline" className="text-[8px] font-black uppercase tracking-[0.2em] bg-background/20 py-0 px-2 border-current/20">
+                 <Badge variant="outline" className="text-[7px] md:text-[8px] font-black uppercase tracking-[0.1em] md:tracking-[0.2em] bg-background/20 py-0 px-2 border-current/20">
                    {mesa.estado}
                  </Badge>
               </div>
             </button>
           </DialogTrigger>
-          <DialogContent className="bg-card border-border text-foreground paper-texture">
+          <DialogContent className="bg-card border-border text-foreground paper-texture max-w-[90vw] rounded-[2rem]">
             <DialogHeader>
-              <DialogTitle className="text-2xl font-headline">Gestionar Mesa {mesa.id}</DialogTitle>
+              <DialogTitle className="text-xl md:text-2xl font-headline">Mesa {mesa.id}</DialogTitle>
             </DialogHeader>
-            <div className="py-6 space-y-6">
-                <div className="grid grid-cols-2 gap-4">
-                  <div className="bg-accent/30 p-4 rounded-xl border border-border">
-                    <p className="text-xs text-muted-foreground mb-1 uppercase tracking-tighter">Zona</p>
-                    <p className="font-bold text-lg">{mesa.zona}</p>
+            <div className="py-4 space-y-4">
+                <div className="grid grid-cols-2 gap-3">
+                  <div className="bg-accent/30 p-3 md:p-4 rounded-xl border border-border">
+                    <p className="text-[10px] text-muted-foreground mb-0.5 uppercase tracking-tighter">Zona</p>
+                    <p className="font-bold text-sm md:text-lg">{mesa.zona}</p>
                   </div>
-                  <div className="bg-accent/30 p-4 rounded-xl border border-border">
-                    <p className="text-xs text-muted-foreground mb-1 uppercase tracking-tighter">Estado</p>
-                    <p className={cn("font-bold text-lg", mesa.estado === 'FUERA SERVICIO' ? 'text-slate-500' : 'text-secondary')}>{mesa.estado}</p>
+                  <div className="bg-accent/30 p-3 md:p-4 rounded-xl border border-border">
+                    <p className="text-[10px] text-muted-foreground mb-0.5 uppercase tracking-tighter">Estado</p>
+                    <p className={cn("font-bold text-sm md:text-lg", mesa.estado === 'FUERA SERVICIO' ? 'text-slate-500' : 'text-secondary')}>{mesa.estado}</p>
                   </div>
                 </div>
 
                 {delayLevel !== 'none' && (
                   <div className={cn(
-                    "p-4 rounded-xl border-2 flex items-center gap-3 animate-in fade-in slide-in-from-top-2",
+                    "p-3 md:p-4 rounded-xl border-2 flex items-center gap-3",
                     delayLevel === 'critical' ? "bg-red-500/10 border-red-500/30 text-red-500" : "bg-yellow-500/10 border-yellow-500/30 text-yellow-500"
                   )}>
-                    <AlertCircle className="w-5 h-5" />
-                    <div className="flex-1">
-                      <p className="text-sm font-black uppercase tracking-tight">Atención: Tiempo Excedido</p>
-                      <p className="text-[10px] font-medium opacity-80">El pedido de esta mesa requiere validación prioritaria.</p>
+                    <AlertCircle className="w-5 h-5 shrink-0" />
+                    <div>
+                      <p className="text-xs md:text-sm font-black uppercase">¡Atención: Tiempo Excedido!</p>
+                      <p className="text-[9px] md:text-[10px] opacity-80">Validar prioridad con cocina urgentemente.</p>
                     </div>
                   </div>
                 )}
 
-                <div className="space-y-3">
+                <div className="space-y-3 pt-2">
                   {mesa.estado === 'LIBRE' ? (
-                    <Button className="w-full h-16 text-lg bg-primary hover:glow-orange font-bold rounded-xl" onClick={() => onOpenMesa(mesa.id)}>ABRIR MESA</Button>
+                    <Button className="w-full h-14 md:h-16 text-lg bg-primary hover:glow-orange font-bold rounded-xl" onClick={() => onOpenMesa(mesa.id)}>ABRIR MESA</Button>
                   ) : mesa.estado === 'FUERA SERVICIO' ? (
                     <div className="bg-destructive/10 border border-destructive/20 p-4 rounded-xl text-center">
-                       <Ban className="w-8 h-8 text-destructive mx-auto mb-2" />
-                       <p className="text-sm font-bold text-destructive">Mesa Inhabilitada</p>
+                       <Ban className="w-6 h-6 text-destructive mx-auto mb-2" />
+                       <p className="text-xs font-bold text-destructive">Mesa Inhabilitada</p>
                     </div>
                   ) : (
-                    <Button className="w-full h-14 bg-secondary text-secondary-foreground hover:glow-gold font-bold text-lg" onClick={() => onVerPedido(mesa.id)}>VER PEDIDO</Button>
+                    <Button className="w-full h-14 bg-secondary text-secondary-foreground hover:glow-gold font-bold text-lg rounded-xl" onClick={() => onVerPedido(mesa.id)}>VER PEDIDO</Button>
                   )}
+                  
                   <div className="grid grid-cols-2 gap-2">
-                    <Button variant="outline" className="border-border text-muted-foreground hover:text-foreground gap-2" onClick={() => onStartEdit(mesa)}>
+                    <Button variant="outline" className="h-12 border-border text-muted-foreground hover:text-foreground gap-2 rounded-xl" onClick={() => onStartEdit(mesa)}>
                       <Edit className="w-4 h-4" /> Editar
                     </Button>
-                    <Button variant="outline" className={cn("gap-2", mesa.estado === 'FUERA SERVICIO' ? "border-green-500 text-green-500" : "border-slate-500 text-slate-500")} onClick={() => onToggleFueraServicio(mesa)} disabled={mesa.estado !== 'LIBRE' && mesa.estado !== 'FUERA SERVICIO'}>
+                    <Button variant="outline" className={cn("h-12 gap-2 rounded-xl", mesa.estado === 'FUERA SERVICIO' ? "border-green-500 text-green-500" : "border-slate-500 text-slate-500")} onClick={() => onToggleFueraServicio(mesa)} disabled={mesa.estado !== 'LIBRE' && mesa.estado !== 'FUERA SERVICIO'}>
                       {mesa.estado === 'FUERA SERVICIO' ? <CheckCircle className="w-4 h-4" /> : <Ban className="w-4 h-4" />}
-                      {mesa.estado === 'FUERA SERVICIO' ? "Habilitar" : "Inhabilitar"}
+                      {mesa.estado === 'FUERA SERVICIO' ? "Habilitar" : "Bloquear"}
                     </Button>
                   </div>
                 </div>
