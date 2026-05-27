@@ -49,7 +49,7 @@ export const ALL_MENU_ITEMS = [
 export function AppSidebar() {
   const pathname = usePathname();
   const { user, logout, productos, permisos } = usePOSStore();
-  const { state, isMobile } = useSidebar();
+  const { state, isMobile, setOpenMobile } = useSidebar();
   const router = useRouter();
 
   if (!user) return null;
@@ -63,6 +63,12 @@ export function AppSidebar() {
   const handleLogout = () => {
     logout();
     router.push("/login");
+  };
+
+  const handleItemClick = () => {
+    if (isMobile) {
+      setOpenMobile(false);
+    }
   };
 
   return (
@@ -106,6 +112,7 @@ export function AppSidebar() {
                       asChild
                       isActive={isActive}
                       tooltip={item.label}
+                      onClick={handleItemClick}
                       className={cn(
                         "h-12 md:h-11 rounded-xl transition-all duration-200 hover:bg-sidebar-accent group flex items-center",
                         isActive && "bg-primary text-primary-foreground shadow-lg glow-orange hover:bg-primary/90",
