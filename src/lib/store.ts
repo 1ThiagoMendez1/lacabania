@@ -42,6 +42,9 @@ const initialPermisos: Record<Rol, string[]> = {
   COCINERO: ["Asado", "Parrilla", "Cocina"],
 };
 
+// Generar una fecha de hace 70 minutos para la prueba de retraso
+const delayedTime = new Date(Date.now() - 70 * 60 * 1000).toISOString();
+
 const initialOrdenes: Orden[] = [
   {
     id: 'ORD-PROMO-1',
@@ -73,6 +76,27 @@ const initialOrdenes: Orden[] = [
         createdAt: new Date().toISOString()
       }
     ]
+  },
+  {
+    id: 'ORD-TEST-DELAY',
+    mesaId: 10,
+    meseroId: '2',
+    estado: 'ABIERTA',
+    createdAt: delayedTime,
+    updatedAt: delayedTime,
+    items: [
+      {
+        id: 'item-delayed-1',
+        productoId: 'p1',
+        nombre: 'Picaña Mediana',
+        cantidad: 1,
+        precioUnitario: 85000,
+        estacion: 'ASADO',
+        estado: 'PENDIENTE',
+        createdAt: delayedTime,
+        notas: 'Término Azul, urgente'
+      }
+    ]
   }
 ];
 
@@ -86,7 +110,7 @@ export const usePOSStore = create<POSState>((set, get) => ({
       numero: i + 1,
       zona: 'Primer Piso' as const,
       capacidad: 4,
-      estado: i === 4 ? 'EN PEDIDO' : 'LIBRE' as any,
+      estado: (i === 4 || i === 9) ? 'EN PEDIDO' : 'LIBRE' as any,
     })),
     ...Array.from({ length: 5 }, (_, i) => ({
       id: 20 + i + 1,
