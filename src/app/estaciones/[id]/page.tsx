@@ -6,20 +6,58 @@ import { useParams } from "next/navigation";
 import { Card, CardContent, CardHeader } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
-import { Clock, Flame, Utensils, Beer, ChefHat, AlertCircle } from "lucide-react";
+import { Clock, Flame, Utensils, Beer, ChefHat, AlertCircle, User, Timer } from "lucide-react";
 import { cn } from "@/lib/utils";
-import { Estacion } from "@/lib/types";
+import { Estacion, EstadoComanda } from "@/lib/types";
+import { useState, useEffect } from "react";
+
+// Componente para manejar el tiempo transcurrido y evitar errores de hidratación
+function TimeElapsed({ createdAt }: { createdAt: string }) {
+  const [elapsed, setElapsed] = useState<number>(0);
+
+  useEffect(() => {
+    const calculate = () => {
+      const start = new Date(createdAt).getTime();
+      const now = new Date().getTime();
+      setElapsed(Math.floor((now - start) / 1000 / 60)); // en minutos
+    };
+    
+    calculate();
+    const interval = setInterval(calculate, 30000); // Actualizar cada 30 seg
+    return () => clearInterval(interval);
+  }, [createdAt]);
+
+  const isOverdue = elapsed >= 20;
+  const isWarning = elapsed >= 10 && elapsed < 20;
+
+  return (
+    <div className={cn(
+      "flex items-center gap-1.5 px-3 py-1 rounded-full font-mono text-xs font-bold transition-colors",
+      isOverdue ? "bg-destructive text-destructive-foreground animate-pulse" : 
+      isWarning ? "bg-yellow-500 text-black" : 
+      "bg-secondary/20 text-secondary"
+    )}>
+      <Timer className="w-3.5 h-3.5" />
+      <span>{elapsed} MIN</span>
+    </div>
+  );
+}
 
 export default function StationPage() {
   const { id } = useParams();
   const stationId = (id as string).toUpperCase() as Estacion;
-  const { ordenes, updateItemEstado } = usePOSStore();
+  const { ordenes, usuarios, updateItemEstado } = usePOSStore();
 
   const ordersWithItems = ordenes
     .filter(o => o.estado === 'ABIERTA')
     .map(o => ({
       ...o,
-      items: o.items.filter(item => item.estacion === stationId && item.estado !== 'ENTREGADO')
+      meseroNombre: usuarios.find(u => u.id === o.meseroId)?.nombre || 'Sistema',
+      items: o.items.filter(item => 
+        item.estacion === stationId && 
+        item.estado !== 'LISTO' && 
+        item.estado !== 'ENTREGADO'
+      )
     }))
     .filter(o => o.items.length > 0);
 
@@ -33,10 +71,10 @@ export default function StationPage() {
     }
   };
 
-  const handleAction = (orderId: string, itemId: string, currentEstado: string) => {
-    let nextEstado: any = 'EN PREPARACION';
+  const handleAction = (orderId: string, itemId: string, currentEstado: EstadoComanda) => {
+    let nextEstado: EstadoComanda = 'EN PREPARACION';
     if (currentEstado === 'EN PREPARACION') nextEstado = 'LISTO';
-    if (currentEstado === 'LISTO') nextEstado = 'ENTREGADO';
+    // Se elimina el paso de "ENTREGADO" ya que eso lo hace el mesero
     updateItemEstado(orderId, itemId, nextEstado);
   };
 
@@ -64,27 +102,48 @@ export default function StationPage() {
           <p className="text-xl font-headline italic">Sin comandas para {stationId.toLowerCase()}...</p>
         </div>
       ) : (
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6">
           {ordersWithItems.map((order) => (
-            <Card key={order.id} className="bg-card border-t-4 border-t-primary paper-texture overflow-hidden">
-              <CardHeader className="bg-accent/20 border-b py-4">
+            <Card key={order.id} className="bg-card border-t-4 border-t-primary paper-texture overflow-hidden flex flex-col">
+              <CardHeader className="bg-accent/20 border-b py-4 space-y-3">
                 <div className="flex justify-between items-center">
                   <span className="text-2xl font-black font-headline">MESA {order.mesaId}</span>
-                  <div className="flex items-center gap-1 text-xs text-secondary font-bold">
-                    <Clock className="w-3 h-3" />
-                    <span>{new Date(order.createdAt).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}</span>
+                  <TimeElapsed createdAt={order.createdAt} />
+                </div>
+                
+                <div className="flex flex-col gap-2">
+                  <div className="flex items-center gap-2 text-xs text-muted-foreground">
+                    <User className="w-3.5 h-3.5 text-secondary" />
+                    <span className="font-bold uppercase tracking-tighter">{order.meseroNombre}</span>
+                  </div>
+                  <div className="flex items-center gap-2 text-xs text-muted-foreground">
+                    <Clock className="w-3.5 h-3.5" />
+                    <span>Pedido a las: {new Date(order.createdAt).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}</span>
                   </div>
                 </div>
               </CardHeader>
-              <CardContent className="p-5 space-y-4">
+              
+              <CardContent className="p-5 space-y-4 flex-1">
                 {order.items.map((item) => (
                   <div key={item.id} className="pb-4 border-b border-border/30 last:border-0 last:pb-0">
-                    <div className="flex justify-between mb-2">
-                      <span className="font-bold">{item.cantidad}x {item.nombre}</span>
-                      <Badge variant="outline" className="text-[9px]">{item.estado}</Badge>
+                    <div className="flex justify-between items-start mb-3">
+                      <div>
+                        <span className="text-lg font-bold block">{item.cantidad}x {item.nombre}</span>
+                        {item.notas && <p className="text-xs text-primary italic mt-1">"{item.notas}"</p>}
+                      </div>
+                      <Badge variant={item.estado === 'PENDIENTE' ? 'outline' : 'secondary'} className="text-[10px] uppercase font-mono">
+                        {item.estado === 'PENDIENTE' ? 'ESPERA' : 'FUEGO'}
+                      </Badge>
                     </div>
-                    <Button onClick={() => handleAction(order.id, item.id, item.estado)} className="w-full h-9 font-bold text-xs" variant={item.estado === 'PENDIENTE' ? 'outline' : 'secondary'}>
-                      {item.estado === 'PENDIENTE' ? 'EMPEZAR' : item.estado === 'EN PREPARACION' ? 'LISTO ✓' : 'ENTREGAR'}
+                    
+                    <Button 
+                      onClick={() => handleAction(order.id, item.id, item.estado)} 
+                      className={cn(
+                        "w-full h-11 font-black text-sm transition-all",
+                        item.estado === 'PENDIENTE' ? "bg-primary hover:bg-primary/80" : "bg-secondary text-secondary-foreground hover:bg-secondary/80"
+                      )}
+                    >
+                      {item.estado === 'PENDIENTE' ? 'MARCAR EN FUEGO' : '¡LISTO PARA MESERO! ✓'}
                     </Button>
                   </div>
                 ))}
