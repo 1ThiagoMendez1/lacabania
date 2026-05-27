@@ -1,3 +1,4 @@
+
 "use client"
 
 import { usePOSStore } from "@/lib/store";
@@ -155,10 +156,12 @@ export default function PersonalPage() {
             <Users className="w-4 h-4" />
             Nómina de Equipo
           </TabsTrigger>
-          <TabsTrigger value="permisos" className="data-[state=active]:bg-secondary data-[state=active]:text-secondary-foreground gap-2 px-6">
-            <ShieldCheck className="w-4 h-4" />
-            Permisos por Rol
-          </TabsTrigger>
+          {user?.rol === 'ADMINISTRADOR' && (
+            <TabsTrigger value="permisos" className="data-[state=active]:bg-secondary data-[state=active]:text-secondary-foreground gap-2 px-6">
+              <ShieldCheck className="w-4 h-4" />
+              Permisos por Rol
+            </TabsTrigger>
+          )}
         </TabsList>
 
         <TabsContent value="equipo" className="space-y-8">
@@ -308,16 +311,8 @@ export default function PersonalPage() {
           </Card>
         </TabsContent>
 
-        <TabsContent value="permisos">
-          {user?.rol !== 'ADMINISTRADOR' ? (
-            <Alert variant="destructive" className="max-w-md mx-auto">
-              <AlertCircle className="h-4 w-4" />
-              <AlertTitle>Acceso Denegado</AlertTitle>
-              <AlertDescription>
-                Solo el Administrador tiene acceso a la configuración de seguridad.
-              </AlertDescription>
-            </Alert>
-          ) : (
+        {user?.rol === 'ADMINISTRADOR' && (
+          <TabsContent value="permisos">
             <div className="space-y-6">
               <Card className="bg-card border-border paper-texture overflow-hidden shadow-2xl">
                 <CardHeader className="border-b border-border/50 bg-accent/20">
@@ -387,9 +382,10 @@ export default function PersonalPage() {
                 </AlertDescription>
               </Alert>
             </div>
-          )}
-        </TabsContent>
+          </TabsContent>
+        )}
       </Tabs>
     </main>
   );
 }
+
