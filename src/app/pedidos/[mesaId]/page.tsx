@@ -1,4 +1,3 @@
-
 "use client"
 
 import { usePOSStore } from "@/lib/store";
@@ -16,7 +15,8 @@ import {
   Search,
   ShoppingCart,
   Utensils,
-  X
+  X,
+  CheckCircle2
 } from "lucide-react";
 import { useState } from "react";
 import { Input } from "@/components/ui/input";
@@ -29,6 +29,17 @@ import {
   SheetTitle,
   SheetTrigger,
 } from "@/components/ui/sheet";
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from "@/components/ui/alert-dialog";
+import { Separator } from "@/components/ui/separator";
 
 export default function OrderPage() {
   const { mesaId } = useParams();
@@ -39,6 +50,7 @@ export default function OrderPage() {
   const [searchTerm, setSearchTerm] = useState("");
   const [selectedCategory, setSelectedCategory] = useState("TODOS");
   const [cart, setCart] = useState<{producto: Producto, cantidad: number}[]>([]);
+  const [showConfirmDialog, setShowConfirmDialog] = useState(false);
 
   const categories = ["TODOS", ...new Set(productos.map(p => p.categoria))];
   const filteredProducts = productos.filter(p => 
@@ -131,7 +143,7 @@ export default function OrderPage() {
         </div>
         <Button 
           disabled={cart.length === 0} 
-          onClick={handleSendOrder} 
+          onClick={() => setShowConfirmDialog(true)} 
           className="w-full h-16 text-lg font-bold rounded-2xl shadow-xl hover:glow-orange transition-all bg-primary hover:bg-primary/90"
         >
           ENVIAR A COCINA
@@ -270,6 +282,45 @@ export default function OrderPage() {
           </div>
         </Card>
       </div>
+
+      {/* Confirmation Dialog */}
+      <AlertDialog open={showConfirmDialog} onOpenChange={setShowConfirmDialog}>
+        <AlertDialogContent className="max-w-md bg-card border-border paper-texture">
+          <AlertDialogHeader>
+            <AlertDialogTitle className="text-2xl font-headline flex items-center gap-2">
+              <CheckCircle2 className="w-6 h-6 text-green-500" />
+              Verificar Comanda
+            </AlertDialogTitle>
+            <AlertDialogDescription className="text-foreground">
+              Por favor, confirma el pedido de la <strong>Mesa {mesaId}</strong> con el cliente antes de enviarlo a cocina.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          
+          <div className="my-4 space-y-2 max-h-[40vh] overflow-auto pr-2">
+            {cart.map(item => (
+              <div key={item.producto.id} className="flex justify-between items-center text-sm">
+                <span className="font-medium text-muted-foreground">{item.cantidad}x <span className="text-foreground">{item.producto.nombre}</span></span>
+                <span className="font-bold">${(item.producto.precio * item.cantidad).toLocaleString()}</span>
+              </div>
+            ))}
+            <Separator className="my-4" />
+            <div className="flex justify-between items-center">
+              <span className="text-lg font-headline">TOTAL</span>
+              <span className="text-2xl font-black text-secondary">${cartTotal.toLocaleString()}</span>
+            </div>
+          </div>
+
+          <AlertDialogFooter className="gap-2 sm:gap-0">
+            <AlertDialogCancel className="rounded-xl border-border">Volver</AlertDialogCancel>
+            <AlertDialogAction 
+              onClick={handleSendOrder}
+              className="rounded-xl bg-primary hover:bg-primary/90 font-bold px-8 shadow-lg glow-orange"
+            >
+              CONFIRMAR Y ENVIAR
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
 
       {/* Floating Action Button for Mobile Cart (Fallback/Direct) */}
       <div className="lg:hidden fixed bottom-6 right-6 z-40">
