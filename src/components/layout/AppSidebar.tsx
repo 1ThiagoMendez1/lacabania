@@ -1,3 +1,4 @@
+
 "use client"
 
 import { usePOSStore } from "@/lib/store";
@@ -48,12 +49,13 @@ export const ALL_MENU_ITEMS = [
 export function AppSidebar() {
   const pathname = usePathname();
   const { user, logout, productos, permisos } = usePOSStore();
-  const { state } = useSidebar();
+  const { state, isMobile } = useSidebar();
   const router = useRouter();
 
   if (!user) return null;
 
-  const isExpanded = state === "expanded";
+  // En móvil siempre queremos la vista expandida (con labels) para mejor usabilidad
+  const isExpanded = state === "expanded" || isMobile;
   const userPermisos = permisos[user.rol] || [];
   const filteredMenu = ALL_MENU_ITEMS.filter(item => userPermisos.includes(item.label));
   const lowStockCount = productos.filter(p => p.stock <= p.stockMinimo).length;
@@ -99,15 +101,15 @@ export function AppSidebar() {
               {filteredMenu.map((item) => {
                 const isActive = pathname === item.href || pathname.startsWith(item.href + "/");
                 return (
-                  <SidebarMenuItem key={item.href} className="flex justify-center">
+                  <SidebarMenuItem key={item.href} className={cn("flex", !isExpanded ? "justify-center" : "")}>
                     <SidebarMenuButton
                       asChild
                       isActive={isActive}
                       tooltip={item.label}
                       className={cn(
-                        "h-11 rounded-xl transition-all duration-200 hover:bg-sidebar-accent group flex items-center",
+                        "h-12 md:h-11 rounded-xl transition-all duration-200 hover:bg-sidebar-accent group flex items-center",
                         isActive && "bg-primary text-primary-foreground shadow-lg glow-orange hover:bg-primary/90",
-                        !isExpanded ? "justify-center p-0 w-11" : "px-3"
+                        !isExpanded ? "justify-center p-0 w-11" : "px-4"
                       )}
                     >
                       <Link href={item.href} className={cn("flex items-center", !isExpanded ? "justify-center w-full" : "w-full")}>
@@ -159,7 +161,7 @@ export function AppSidebar() {
           onClick={handleLogout}
           tooltip="Cerrar Sesión"
           className={cn(
-            "h-10 rounded-xl text-destructive hover:bg-destructive/10 border border-transparent hover:border-destructive/30",
+            "h-12 md:h-10 rounded-xl text-destructive hover:bg-destructive/10 border border-transparent hover:border-destructive/30",
             !isExpanded && "w-11 justify-center p-0"
           )}
         >
