@@ -5,8 +5,20 @@ import { usePOSStore } from "@/lib/store";
 import { useParams } from "next/navigation";
 import { Card, CardContent, CardHeader } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
-import { Button } from "@/components/ui/button";
-import { Clock, Flame, Utensils, Beer, ChefHat, AlertCircle, User, Timer, AlertTriangle } from "lucide-react";
+import { 
+  Clock, 
+  Flame, 
+  Utensils, 
+  Beer, 
+  ChefHat, 
+  AlertCircle, 
+  User, 
+  Timer, 
+  AlertTriangle,
+  CheckCircle2,
+  Hourglass,
+  ChevronRight
+} from "lucide-react";
 import { cn } from "@/lib/utils";
 import { Estacion, EstadoComanda } from "@/lib/types";
 import { useState, useEffect } from "react";
@@ -27,11 +39,10 @@ function TimeElapsed({ createdAt }: { createdAt: string }) {
     return () => clearInterval(interval);
   }, [createdAt]);
 
-  // Lógica de semáforo para tiempos de entrega
-  const isCritical = elapsed >= 60; // Más de 1 hora
-  const isOverdue = elapsed >= 30 && elapsed < 60; // Retraso significativo
-  const isWarning = elapsed >= 15 && elapsed < 30; // Tiempo de atención
-  const isGood = elapsed < 15; // Buen tiempo
+  const isCritical = elapsed >= 60;
+  const isOverdue = elapsed >= 30 && elapsed < 60;
+  const isWarning = elapsed >= 15 && elapsed < 30;
+  const isGood = elapsed < 15;
 
   return (
     <div className="flex flex-col items-end gap-1">
@@ -51,9 +62,6 @@ function TimeElapsed({ createdAt }: { createdAt: string }) {
           <AlertTriangle className="w-3 h-3" />
           <span>¡VALIDAR CON MESERO!</span>
         </div>
-      )}
-      {isGood && (
-        <span className="text-[9px] text-green-500 font-bold uppercase tracking-tighter">✓ Buen Tiempo</span>
       )}
     </div>
   );
@@ -79,11 +87,11 @@ export default function StationPage() {
 
   const getStationIcon = () => {
     switch (stationId) {
-      case 'ASADO': return <Flame className="w-6 h-6 text-primary" />;
-      case 'PARRILLA': return <Utensils className="w-6 h-6 text-orange-400" />;
-      case 'COCINA': return <ChefHat className="w-6 h-6 text-secondary" />;
-      case 'BAR': return <Beer className="w-6 h-6 text-blue-400" />;
-      default: return <AlertCircle className="w-6 h-6 text-muted-foreground" />;
+      case 'ASADO': return <Flame className="w-8 h-8 text-primary" />;
+      case 'PARRILLA': return <Utensils className="w-8 h-8 text-orange-400" />;
+      case 'COCINA': return <ChefHat className="w-8 h-8 text-secondary" />;
+      case 'BAR': return <Beer className="w-8 h-8 text-blue-400" />;
+      default: return <AlertCircle className="w-8 h-8 text-muted-foreground" />;
     }
   };
 
@@ -94,75 +102,143 @@ export default function StationPage() {
   };
 
   return (
-    <main className="p-8">
-      <header className="flex justify-between items-center mb-8 bg-card p-6 rounded-2xl border wood-texture">
-        <div className="flex items-center gap-4">
-          <div className="p-3 bg-accent/50 rounded-xl">{getStationIcon()}</div>
-          <h2 className="text-3xl font-headline">Estación {stationId}</h2>
-        </div>
-        <div className="flex gap-8">
-          <div className="text-right">
-            <p className="text-xs text-muted-foreground uppercase">Pendientes</p>
-            <p className="text-2xl font-bold text-primary">{ordersWithItems.reduce((acc, o) => acc + o.items.filter(i => i.estado === 'PENDIENTE').length, 0)}</p>
+    <main className="p-8 max-w-[1600px] mx-auto">
+      <header className="flex justify-between items-center mb-8 bg-card p-8 rounded-[2.5rem] border border-border/50 shadow-2xl relative overflow-hidden group">
+        <div className="absolute inset-0 wood-texture opacity-20 pointer-events-none" />
+        <div className="flex items-center gap-6 relative z-10">
+          <div className="p-4 bg-primary/10 rounded-3xl border border-primary/20 shadow-inner group-hover:scale-110 transition-transform">
+            {getStationIcon()}
           </div>
+          <div>
+            <h2 className="text-4xl font-headline tracking-tighter">Estación <span className="text-secondary">{stationId}</span></h2>
+            <p className="text-sm text-muted-foreground flex items-center gap-2 mt-1">
+              <Clock className="w-4 h-4" /> Gestión de tiempos de entrega en tiempo real
+            </p>
+          </div>
+        </div>
+        
+        <div className="flex gap-10 relative z-10">
           <div className="text-right">
-            <p className="text-xs text-muted-foreground uppercase">En Proceso</p>
-            <p className="text-2xl font-bold text-secondary">{ordersWithItems.reduce((acc, o) => acc + o.items.filter(i => i.estado === 'EN PREPARACION').length, 0)}</p>
+            <p className="text-[10px] text-muted-foreground uppercase font-black tracking-widest mb-1">Pendientes</p>
+            <div className="flex items-center gap-2 justify-end">
+              <Hourglass className="w-5 h-5 text-primary" />
+              <p className="text-4xl font-black text-primary">{ordersWithItems.reduce((acc, o) => acc + o.items.filter(i => i.estado === 'PENDIENTE').length, 0)}</p>
+            </div>
+          </div>
+          <div className="w-px h-12 bg-border/50" />
+          <div className="text-right">
+            <p className="text-[10px] text-muted-foreground uppercase font-black tracking-widest mb-1">En Proceso</p>
+            <div className="flex items-center gap-2 justify-end">
+              <Flame className="w-5 h-5 text-secondary animate-pulse" />
+              <p className="text-4xl font-black text-secondary">{ordersWithItems.reduce((acc, o) => acc + o.items.filter(i => i.estado === 'EN PREPARACION').length, 0)}</p>
+            </div>
           </div>
         </div>
       </header>
 
       {ordersWithItems.length === 0 ? (
-        <div className="flex flex-col items-center justify-center py-20 opacity-30">
-          <p className="text-xl font-headline italic">Sin comandas para {stationId.toLowerCase()}...</p>
+        <div className="flex flex-col items-center justify-center py-32 opacity-20">
+          <div className="w-24 h-24 bg-accent/20 rounded-full flex items-center justify-center mb-6">
+             <CheckCircle2 className="w-12 h-12" />
+          </div>
+          <p className="text-2xl font-headline italic tracking-widest">ESTACIÓN DESPEJADA</p>
+          <p className="text-sm mt-2 font-mono uppercase">Todo está bajo control 🤠</p>
         </div>
       ) : (
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6">
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-8">
           {ordersWithItems.map((order) => (
-            <Card key={order.id} className="bg-card border-t-4 border-t-primary paper-texture overflow-hidden flex flex-col">
-              <CardHeader className="bg-accent/20 border-b py-4 space-y-3">
+            <Card key={order.id} className="bg-card border-none paper-texture overflow-hidden flex flex-col shadow-2xl rounded-[2rem] hover:ring-2 hover:ring-primary/30 transition-all duration-300">
+              <CardHeader className="bg-accent/30 border-b border-border/50 p-6 space-y-4">
                 <div className="flex justify-between items-start">
-                  <span className="text-2xl font-black font-headline">MESA {order.mesaId}</span>
+                  <div className="bg-primary/90 text-white px-4 py-1 rounded-xl shadow-lg transform -rotate-2">
+                    <span className="text-3xl font-black font-headline">MESA {order.mesaId}</span>
+                  </div>
                   <TimeElapsed createdAt={order.createdAt} />
                 </div>
                 
-                <div className="flex flex-col gap-2">
-                  <div className="flex items-center gap-2 text-xs text-muted-foreground">
-                    <User className="w-3.5 h-3.5 text-secondary" />
-                    <span className="font-bold uppercase tracking-tighter">{order.meseroNombre}</span>
+                <div className="flex justify-between items-center">
+                  <div className="flex items-center gap-2">
+                    <div className="w-6 h-6 rounded-full bg-secondary/20 flex items-center justify-center">
+                      <User className="w-3.5 h-3.5 text-secondary" />
+                    </div>
+                    <span className="text-xs font-bold uppercase tracking-widest text-muted-foreground">{order.meseroNombre}</span>
                   </div>
-                  <div className="flex items-center gap-2 text-xs text-muted-foreground">
-                    <Clock className="w-3.5 h-3.5" />
-                    <span>Pedido a las: {new Date(order.createdAt).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}</span>
-                  </div>
+                  <Badge variant="outline" className="text-[9px] font-mono opacity-50">
+                    ID: {order.id.split('-')[1] || order.id}
+                  </Badge>
                 </div>
               </CardHeader>
               
-              <CardContent className="p-5 space-y-4 flex-1">
+              <CardContent className="p-4 space-y-3 flex-1 bg-background/50 backdrop-blur-sm">
                 {order.items.map((item) => (
-                  <div key={item.id} className="pb-4 border-b border-border/30 last:border-0 last:pb-0">
-                    <div className="flex justify-between items-start mb-3">
-                      <div>
-                        <span className="text-lg font-bold block">{item.cantidad}x {item.nombre}</span>
-                        {item.notas && <p className="text-xs text-primary italic mt-1">"{item.notas}"</p>}
+                  <div 
+                    key={item.id} 
+                    onClick={() => handleAction(order.id, item.id, item.estado)}
+                    className={cn(
+                      "group relative flex flex-col p-4 rounded-2xl border-2 transition-all cursor-pointer select-none active:scale-95",
+                      item.estado === 'PENDIENTE' 
+                        ? "bg-accent/20 border-border/50 border-dashed hover:border-primary/50" 
+                        : "bg-secondary/10 border-secondary/40 shadow-[0_0_15px_rgba(234,179,8,0.1)] hover:border-secondary hover:shadow-[0_0_20px_rgba(234,179,8,0.2)]"
+                    )}
+                  >
+                    <div className="flex justify-between items-start mb-2">
+                      <div className="flex gap-3">
+                        <div className={cn(
+                          "w-10 h-10 rounded-xl flex items-center justify-center text-xl font-black shrink-0",
+                          item.estado === 'PENDIENTE' ? "bg-muted text-muted-foreground" : "bg-secondary text-secondary-foreground shadow-lg"
+                        )}>
+                          {item.cantidad}
+                        </div>
+                        <div>
+                          <span className={cn(
+                            "text-lg font-black leading-none block",
+                            item.estado === 'EN PREPARACION' && "text-secondary"
+                          )}>
+                            {item.nombre}
+                          </span>
+                          {item.notas && (
+                            <p className="text-[10px] text-primary italic mt-1 font-medium bg-primary/5 px-2 py-0.5 rounded-md border border-primary/10">
+                              "{item.notas}"
+                            </p>
+                          )}
+                        </div>
                       </div>
-                      <Badge variant={item.estado === 'PENDIENTE' ? 'outline' : 'secondary'} className="text-[10px] uppercase font-mono">
-                        {item.estado === 'PENDIENTE' ? 'ESPERA' : 'FUEGO'}
+                      
+                      <div className="flex flex-col items-end">
+                        {item.estado === 'PENDIENTE' ? (
+                          <div className="p-2 bg-muted/50 rounded-full group-hover:bg-primary/20 transition-colors">
+                            <ChevronRight className="w-4 h-4 text-muted-foreground group-hover:text-primary" />
+                          </div>
+                        ) : (
+                          <div className="p-2 bg-secondary/20 rounded-full animate-pulse">
+                            <Flame className="w-4 h-4 text-secondary" />
+                          </div>
+                        )}
+                      </div>
+                    </div>
+
+                    <div className="mt-2 flex justify-between items-center">
+                      <span className="text-[8px] font-mono uppercase tracking-widest opacity-40">Toca para cambiar estado</span>
+                      <Badge 
+                        variant={item.estado === 'PENDIENTE' ? 'outline' : 'secondary'} 
+                        className={cn(
+                          "text-[9px] uppercase font-bold",
+                          item.estado === 'EN PREPARACION' && "bg-secondary text-secondary-foreground border-none"
+                        )}
+                      >
+                        {item.estado === 'PENDIENTE' ? 'POR INICIAR' : 'EN FUEGO'}
                       </Badge>
                     </div>
-                    
-                    <Button 
-                      onClick={() => handleAction(order.id, item.id, item.estado)} 
-                      className={cn(
-                        "w-full h-11 font-black text-sm transition-all",
-                        item.estado === 'PENDIENTE' ? "bg-primary hover:bg-primary/80" : "bg-secondary text-secondary-foreground hover:bg-secondary/80"
-                      )}
-                    >
-                      {item.estado === 'PENDIENTE' ? 'MARCAR EN FUEGO' : '¡LISTO PARA MESERO! ✓'}
-                    </Button>
+
+                    {/* Efecto de Hover Decorativo */}
+                    <div className="absolute inset-y-0 right-0 w-1 bg-primary/0 group-hover:bg-primary/40 rounded-r-2xl transition-all" />
                   </div>
                 ))}
               </CardContent>
+              
+              <div className="p-4 bg-accent/20 border-t border-border/50 flex justify-center">
+                <span className="text-[9px] font-mono text-muted-foreground/60">Fin de Comanda • La Cabaña POS</span>
+              </div>
             </Card>
           ))}
         </div>
