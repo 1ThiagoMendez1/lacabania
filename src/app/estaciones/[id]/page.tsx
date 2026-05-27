@@ -70,7 +70,7 @@ function TimeElapsed({ createdAt }: { createdAt: string }) {
 export default function StationPage() {
   const { id } = useParams();
   const stationId = (id as string).toUpperCase() as Estacion;
-  const { ordenes, usuarios, updateItemEstado } = usePOSStore();
+  const { ordenes, usuarios } = usePOSStore();
 
   const ordersWithItems = ordenes
     .filter(o => o.estado === 'ABIERTA')
@@ -95,12 +95,6 @@ export default function StationPage() {
     }
   };
 
-  const handleAction = (orderId: string, itemId: string, currentEstado: EstadoComanda) => {
-    let nextEstado: EstadoComanda = 'EN PREPARACION';
-    if (currentEstado === 'EN PREPARACION') nextEstado = 'LISTO';
-    updateItemEstado(orderId, itemId, nextEstado);
-  };
-
   return (
     <main className="p-8 max-w-[1600px] mx-auto">
       <header className="flex justify-between items-center mb-8 bg-card p-8 rounded-[2.5rem] border border-border/50 shadow-2xl relative overflow-hidden group">
@@ -112,7 +106,7 @@ export default function StationPage() {
           <div>
             <h2 className="text-4xl font-headline tracking-tighter">Estación <span className="text-secondary">{stationId}</span></h2>
             <p className="text-sm text-muted-foreground flex items-center gap-2 mt-1">
-              <Clock className="w-4 h-4" /> Gestión de tiempos de entrega en tiempo real
+              <Clock className="w-4 h-4" /> Monitor de pedidos en tiempo real
             </p>
           </div>
         </div>
@@ -147,7 +141,7 @@ export default function StationPage() {
       ) : (
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-8">
           {ordersWithItems.map((order) => (
-            <Card key={order.id} className="bg-card border-none paper-texture overflow-hidden flex flex-col shadow-2xl rounded-[2rem] hover:ring-2 hover:ring-primary/30 transition-all duration-300">
+            <Card key={order.id} className="bg-card border-none paper-texture overflow-hidden flex flex-col shadow-2xl rounded-[2rem] shadow-primary/5">
               <CardHeader className="bg-accent/30 border-b border-border/50 p-6 space-y-4">
                 <div className="flex justify-between items-start">
                   <div className="bg-primary/90 text-white px-4 py-1 rounded-xl shadow-lg transform -rotate-2">
@@ -173,12 +167,11 @@ export default function StationPage() {
                 {order.items.map((item) => (
                   <div 
                     key={item.id} 
-                    onClick={() => handleAction(order.id, item.id, item.estado)}
                     className={cn(
-                      "group relative flex flex-col p-4 rounded-2xl border-2 transition-all cursor-pointer select-none active:scale-95",
+                      "group relative flex flex-col p-4 rounded-2xl border-2 transition-all select-none",
                       item.estado === 'PENDIENTE' 
-                        ? "bg-accent/20 border-border/50 border-dashed hover:border-primary/50" 
-                        : "bg-secondary/10 border-secondary/40 shadow-[0_0_15px_rgba(234,179,8,0.1)] hover:border-secondary hover:shadow-[0_0_20px_rgba(234,179,8,0.2)]"
+                        ? "bg-accent/20 border-border/50 border-dashed" 
+                        : "bg-secondary/10 border-secondary/40 shadow-[0_0_15px_rgba(234,179,8,0.05)]"
                     )}
                   >
                     <div className="flex justify-between items-start mb-2">
@@ -205,11 +198,7 @@ export default function StationPage() {
                       </div>
                       
                       <div className="flex flex-col items-end">
-                        {item.estado === 'PENDIENTE' ? (
-                          <div className="p-2 bg-muted/50 rounded-full group-hover:bg-primary/20 transition-colors">
-                            <ChevronRight className="w-4 h-4 text-muted-foreground group-hover:text-primary" />
-                          </div>
-                        ) : (
+                        {item.estado === 'EN PREPARACION' && (
                           <div className="p-2 bg-secondary/20 rounded-full animate-pulse">
                             <Flame className="w-4 h-4 text-secondary" />
                           </div>
@@ -217,8 +206,7 @@ export default function StationPage() {
                       </div>
                     </div>
 
-                    <div className="mt-2 flex justify-between items-center">
-                      <span className="text-[8px] font-mono uppercase tracking-widest opacity-40">Toca para cambiar estado</span>
+                    <div className="mt-2 flex justify-end items-center">
                       <Badge 
                         variant={item.estado === 'PENDIENTE' ? 'outline' : 'secondary'} 
                         className={cn(
@@ -226,18 +214,15 @@ export default function StationPage() {
                           item.estado === 'EN PREPARACION' && "bg-secondary text-secondary-foreground border-none"
                         )}
                       >
-                        {item.estado === 'PENDIENTE' ? 'POR INICIAR' : 'EN FUEGO'}
+                        {item.estado === 'PENDIENTE' ? 'POR INICIAR' : 'EN PREPARACIÓN'}
                       </Badge>
                     </div>
-
-                    {/* Efecto de Hover Decorativo */}
-                    <div className="absolute inset-y-0 right-0 w-1 bg-primary/0 group-hover:bg-primary/40 rounded-r-2xl transition-all" />
                   </div>
                 ))}
               </CardContent>
               
               <div className="p-4 bg-accent/20 border-t border-border/50 flex justify-center">
-                <span className="text-[9px] font-mono text-muted-foreground/60">Fin de Comanda • La Cabaña POS</span>
+                <span className="text-[9px] font-mono text-muted-foreground/60">Monitoreo de Comanda • La Cabaña POS</span>
               </div>
             </Card>
           ))}
