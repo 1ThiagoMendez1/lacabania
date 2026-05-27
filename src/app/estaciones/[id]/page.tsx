@@ -17,10 +17,9 @@ import {
   AlertTriangle,
   CheckCircle2,
   Hourglass,
-  ChevronRight
 } from "lucide-react";
 import { cn } from "@/lib/utils";
-import { Estacion, EstadoComanda } from "@/lib/types";
+import { Estacion } from "@/lib/types";
 import { useState, useEffect } from "react";
 
 // Componente para manejar el tiempo transcurrido y mostrar alertas visuales
@@ -42,7 +41,6 @@ function TimeElapsed({ createdAt }: { createdAt: string }) {
   const isCritical = elapsed >= 60;
   const isOverdue = elapsed >= 30 && elapsed < 60;
   const isWarning = elapsed >= 15 && elapsed < 30;
-  const isGood = elapsed < 15;
 
   return (
     <div className="flex flex-col items-end gap-1">
@@ -174,7 +172,7 @@ export default function StationPage() {
                         : "bg-secondary/10 border-secondary/40 shadow-[0_0_15px_rgba(234,179,8,0.05)]"
                     )}
                   >
-                    <div className="flex justify-between items-start mb-2">
+                    <div className="flex justify-between items-start">
                       <div className="flex gap-3">
                         <div className={cn(
                           "w-10 h-10 rounded-xl flex items-center justify-center text-xl font-black shrink-0",
@@ -197,25 +195,11 @@ export default function StationPage() {
                         </div>
                       </div>
                       
-                      <div className="flex flex-col items-end">
-                        {item.estado === 'EN PREPARACION' && (
-                          <div className="p-2 bg-secondary/20 rounded-full animate-pulse">
-                            <Flame className="w-4 h-4 text-secondary" />
-                          </div>
-                        )}
-                      </div>
-                    </div>
-
-                    <div className="mt-2 flex justify-end items-center">
-                      <Badge 
-                        variant={item.estado === 'PENDIENTE' ? 'outline' : 'secondary'} 
-                        className={cn(
-                          "text-[9px] uppercase font-bold",
-                          item.estado === 'EN PREPARACION' && "bg-secondary text-secondary-foreground border-none"
-                        )}
-                      >
-                        {item.estado === 'PENDIENTE' ? 'POR INICIAR' : 'EN PREPARACIÓN'}
-                      </Badge>
+                      {item.estado === 'EN PREPARACION' && (
+                        <div className="p-2 bg-secondary/20 rounded-full animate-pulse">
+                          <Flame className="w-4 h-4 text-secondary" />
+                        </div>
+                      )}
                     </div>
                   </div>
                 ))}
