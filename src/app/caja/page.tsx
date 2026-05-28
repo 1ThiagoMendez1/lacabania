@@ -13,7 +13,9 @@ import {
   User,
   CheckCircle2,
   AlertCircle,
-  Smartphone
+  Smartphone,
+  X,
+  Share2
 } from "lucide-react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -23,13 +25,22 @@ import { useState } from "react";
 import { cn } from "@/lib/utils";
 import { useToast } from "@/hooks/use-toast";
 import { Separator } from "@/components/ui/separator";
-import { MetodoPago } from "@/lib/types";
+import { MetodoPago, Orden } from "@/lib/types";
+import {
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+  DialogFooter,
+} from "@/components/ui/dialog";
 
 export default function CajaPage() {
   const { ordenes, mesas, closeOrden } = usePOSStore();
   const { toast } = useToast();
   const [selectedMesaId, setSelectedMesaId] = useState<number | null>(null);
   const [metodoPago, setMetodoPago] = useState<MetodoPago | null>(null);
+  const [showReceipt, setShowReceipt] = useState(false);
+  const [lastClosedOrden, setLastClosedOrden] = useState<Orden | null>(null);
 
   const mesasConOrden = mesas.filter(m => 
     m.estado === 'OCUPADA' || m.estado === 'EN PEDIDO' || m.estado === 'LISTA PAGAR'
@@ -43,15 +54,27 @@ export default function CajaPage() {
 
   const handleCerrarCuenta = () => {
     if (!activeOrden || !selectedMesaId || !metodoPago) return;
+    
+    // Guardamos una copia para el recibo antes de cerrarla
+    const ordenToClose = { ...activeOrden, metodoPago, estado: 'CERRADA' as const };
+    setLastClosedOrden(ordenToClose);
+    
     closeOrden(activeOrden.id, selectedMesaId, metodoPago);
     setSelectedMesaId(null);
     setMetodoPago(null);
-    toast({ title: "Cuenta Cerrada", description: `Mesa ${selectedMesaId} liberada.` });
+    setShowReceipt(true);
+    
+    toast({ title: "Pago Confirmado", description: `Mesa ${selectedMesaId} pagada con éxito.` });
+  };
+
+  const handlePrint = () => {
+    window.print();
+    toast({ title: "Imprimiendo...", description: "Enviando ticket a la impresora configurada." });
   };
 
   return (
-    <main className="p-4 md:p-8 flex flex-col h-full bg-background">
-      <header className="flex justify-between items-end mb-8">
+    <main className="p-4 md:p-8 flex flex-col h-full bg-background print:p-0">
+      <header className="flex justify-between items-end mb-8 print:hidden">
         <div>
           <div className="flex items-center gap-3 mb-2">
             <div className="p-2 bg-secondary/10 rounded-lg"><CircleDollarSign className="w-8 h-8 text-secondary" /></div>
@@ -61,7 +84,7 @@ export default function CajaPage() {
         </div>
       </header>
 
-      <div className="flex-1 flex flex-col lg:flex-row gap-8 overflow-hidden">
+      <div className="flex-1 flex flex-col lg:flex-row gap-8 overflow-hidden print:hidden">
         {/* Listado de Mesas */}
         <div className="w-full lg:w-80 flex flex-col gap-4">
           <h3 className="text-sm font-bold uppercase tracking-wider text-muted-foreground flex items-center gap-2">
@@ -199,6 +222,96 @@ export default function CajaPage() {
           )}
         </div>
       </div>
+
+      {/* Dialogo de Recibo Profesional */}
+      <Dialog open={showReceipt} onOpenChange={setShowReceipt}>
+        <DialogContent className="max-w-[400px] p-0 overflow-hidden bg-white text-black border-none rounded-none sm:rounded-none font-mono">
+          <div className="p-8 space-y-4">
+            {/* Cabecera del Recibo */}
+            <div className="text-center space-y-1">
+              <div className="text-3xl mb-2">🤠</div>
+              <h1 className="text-xl font-black uppercase tracking-tighter">La Cabaña</h1>
+              <p className="text-[10px] font-bold">CARNE AL BARRIL & PARRILLA</p>
+              <p className="text-[9px]">NIT: 900.123.456-7</p>
+              <p className="text-[9px]">Calle 123 # 45 - 67, Bogotá</p>
+              <p className="text-[9px]">Tel: (601) 234 5678</p>
+            </div>
+
+            <div className="border-t border-dashed border-black/30 pt-4 space-y-1 text-[10px]">
+              <div className="flex justify-between">
+                <span>FECHA: {new Date().toLocaleDateString()}</span>
+                <span>HORA: {new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}</span>
+              </div>
+              <div className="flex justify-between">
+                <span>ORDEN: {lastClosedOrden?.id.split('-')[2] || '001'}</span>
+                <span>MESA: {lastClosedOrden?.mesaId}</span>
+              </div>
+              <div>MESERO: {lastClosedOrden?.meseroId === '2' ? 'Juan Mesero' : 'Admin'}</div>
+            </div>
+
+            {/* Items */}
+            <div className="border-t border-dashed border-black/30 pt-4">
+              <table className="w-full text-[10px]">
+                <thead>
+                  <tr className="text-left border-b border-dashed border-black/20">
+                    <th className="pb-1 font-bold">CANT</th>
+                    <th className="pb-1 font-bold">PRODUCTO</th>
+                    <th className="pb-1 text-right font-bold">TOTAL</th>
+                  </tr>
+                </thead>
+                <tbody className="divide-y divide-dashed divide-black/10">
+                  {lastClosedOrden?.items.map((item) => (
+                    <tr key={item.id}>
+                      <td className="py-2 align-top">{item.cantidad}</td>
+                      <td className="py-2 pr-2">{item.nombre}</td>
+                      <td className="py-2 text-right align-top">${(item.precioUnitario * item.cantidad).toLocaleString()}</td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+
+            {/* Totales */}
+            <div className="border-t border-dashed border-black/30 pt-4 space-y-1 text-xs">
+              <div className="flex justify-between">
+                <span>SUBTOTAL:</span>
+                <span>${(lastClosedOrden?.items.reduce((acc, i) => acc + (i.precioUnitario * i.cantidad), 0) || 0).toLocaleString()}</span>
+              </div>
+              <div className="flex justify-between">
+                <span>PROPINA (10%):</span>
+                <span>${((lastClosedOrden?.items.reduce((acc, i) => acc + (i.precioUnitario * i.cantidad), 0) || 0) * 0.1).toLocaleString()}</span>
+              </div>
+              <div className="flex justify-between font-black text-sm pt-2 border-t border-black/10">
+                <span>TOTAL A PAGAR:</span>
+                <span>${((lastClosedOrden?.items.reduce((acc, i) => acc + (i.precioUnitario * i.cantidad), 0) || 0) * 1.1).toLocaleString()}</span>
+              </div>
+            </div>
+
+            {/* Info de Pago */}
+            <div className="pt-4 text-center space-y-2">
+              <div className="inline-block border border-black px-4 py-1 text-[10px] font-black uppercase">
+                PAGADO CON: {lastClosedOrden?.metodoPago}
+              </div>
+              <p className="text-[9px] italic mt-4">"Gracias por preferir el sabor del barril"</p>
+              <p className="text-[8px] opacity-60">Software POS: La Cabaña System v1.0</p>
+            </div>
+
+            <div className="flex flex-col gap-2 pt-6 print:hidden">
+              <Button onClick={handlePrint} className="w-full bg-black text-white hover:bg-zinc-800 gap-2 font-bold">
+                <Printer className="w-4 h-4" /> IMPRIMIR TICKET
+              </Button>
+              <div className="grid grid-cols-2 gap-2">
+                <Button variant="outline" className="border-black text-black gap-2 text-xs" onClick={() => setShowReceipt(false)}>
+                  <X className="w-3 h-3" /> CERRAR
+                </Button>
+                <Button variant="outline" className="border-black text-black gap-2 text-xs">
+                  <Share2 className="w-3 h-3" /> COMPARTIR
+                </Button>
+              </div>
+            </div>
+          </div>
+        </DialogContent>
+      </Dialog>
     </main>
   );
 }
