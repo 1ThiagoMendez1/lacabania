@@ -15,13 +15,18 @@ import {
   ShoppingCart,
   CheckCircle2,
   MessageSquarePlus,
-  StickyNote
+  StickyNote,
+  ListTodo,
+  Clock,
+  CheckCircle,
+  Truck,
+  Timer
 } from "lucide-react";
-import { useState } from "react";
+import { useState, useMemo } from "react";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
 import { cn } from "@/lib/utils";
-import { ItemOrden, Producto } from "@/lib/types";
+import { ItemOrden, Producto, Orden } from "@/lib/types";
 import {
   Sheet,
   SheetContent,
@@ -47,6 +52,7 @@ import {
   DialogFooter,
 } from "@/components/ui/dialog";
 import { Label } from "@/components/ui/label";
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 
 type CartItem = {
   producto: Producto;
@@ -58,9 +64,11 @@ type CartItem = {
 export default function OrderPage() {
   const { mesaId } = useParams();
   const router = useRouter();
-  const { productos, mesas, addOrden, updateMesaEstado, user } = usePOSStore();
+  const { productos, mesas, ordenes, addOrden, updateMesaEstado, updateItemEstado, user } = usePOSStore();
   
   const mesa = mesas.find(m => m.id === Number(mesaId));
+  const activeOrder = useMemo(() => ordenes.find(o => o.mesaId === Number(mesaId) && o.estado === 'ABIERTA'), [ordenes, mesaId]);
+  
   const [searchTerm, setSearchTerm] = useState("");
   const [selectedCategory, setSelectedCategory] = useState("TODOS");
   const [cart, setCart] = useState<CartItem[]>([]);
@@ -123,17 +131,26 @@ export default function OrderPage() {
       estado: 'PENDIENTE',
       createdAt: new Date().toISOString()
     }));
-    addOrden({ 
-      id: `ORD-${Date.now()}`, 
-      mesaId: Number(mesaId), 
-      meseroId: user?.id || 'sys', 
-      items: newItems, 
-      estado: 'ABIERTA', 
-      createdAt: new Date().toISOString(), 
-      updatedAt: new Date().toISOString() 
-    });
-    updateMesaEstado(Number(mesaId), 'EN PEDIDO', user?.id);
-    router.push('/mesas');
+    
+    if (activeOrder) {
+      const updatedItems = [...activeOrder.items, ...newItems];
+      usePOSStore.getState().updateOrden(activeOrder.id, { items: updatedItems });
+    } else {
+      addOrden({ 
+        id: `ORD-${Date.now()}`, 
+        mesaId: Number(mesaId), 
+        meseroId: user?.id || 'sys', 
+        items: newItems, 
+        estado: 'ABIERTA', 
+        createdAt: new Date().toISOString(), 
+        updatedAt: new Date().toISOString() 
+      });
+      updateMesaEstado(Number(mesaId), 'EN PEDIDO', user?.id);
+    }
+    
+    setCart([]);
+    setShowConfirmDialog(false);
+    toast({ title: "Pedido Enviado", description: "Los items han sido enviados a las estaciones correspondientes." });
   };
 
   if (!mesa) return <div className="p-8">Mesa no encontrada</div>;
@@ -210,7 +227,7 @@ export default function OrderPage() {
   );
 
   return (
-    <main className="flex flex-col h-svh bg-background">
+    <main className="flex flex-col h-svh bg-background overflow-hidden">
       {/* Header */}
       <header className="p-3 md:p-6 flex justify-between items-center border-b bg-card/50 backdrop-blur-md sticky top-0 z-20">
         <div className="flex items-center gap-2 md:gap-4">
@@ -223,8 +240,8 @@ export default function OrderPage() {
           </div>
         </div>
         
-        <div className="lg:hidden">
-          <Sheet>
+        <div className="lg:hidden flex gap-2">
+           <Sheet>
             <SheetTrigger asChild>
               <Button variant="secondary" className="relative gap-2 font-bold h-10 px-4 rounded-full bg-accent/50 border-secondary/30 active:scale-95">
                 <ShoppingCart className="w-4 h-4 text-secondary" />
@@ -251,91 +268,182 @@ export default function OrderPage() {
         </div>
       </header>
 
-      <div className="flex-1 flex flex-col lg:flex-row gap-0 lg:gap-8 p-0 lg:p-8 overflow-hidden">
-        {/* Menu Section */}
-        <div className="flex-1 flex flex-col gap-3 p-3 lg:p-0 overflow-hidden">
-          <div className="space-y-3">
-            <div className="relative group">
-              <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
-              <Input 
-                placeholder="Buscar plato o bebida..." 
-                className="pl-10 h-11 bg-card/50 border-border focus-visible:ring-primary rounded-xl text-sm" 
-                value={searchTerm} 
-                onChange={(e) => setSearchTerm(e.target.value)} 
-              />
+      <Tabs defaultValue="menu" className="flex-1 flex flex-col overflow-hidden">
+        <div className="px-3 md:px-8 py-2 bg-accent/10 border-b">
+          <TabsList className="grid w-full grid-cols-2 max-w-md mx-auto h-12 bg-accent/20 rounded-2xl p-1">
+            <TabsTrigger value="menu" className="rounded-xl data-[state=active]:bg-primary data-[state=active]:text-white font-bold gap-2">
+              <ListTodo className="w-4 h-4" /> Carta
+            </TabsTrigger>
+            <TabsTrigger value="status" className="rounded-xl data-[state=active]:bg-secondary data-[state=active]:text-secondary-foreground font-bold gap-2">
+              <Truck className="w-4 h-4" /> Seguimiento
+              {activeOrder?.items.filter(i => i.estado === 'LISTO').length! > 0 && (
+                <Badge className="ml-1 h-5 w-5 p-0 flex items-center justify-center bg-red-500 animate-pulse">
+                  {activeOrder?.items.filter(i => i.estado === 'LISTO').length}
+                </Badge>
+              )}
+            </TabsTrigger>
+          </TabsList>
+        </div>
+
+        <TabsContent value="menu" className="flex-1 flex flex-col lg:flex-row gap-0 lg:gap-8 p-0 lg:p-8 overflow-hidden">
+          {/* Menu Section */}
+          <div className="flex-1 flex flex-col gap-3 p-3 lg:p-0 overflow-hidden">
+            <div className="space-y-3">
+              <div className="relative group">
+                <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
+                <Input 
+                  placeholder="Buscar plato o bebida..." 
+                  className="pl-10 h-11 bg-card/50 border-border focus-visible:ring-primary rounded-xl text-sm" 
+                  value={searchTerm} 
+                  onChange={(e) => setSearchTerm(e.target.value)} 
+                />
+              </div>
+              
+              <ScrollArea className="w-full">
+                <div className="flex gap-2 pb-1.5">
+                  {categories.map(cat => (
+                    <Button 
+                      key={cat} 
+                      variant={selectedCategory === cat ? "default" : "outline"} 
+                      size="sm" 
+                      onClick={() => setSelectedCategory(cat)}
+                      className={cn(
+                        "rounded-full px-4 h-8 transition-all active:scale-95 text-xs font-bold",
+                        selectedCategory === cat ? "shadow-md glow-orange" : "bg-card/30"
+                      )}
+                    >
+                      {cat}
+                    </Button>
+                  ))}
+                </div>
+                <ScrollBar orientation="horizontal" />
+              </ScrollArea>
             </div>
-            
-            <ScrollArea className="w-full">
-              <div className="flex gap-2 pb-1.5">
-                {categories.map(cat => (
-                  <Button 
-                    key={cat} 
-                    variant={selectedCategory === cat ? "default" : "outline"} 
-                    size="sm" 
-                    onClick={() => setSelectedCategory(cat)}
-                    className={cn(
-                      "rounded-full px-4 h-8 transition-all active:scale-95 text-xs font-bold",
-                      selectedCategory === cat ? "shadow-md glow-orange" : "bg-card/30"
-                    )}
+
+            <ScrollArea className="flex-1 -mx-3 px-3 lg:-mx-2 lg:px-2">
+              <div className="grid grid-cols-2 sm:grid-cols-3 xl:grid-cols-4 gap-3 md:gap-4 py-2">
+                {filteredProducts.map(p => (
+                  <Card 
+                    key={p.id} 
+                    className="bg-card/40 border-border/50 active:scale-95 transition-all flex flex-col group overflow-hidden touch-manipulation"
+                    onClick={() => addToCart(p)}
                   >
-                    {cat}
-                  </Button>
+                    <CardContent className="p-3 md:p-5 flex flex-col justify-between h-full min-h-[140px] relative">
+                      <div className="mb-2">
+                        <Badge variant="outline" className="text-[7px] md:text-[9px] mb-2 font-mono uppercase tracking-tighter opacity-60">
+                          {p.categoria}
+                        </Badge>
+                        <h4 className="font-bold text-xs md:text-base leading-tight group-active:text-primary transition-colors line-clamp-2">
+                          {p.nombre}
+                        </h4>
+                      </div>
+                      <div className="flex justify-between items-end mt-2">
+                        <span className="text-sm md:text-xl font-black text-secondary">
+                          ${p.precio.toLocaleString()}
+                        </span>
+                        <div className="p-1.5 bg-primary/10 rounded-xl group-active:bg-primary group-active:text-white transition-all shadow-inner">
+                          <Plus className="w-4 h-4" />
+                        </div>
+                      </div>
+                    </CardContent>
+                  </Card>
                 ))}
               </div>
-              <ScrollBar orientation="horizontal" />
             </ScrollArea>
           </div>
 
-          <ScrollArea className="flex-1 -mx-3 px-3 lg:-mx-2 lg:px-2">
-            <div className="grid grid-cols-2 sm:grid-cols-3 xl:grid-cols-4 gap-3 md:gap-4 py-2">
-              {filteredProducts.map(p => (
-                <Card 
-                  key={p.id} 
-                  className="bg-card/40 border-border/50 active:scale-95 transition-all flex flex-col group overflow-hidden touch-manipulation"
-                  onClick={() => addToCart(p)}
-                >
-                  <CardContent className="p-3 md:p-5 flex flex-col justify-between h-full min-h-[140px] relative">
-                    <div className="mb-2">
-                      <Badge variant="outline" className="text-[7px] md:text-[9px] mb-2 font-mono uppercase tracking-tighter opacity-60">
-                        {p.categoria}
-                      </Badge>
-                      <h4 className="font-bold text-xs md:text-base leading-tight group-active:text-primary transition-colors line-clamp-2">
-                        {p.nombre}
-                      </h4>
-                    </div>
-                    <div className="flex justify-between items-end mt-2">
-                      <span className="text-sm md:text-xl font-black text-secondary">
-                        ${p.precio.toLocaleString()}
-                      </span>
-                      <div className="p-1.5 bg-primary/10 rounded-xl group-active:bg-primary group-active:text-white transition-all shadow-inner">
-                        <Plus className="w-4 h-4" />
-                      </div>
-                    </div>
-                  </CardContent>
-                </Card>
-              ))}
-              {filteredProducts.length === 0 && (
-                <div className="col-span-full py-20 text-center opacity-30 italic text-sm">
-                  Sin resultados para esta búsqueda 🤠
-                </div>
-              )}
+          {/* Desktop Cart Section */}
+          <Card className="hidden lg:flex w-96 bg-card border-border paper-texture flex-col shadow-2xl overflow-hidden">
+            <CardHeader className="border-b bg-accent/20">
+              <CardTitle className="text-xl font-headline flex items-center gap-2">
+                <ShoppingCart className="w-5 h-5 text-primary" />
+                Comanda Actual
+              </CardTitle>
+            </CardHeader>
+            <div className="flex-1 p-6 overflow-hidden">
+              <CartSummary />
             </div>
-          </ScrollArea>
-        </div>
+          </Card>
+        </TabsContent>
 
-        {/* Desktop Cart Section */}
-        <Card className="hidden lg:flex w-96 bg-card border-border paper-texture flex-col shadow-2xl overflow-hidden">
-          <CardHeader className="border-b bg-accent/20">
-            <CardTitle className="text-xl font-headline flex items-center gap-2">
-              <ShoppingCart className="w-5 h-5 text-primary" />
-              Comanda Actual
-            </CardTitle>
-          </CardHeader>
-          <div className="flex-1 p-6 overflow-hidden">
-            <CartSummary />
+        <TabsContent value="status" className="flex-1 p-4 md:p-8 overflow-hidden">
+          <div className="max-w-4xl mx-auto h-full flex flex-col">
+            <h3 className="text-xl font-headline mb-6 flex items-center gap-2">
+              <Clock className="w-5 h-5 text-primary" />
+              Estado de Pedidos en Mesa {mesa.id}
+            </h3>
+            
+            {!activeOrder || activeOrder.items.length === 0 ? (
+              <div className="flex-1 flex flex-col items-center justify-center opacity-30 text-center space-y-4">
+                <div className="p-6 bg-accent/10 rounded-full">
+                  <StickyNote className="w-16 h-16" />
+                </div>
+                <p className="font-headline text-2xl">No hay pedidos activos</p>
+                <p className="text-sm">Empieza registrando items en la Carta.</p>
+              </div>
+            ) : (
+              <ScrollArea className="flex-1 pr-4">
+                <div className="space-y-4 pb-10">
+                  {activeOrder.items.map((item) => {
+                    const statusConfig = {
+                      'PENDIENTE': { icon: Clock, color: 'text-muted-foreground', bg: 'bg-muted/10', label: 'En Cola' },
+                      'EN PREPARACION': { icon: Flame, color: 'text-secondary', bg: 'bg-secondary/10', label: 'En Fuego' },
+                      'LISTO': { icon: CheckCircle, color: 'text-green-500', bg: 'bg-green-500/10', label: 'LISTO PARA SALIR' },
+                      'ENTREGADO': { icon: Truck, color: 'text-blue-500', bg: 'bg-blue-500/10', label: 'Entregado' }
+                    };
+                    const config = statusConfig[item.estado];
+                    const elapsed = Math.floor((new Date().getTime() - new Date(item.createdAt).getTime()) / 1000 / 60);
+
+                    return (
+                      <Card key={item.id} className={cn(
+                        "border-l-4 transition-all",
+                        item.estado === 'LISTO' ? "border-l-green-500 glow-gold" : "border-l-border"
+                      )}>
+                        <CardContent className="p-4 flex flex-col md:flex-row md:items-center justify-between gap-4">
+                          <div className="flex gap-4">
+                            <div className="w-10 h-10 rounded-xl bg-accent/30 flex items-center justify-center font-black text-xl shrink-0">
+                              {item.cantidad}
+                            </div>
+                            <div>
+                              <p className="font-bold text-lg leading-tight">{item.nombre}</p>
+                              <div className="flex items-center gap-3 mt-1">
+                                <Badge variant="outline" className={cn("text-[9px] gap-1 px-2", config.bg, config.color)}>
+                                  <config.icon className="w-3 h-3" />
+                                  {config.label}
+                                </Badge>
+                                <span className="text-[10px] text-muted-foreground flex items-center gap-1">
+                                  <Timer className="w-3 h-3" /> {elapsed} min
+                                </span>
+                              </div>
+                            </div>
+                          </div>
+                          
+                          <div className="flex gap-2 justify-end">
+                            {item.estado === 'LISTO' && (
+                              <Button 
+                                size="sm" 
+                                className="bg-green-600 hover:bg-green-700 text-white font-bold gap-2 px-6 rounded-xl shadow-lg animate-pulse"
+                                onClick={() => updateItemEstado(activeOrder.id, item.id, 'ENTREGADO')}
+                              >
+                                <Truck className="w-4 h-4" /> MARCAR ENTREGADO
+                              </Button>
+                            )}
+                            {item.estado === 'ENTREGADO' && (
+                              <div className="flex items-center gap-2 text-blue-500 font-bold text-xs uppercase bg-blue-500/10 px-4 py-2 rounded-xl">
+                                <CheckCircle2 className="w-4 h-4" /> En Mesa
+                              </div>
+                            )}
+                          </div>
+                        </CardContent>
+                      </Card>
+                    );
+                  })}
+                </div>
+              </ScrollArea>
+            )}
           </div>
-        </Card>
-      </div>
+        </TabsContent>
+      </Tabs>
 
       {/* Confirmation Dialog */}
       <AlertDialog open={showConfirmDialog} onOpenChange={setShowConfirmDialog}>
@@ -416,33 +524,6 @@ export default function OrderPage() {
           </DialogFooter>
         </DialogContent>
       </Dialog>
-
-      {/* Floating Action Button for Mobile Cart */}
-      <div className="lg:hidden fixed bottom-6 right-6 z-40">
-        {cartItemsCount > 0 && (
-          <Sheet>
-            <SheetTrigger asChild>
-              <Button size="icon" className="h-16 w-16 rounded-full shadow-2xl shadow-primary/40 glow-orange animate-in zoom-in duration-300 bg-primary text-white hover:bg-primary/90 active:scale-90 border-4 border-background">
-                <ShoppingCart className="w-7 h-7" />
-                <Badge className="absolute -top-1 -right-1 h-7 w-7 flex items-center justify-center p-0 bg-secondary text-secondary-foreground border-4 border-background text-[11px] font-black shadow-lg">
-                  {cartItemsCount}
-                </Badge>
-              </Button>
-            </SheetTrigger>
-            <SheetContent side="bottom" className="h-[90vh] rounded-t-[3.5rem] border-t-4 border-t-primary paper-texture p-6 pt-10 overflow-hidden">
-              <SheetHeader className="mb-6">
-                <SheetTitle className="text-2xl font-headline flex items-center gap-3">
-                  <div className="p-2.5 bg-primary/10 rounded-2xl">
-                    <ShoppingCart className="w-6 h-6 text-primary" />
-                  </div>
-                  Resumen de Pedido
-                </SheetTitle>
-              </SheetHeader>
-              <CartSummary />
-            </SheetContent>
-          </Sheet>
-        )}
-      </div>
     </main>
   );
 }

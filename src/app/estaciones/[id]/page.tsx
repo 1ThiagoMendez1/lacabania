@@ -5,6 +5,7 @@ import { usePOSStore } from "@/lib/store";
 import { useParams } from "next/navigation";
 import { Card, CardContent, CardHeader } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
+import { Button } from "@/components/ui/button";
 import { 
   Clock, 
   Flame, 
@@ -17,7 +18,9 @@ import {
   AlertTriangle,
   CheckCircle2,
   Hourglass,
-  BellRing
+  BellRing,
+  Play,
+  Check
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { Estacion } from "@/lib/types";
@@ -73,7 +76,7 @@ function TimeElapsed({ createdAt, onCriticalChange }: { createdAt: string, onCri
 export default function StationPage() {
   const { id } = useParams();
   const stationId = (id as string).toUpperCase() as Estacion;
-  const { ordenes, usuarios } = usePOSStore();
+  const { ordenes, usuarios, updateItemEstado } = usePOSStore();
   const [hasCriticalOrders, setHasCriticalOrders] = useState(false);
 
   const ordersWithItems = ordenes
@@ -240,7 +243,7 @@ export default function StationPage() {
                           : "bg-secondary/10 border-secondary/40 shadow-[0_0_15px_rgba(234,179,8,0.05)]"
                       )}
                     >
-                      <div className="flex justify-between items-start">
+                      <div className="flex justify-between items-start mb-2">
                         <div className="flex gap-2 md:gap-3">
                           <div className={cn(
                             "w-8 h-8 md:w-10 md:h-10 rounded-lg md:rounded-xl flex items-center justify-center text-sm md:text-xl font-black shrink-0",
@@ -268,6 +271,26 @@ export default function StationPage() {
                             <Flame className="w-3 h-3 md:w-4 md:h-4 text-secondary" />
                           </div>
                         )}
+                      </div>
+
+                      <div className="grid grid-cols-1 gap-2 mt-2">
+                        {item.estado === 'PENDIENTE' ? (
+                          <Button 
+                            size="sm" 
+                            className="bg-secondary text-secondary-foreground font-bold h-9 rounded-lg gap-2"
+                            onClick={() => updateItemEstado(order.id, item.id, 'EN PREPARACION')}
+                          >
+                            <Play className="w-4 h-4" /> PREPARAR
+                          </Button>
+                        ) : item.estado === 'EN PREPARACION' ? (
+                          <Button 
+                            size="sm" 
+                            className="bg-green-600 hover:bg-green-700 text-white font-bold h-9 rounded-lg gap-2"
+                            onClick={() => updateItemEstado(order.id, item.id, 'LISTO')}
+                          >
+                            <Check className="w-4 h-4" /> LISTO
+                          </Button>
+                        ) : null}
                       </div>
                     </div>
                   ))}
