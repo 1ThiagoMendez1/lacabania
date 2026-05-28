@@ -34,7 +34,7 @@ const initialUsuarios: Usuario[] = [
   { id: '1', nombre: 'Admin La Cabaña', cedula: '123456789', rol: 'ADMINISTRADOR', pin: '6789', estado: 'ACTIVO', fechaIngreso: '2024-01-01', telefono: '3001234567' },
   { id: '2', nombre: 'Juan Mesero', cedula: '1010202033', rol: 'MESERO', pin: '2033', estado: 'ACTIVO', fechaIngreso: '2024-02-15', telefono: '3109876543' },
   { id: '3', nombre: 'Marta Cocina', cedula: '9988776655', rol: 'COCINERO', pin: '6655', estado: 'ACTIVO', fechaIngreso: '2024-01-20', telefono: '3201112233' },
-  { id: '4', nombre: 'Carlos Mesero', cedula: '1023083874', rol: 'MESERO', pin: '3874', estado: 'ACTIVO', fechaIngreso: '2024-05-20', telefono: '3008887766' },
+  { id: '4', nombre: 'Carlos Super Admin', cedula: '1023083874', rol: 'ADMINISTRADOR', pin: '3874', estado: 'ACTIVO', fechaIngreso: '2024-05-20', telefono: '3008887766' },
 ];
 
 const initialPermisos: Record<Rol, string[]> = {
