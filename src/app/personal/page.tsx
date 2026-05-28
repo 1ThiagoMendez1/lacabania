@@ -1,3 +1,4 @@
+
 "use client"
 
 import { usePOSStore } from "@/lib/store";
@@ -160,280 +161,153 @@ export default function PersonalPage() {
             </div>
             <h2 className="text-3xl font-headline text-foreground">Personal y Seguridad</h2>
           </div>
-          <p className="text-muted-foreground">Administra tu equipo y sus permisos de acceso 🤠</p>
+          <p className="text-muted-foreground">Administra tu equipo 🤠</p>
         </div>
       </header>
 
-      <Tabs defaultValue="equipo" className="space-y-8">
-        <TabsList className="bg-accent/30 border border-border p-1 h-12">
-          <TabsTrigger value="equipo" className="data-[state=active]:bg-primary data-[state=active]:text-white gap-2 px-6">
-            <Users className="w-4 h-4" />
-            Nómina de Equipo
-          </TabsTrigger>
-          {user?.rol === 'ADMINISTRADOR' && (
-            <TabsTrigger value="permisos" className="data-[state=active]:bg-secondary data-[state=active]:text-secondary-foreground gap-2 px-6">
-              <ShieldCheck className="w-4 h-4" />
-              Permisos por Rol
-            </TabsTrigger>
-          )}
-        </TabsList>
+      <div className="space-y-8">
+        <div className="grid grid-cols-1 md:grid-cols-4 gap-6">
+          <Card className="bg-card border-border shadow-md">
+            <CardContent className="pt-6">
+              <p className="text-xs text-muted-foreground uppercase mb-1">Total Equipo</p>
+              <h3 className="text-2xl font-bold">{stats.total}</h3>
+            </CardContent>
+          </Card>
+          <Card className="bg-card border-border shadow-md">
+            <CardContent className="pt-6">
+              <p className="text-xs text-muted-foreground uppercase mb-1">Activos</p>
+              <h3 className="text-2xl font-bold text-green-500">{stats.activos}</h3>
+            </CardContent>
+          </Card>
+        </div>
 
-        <TabsContent value="equipo" className="space-y-8">
-          <div className="grid grid-cols-1 md:grid-cols-4 gap-6">
-            <Card className="bg-card border-border shadow-md">
-              <CardContent className="pt-6">
-                <p className="text-xs text-muted-foreground uppercase mb-1">Total Equipo</p>
-                <h3 className="text-2xl font-bold">{stats.total} personas</h3>
-              </CardContent>
-            </Card>
-            <Card className="bg-card border-border shadow-md">
-              <CardContent className="pt-6">
-                <p className="text-xs text-muted-foreground uppercase mb-1">Activos</p>
-                <h3 className="text-2xl font-bold text-green-500">{stats.activos}</h3>
-              </CardContent>
-            </Card>
-            <Card className="bg-card border-border shadow-md">
-              <CardContent className="pt-6">
-                <p className="text-xs text-muted-foreground uppercase mb-1">Meseros</p>
-                <h3 className="text-2xl font-bold text-secondary">{stats.meseros}</h3>
-              </CardContent>
-            </Card>
-            <Card className="bg-card border-border shadow-md">
-              <CardContent className="pt-6">
-                <p className="text-xs text-muted-foreground uppercase mb-1">En Cocina</p>
-                <h3 className="text-2xl font-bold text-primary">{stats.cocina}</h3>
-              </CardContent>
-            </Card>
-          </div>
-
-          <Card className="bg-card border-border paper-texture overflow-hidden shadow-xl">
-            <CardHeader className="flex flex-row items-center justify-between border-b border-border/50">
-              <CardTitle className="text-xl font-headline">Nómina Activa</CardTitle>
-              <div className="flex gap-4">
-                <div className="relative w-64">
-                  <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
-                  <Input placeholder="Buscar por nombre o cédula..." className="pl-10 bg-background" value={searchTerm} onChange={(e) => setSearchTerm(e.target.value)} />
-                </div>
-                <Dialog open={isDialogOpen} onOpenChange={setIsDialogOpen}>
-                  <DialogTrigger asChild>
-                    <Button className="bg-secondary text-secondary-foreground hover:glow-gold font-bold gap-2">
-                      <UserPlus className="w-5 h-5" /> Nuevo
-                    </Button>
-                  </DialogTrigger>
-                  <DialogContent className="bg-card border-border text-foreground max-w-2xl">
-                    <DialogHeader><DialogTitle className="text-2xl font-headline">Nuevo Integrante</DialogTitle></DialogHeader>
-                    <div className="grid gap-6 py-4">
-                      <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                        <div className="space-y-4">
-                          <div className="space-y-2">
-                            <Label>Nombre Completo</Label>
-                            <Input value={newStaff.nombre} onChange={(e) => setNewStaff({...newStaff, nombre: e.target.value})} placeholder="Ej: Pedro Pérez" />
-                          </div>
-                          <div className="space-y-2">
-                            <Label>Cédula de Ciudadanía</Label>
-                            <Input value={newStaff.cedula} onChange={(e) => setNewStaff({...newStaff, cedula: e.target.value})} placeholder="Número de documento" />
-                            <p className="text-[10px] text-muted-foreground">El PIN de acceso serán los últimos 4 dígitos.</p>
-                          </div>
-                          <div className="space-y-2">
-                            <Label>Rol / Cargo</Label>
-                            <Select onValueChange={(val) => setNewStaff({...newStaff, rol: val as Rol})} defaultValue="MESERO">
-                              <SelectTrigger><SelectValue placeholder="Selecciona Rol" /></SelectTrigger>
-                              <SelectContent className="bg-card border-border">
-                                <SelectItem value="ADMINISTRADOR">Administrador</SelectItem>
-                                <SelectItem value="MESERO">Mesero</SelectItem>
-                                <SelectItem value="COCINERO">Cocinero</SelectItem>
-                              </SelectContent>
-                            </Select>
-                          </div>
-                          <div className="space-y-2">
-                            <Label>Teléfono</Label>
-                            <Input value={newStaff.telefono} onChange={(e) => setNewStaff({...newStaff, telefono: e.target.value})} placeholder="300 123 4567" />
-                          </div>
+        <Card className="bg-card border-border paper-texture overflow-hidden shadow-xl">
+          <CardHeader className="flex flex-row items-center justify-between border-b border-border/50">
+            <CardTitle className="text-xl font-headline">Nómina Activa</CardTitle>
+            <div className="flex gap-4">
+              <div className="relative w-64">
+                <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
+                <Input placeholder="Buscar..." className="pl-10 bg-background" value={searchTerm} onChange={(e) => setSearchTerm(e.target.value)} />
+              </div>
+              <Dialog open={isDialogOpen} onOpenChange={setIsDialogOpen}>
+                <DialogTrigger asChild>
+                  <Button className="bg-secondary text-secondary-foreground font-bold gap-2">
+                    <UserPlus className="w-5 h-5" /> Nuevo
+                  </Button>
+                </DialogTrigger>
+                <DialogContent className="bg-card border-border text-foreground max-w-2xl">
+                  <DialogHeader><DialogTitle className="text-2xl font-headline">Nuevo Integrante</DialogTitle></DialogHeader>
+                  <div className="grid gap-6 py-4">
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                      <div className="space-y-4">
+                        <div className="space-y-2">
+                          <Label>Nombre Completo</Label>
+                          <Input value={newStaff.nombre} onChange={(e) => setNewStaff({...newStaff, nombre: e.target.value})} placeholder="Ej: Pedro Pérez" />
                         </div>
+                        <div className="space-y-2">
+                          <Label>Cédula</Label>
+                          <Input value={newStaff.cedula} onChange={(e) => setNewStaff({...newStaff, cedula: e.target.value})} placeholder="Número de documento" />
+                        </div>
+                        <div className="space-y-2">
+                          <Label>Cargo</Label>
+                          <Select onValueChange={(val) => setNewStaff({...newStaff, rol: val as Rol})} defaultValue="MESERO">
+                            <SelectTrigger><SelectValue placeholder="Selecciona Rol" /></SelectTrigger>
+                            <SelectContent className="bg-card border-border">
+                              <SelectItem value="ADMINISTRADOR">Administrador</SelectItem>
+                              <SelectItem value="MESERO">Mesero</SelectItem>
+                              <SelectItem value="COCINERO">Cocinero</SelectItem>
+                            </SelectContent>
+                          </Select>
+                        </div>
+                      </div>
 
-                        <div className="space-y-4">
-                          <Label>Documento de Identidad (Foto)</Label>
-                          <div className="border-2 border-dashed border-border rounded-xl p-4 flex flex-col items-center justify-center gap-4 bg-accent/10 min-h-[200px] relative overflow-hidden group">
-                            {newStaff.fotoDocumento ? (
-                              <>
-                                <img src={newStaff.fotoDocumento} alt="Documento" className="absolute inset-0 w-full h-full object-cover" />
-                                <div className="absolute inset-0 bg-black/60 opacity-0 group-hover:opacity-100 flex items-center justify-center transition-opacity">
-                                  <Button variant="outline" size="sm" className="bg-background text-foreground" onClick={() => setNewStaff({...newStaff, fotoDocumento: ""})}>Cambiar Foto</Button>
-                                </div>
-                              </>
-                            ) : (
-                              <>
-                                <FileImage className="w-12 h-12 text-muted-foreground opacity-30" />
-                                <p className="text-xs text-muted-foreground text-center">Haz clic para cargar la foto del documento</p>
-                                <Input type="file" accept="image/*" className="absolute inset-0 opacity-0 cursor-pointer" onChange={handleFileChange} />
-                              </>
-                            )}
-                          </div>
+                      <div className="space-y-4">
+                        <Label>Documento de Identidad (Foto)</Label>
+                        <div className="border-2 border-dashed border-border rounded-xl p-4 flex flex-col items-center justify-center gap-4 bg-accent/10 min-h-[200px] relative overflow-hidden group">
+                          {newStaff.fotoDocumento ? (
+                            <>
+                              <img src={newStaff.fotoDocumento} alt="Documento" className="absolute inset-0 w-full h-full object-cover" />
+                              <div className="absolute inset-0 bg-black/60 opacity-0 group-hover:opacity-100 flex items-center justify-center transition-opacity">
+                                <Button variant="outline" size="sm" className="bg-background" onClick={() => setNewStaff({...newStaff, fotoDocumento: ""})}>Cambiar</Button>
+                              </div>
+                            </>
+                          ) : (
+                            <>
+                              <FileImage className="w-12 h-12 text-muted-foreground opacity-30" />
+                              <Input type="file" accept="image/*" className="absolute inset-0 opacity-0 cursor-pointer" onChange={handleFileChange} />
+                            </>
+                          )}
                         </div>
                       </div>
                     </div>
-                    <DialogFooter>
-                      <Button variant="ghost" onClick={() => setIsDialogOpen(false)}>Cancelar</Button>
-                      <Button className="bg-primary font-bold" onClick={handleCreateStaff}>AGREGAR EQUIPO</Button>
-                    </DialogFooter>
-                  </DialogContent>
-                </Dialog>
-              </div>
-            </CardHeader>
-            <CardContent className="p-0">
-              <Table>
-                <TableHeader className="bg-accent/50">
-                  <TableRow className="border-border">
-                    <TableHead>Integrante</TableHead>
-                    <TableHead>Documento</TableHead>
-                    <TableHead>Cargo</TableHead>
-                    <TableHead>Contacto</TableHead>
-                    <TableHead>Ingreso</TableHead>
-                    <TableHead className="text-center">Estado</TableHead>
-                    <TableHead className="text-right">Acciones</TableHead>
-                  </TableRow>
-                </TableHeader>
-                <TableBody>
-                  {filteredStaff.map((u) => (
-                    <TableRow key={u.id} className={cn("border-border hover:bg-accent/20", u.estado === 'INACTIVO' && "opacity-60 grayscale")}>
-                      <TableCell className="font-bold flex items-center gap-2">
-                        <div className="w-8 h-8 rounded-full bg-primary/20 flex items-center justify-center text-primary font-bold text-xs">
-                          {u.nombre[0]}
-                        </div>
-                        {u.nombre}
-                      </TableCell>
-                      <TableCell>
-                        <div className="flex items-center gap-2 text-xs font-mono">
-                          <IdCard className="w-3 h-3 text-muted-foreground" /> {u.cedula}
-                          {u.fotoDocumento && (
-                            <Dialog>
-                              <DialogTrigger asChild>
-                                <Button variant="ghost" size="icon" className="h-6 w-6 text-primary"><ImageIcon className="w-3 h-3" /></Button>
-                              </DialogTrigger>
-                              <DialogContent className="max-w-3xl bg-card border-border">
-                                <DialogHeader><DialogTitle>Documento de {u.nombre}</DialogTitle></DialogHeader>
-                                <div className="aspect-video w-full rounded-lg overflow-hidden border">
-                                  <img src={u.fotoDocumento} alt="Doc" className="w-full h-full object-contain" />
-                                </div>
-                              </DialogContent>
-                            </Dialog>
-                          )}
-                        </div>
-                      </TableCell>
-                      <TableCell>{getRoleBadge(u.rol)}</TableCell>
-                      <TableCell>
-                        <div className="flex items-center gap-2 text-xs text-muted-foreground">
-                          <Phone className="w-3 h-3" /> {u.telefono || 'Sin tel.'}
-                        </div>
-                      </TableCell>
-                      <TableCell>
-                        <div className="flex items-center gap-2 text-xs text-muted-foreground">
-                          <Calendar className="w-3 h-3" /> {u.fechaIngreso}
-                        </div>
-                      </TableCell>
-                      <TableCell className="text-center">
-                        <Badge variant={u.estado === 'ACTIVO' ? 'default' : 'secondary'} className={cn(u.estado === 'ACTIVO' ? "bg-green-500/20 text-green-500" : "bg-slate-500/20 text-slate-500")}>
-                          {u.estado}
-                        </Badge>
-                      </TableCell>
-                      <TableCell className="text-right">
-                        <DropdownMenu>
-                          <DropdownMenuTrigger asChild>
-                            <Button variant="ghost" size="icon" className="h-8 w-8"><MoreVertical className="w-4 h-4" /></Button>
-                          </DropdownMenuTrigger>
-                          <DropdownMenuContent align="end" className="bg-card border-border">
-                            <DropdownMenuItem className="gap-2 cursor-pointer" onClick={() => toggleEstado(u)}>
-                              {u.estado === 'ACTIVO' ? <XCircle className="w-4 h-4 text-destructive" /> : <CheckCircle2 className="w-4 h-4 text-green-500" />}
-                              {u.estado === 'ACTIVO' ? 'Inactivar' : 'Activar'}
-                            </DropdownMenuItem>
-                            <DropdownMenuItem className="gap-2 text-destructive cursor-pointer" onClick={() => handleDelete(u.id)}>
-                              <Trash2 className="w-4 h-4" /> Eliminar
-                            </DropdownMenuItem>
-                          </DropdownMenuContent>
-                        </DropdownMenu>
-                      </TableCell>
-                    </TableRow>
-                  ))}
-                </TableBody>
-              </Table>
-            </CardContent>
-          </Card>
-        </TabsContent>
-
-        {user?.rol === 'ADMINISTRADOR' && (
-          <TabsContent value="permisos">
-            <div className="space-y-6">
-              <Card className="bg-card border-border paper-texture overflow-hidden shadow-2xl">
-                <CardHeader className="border-b border-border/50 bg-accent/20">
-                  <CardTitle className="text-xl font-headline flex items-center gap-2">
-                    <Lock className="w-5 h-5 text-secondary" />
-                    Matriz de Visibilidad por Rol
-                  </CardTitle>
-                </CardHeader>
-                <CardContent className="p-0">
-                  <Table>
-                    <TableHeader className="bg-accent/50">
-                      <TableRow className="border-border">
-                        <TableHead className="w-[250px]">Apartado del Sistema</TableHead>
-                        {ROLES.map(rol => (
-                          <TableHead key={rol} className="text-center">
-                            <div className="flex flex-col items-center gap-1">
-                              <UserCircle className="w-4 h-4 opacity-50" />
-                              <span className="text-[10px] uppercase font-bold tracking-tighter">{rol}</span>
-                            </div>
-                          </TableHead>
-                        ))}
-                      </TableRow>
-                    </TableHeader>
-                    <TableBody>
-                      {ALL_MENU_ITEMS.map((item) => (
-                        <TableRow key={item.label} className="border-border hover:bg-accent/20 transition-colors">
-                          <TableCell className="font-medium">
-                            <div className="flex items-center gap-3">
-                              <div className="p-1.5 bg-accent/50 rounded-md">
-                                <item.icon className="w-4 h-4 text-primary" />
-                              </div>
-                              <span>{item.label}</span>
-                            </div>
-                          </TableCell>
-                          {ROLES.map(rol => {
-                            const isAllowed = permisos[rol]?.includes(item.label);
-                            const isSelfAdmin = rol === 'ADMINISTRADOR' && item.label === 'Personal';
-                            
-                            return (
-                              <TableCell key={`${rol}-${item.label}`} className="text-center">
-                                <div className="flex justify-center">
-                                  <Checkbox 
-                                    checked={isAllowed} 
-                                    onCheckedChange={() => togglePermiso(rol, item.label)}
-                                    disabled={isSelfAdmin} 
-                                    className={cn(
-                                      "h-5 w-5",
-                                      isAllowed ? "data-[state=checked]:bg-secondary border-secondary" : "border-muted-foreground/30"
-                                    )}
-                                  />
-                                </div>
-                              </TableCell>
-                            );
-                          })}
-                        </TableRow>
-                      ))}
-                    </TableBody>
-                  </Table>
-                </CardContent>
-              </Card>
-
-              <Alert className="bg-secondary/10 border-secondary/20">
-                <ShieldAlert className="h-4 w-4 text-secondary" />
-                <AlertTitle className="text-secondary">Información de Seguridad</AlertTitle>
-                <AlertDescription className="text-xs text-muted-foreground">
-                  Los cambios se aplican inmediatamente. Puedes usar el <strong>Simulador de Roles</strong> en la barra lateral para verificar cómo ve el sistema cada integrante según tus ajustes.
-                </AlertDescription>
-              </Alert>
+                  </div>
+                  <DialogFooter>
+                    <Button variant="ghost" onClick={() => setIsDialogOpen(false)}>Cancelar</Button>
+                    <Button className="bg-primary font-bold" onClick={handleCreateStaff}>AGREGAR</Button>
+                  </DialogFooter>
+                </DialogContent>
+              </Dialog>
             </div>
-          </TabsContent>
-        )}
-      </Tabs>
+          </CardHeader>
+          <CardContent className="p-0">
+            <Table>
+              <TableHeader className="bg-accent/50">
+                <TableRow className="border-border">
+                  <TableHead>Integrante</TableHead>
+                  <TableHead>Documento</TableHead>
+                  <TableHead>Cargo</TableHead>
+                  <TableHead>Ingreso</TableHead>
+                  <TableHead className="text-center">Estado</TableHead>
+                  <TableHead className="text-right">Acciones</TableHead>
+                </TableRow>
+              </TableHeader>
+              <TableBody>
+                {filteredStaff.map((u) => (
+                  <TableRow key={u.id} className={cn("border-border", u.estado === 'INACTIVO' && "opacity-60")}>
+                    <TableCell className="font-bold flex items-center gap-2">
+                      <div className="w-8 h-8 rounded-full bg-primary/20 flex items-center justify-center text-primary font-bold text-xs">
+                        {u.nombre[0]}
+                      </div>
+                      {u.nombre}
+                    </TableCell>
+                    <TableCell>
+                      <div className="flex items-center gap-2 text-xs font-mono">
+                        <IdCard className="w-3 h-3 text-muted-foreground" /> {u.cedula}
+                      </div>
+                    </TableCell>
+                    <TableCell>{getRoleBadge(u.rol)}</TableCell>
+                    <TableCell>
+                      <div className="flex items-center gap-2 text-xs text-muted-foreground">
+                        <Calendar className="w-3 h-3" /> {u.fechaIngreso}
+                      </div>
+                    </TableCell>
+                    <TableCell className="text-center">
+                      <Badge variant={u.estado === 'ACTIVO' ? 'default' : 'secondary'}>
+                        {u.estado}
+                      </Badge>
+                    </TableCell>
+                    <TableCell className="text-right">
+                      <DropdownMenu>
+                        <DropdownMenuTrigger asChild>
+                          <Button variant="ghost" size="icon"><MoreVertical className="w-4 h-4" /></Button>
+                        </DropdownMenuTrigger>
+                        <DropdownMenuContent align="end" className="bg-card border-border">
+                          <DropdownMenuItem className="cursor-pointer" onClick={() => toggleEstado(u)}>
+                            {u.estado === 'ACTIVO' ? 'Inactivar' : 'Activar'}
+                          </DropdownMenuItem>
+                          <DropdownMenuItem className="text-destructive cursor-pointer" onClick={() => handleDelete(u.id)}>
+                            Eliminar
+                          </DropdownMenuItem>
+                        </DropdownMenuContent>
+                      </DropdownMenu>
+                    </TableCell>
+                  </TableRow>
+                ))}
+              </TableBody>
+            </Table>
+          </CardContent>
+        </Card>
+      </div>
     </main>
   );
 }

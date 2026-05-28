@@ -89,14 +89,6 @@ export default function CajaPage() {
       return;
     }
 
-    // Aquí se integraría la llamada a Factus API
-    if (requireFE) {
-      toast({
-        title: "Emitiendo Factura Electrónica...",
-        description: "Conectando con Factus para validación ante la DIAN."
-      });
-    }
-
     const ordenToClose = { 
       ...activeOrden, 
       metodoPago, 
@@ -136,7 +128,6 @@ export default function CajaPage() {
       </header>
 
       <div className="flex-1 flex flex-col lg:flex-row gap-8 overflow-hidden print:hidden">
-        {/* Listado de Mesas */}
         <div className="w-full lg:w-80 flex flex-col gap-4">
           <h3 className="text-sm font-bold uppercase tracking-wider text-muted-foreground flex items-center gap-2">
             <Calculator className="w-4 h-4" /> Mesas Pendientes
@@ -167,7 +158,6 @@ export default function CajaPage() {
           </ScrollArea>
         </div>
 
-        {/* Detalle de Cuenta */}
         <div className="flex-1 overflow-hidden h-full">
           {activeOrden ? (
             <Card className="h-full bg-card border-border paper-texture flex flex-col overflow-hidden">
@@ -179,7 +169,7 @@ export default function CajaPage() {
                     <p className="text-[10px] uppercase text-muted-foreground font-mono">Orden: {activeOrden.id}</p>
                   </div>
                 </div>
-              </header>
+              </CardHeader>
               <CardContent className="flex-1 flex flex-col p-0 overflow-hidden">
                 <div className="flex-1 flex flex-col lg:flex-row overflow-hidden">
                   <ScrollArea className="flex-1 p-6 border-r border-border/30">
@@ -197,7 +187,6 @@ export default function CajaPage() {
                     </table>
                   </ScrollArea>
 
-                  {/* Facturación Electrónica Form */}
                   <div className="w-full lg:w-96 p-6 bg-accent/10 space-y-4">
                     <div className="flex items-center justify-between mb-4">
                       <div className="flex items-center gap-2">
@@ -256,7 +245,7 @@ export default function CajaPage() {
                           </div>
                         </div>
                         <div className="space-y-1.5">
-                          <Label className="text-[10px] uppercase font-bold">Correo Electrónico (Para envío)</Label>
+                          <Label className="text-[10px] uppercase font-bold">Correo Electrónico</Label>
                           <div className="relative">
                             <Mail className="absolute left-2.5 top-1/2 -translate-y-1/2 w-3.5 h-3.5 text-muted-foreground" />
                             <Input 
@@ -280,24 +269,11 @@ export default function CajaPage() {
                             />
                           </div>
                         </div>
-                        <div className="space-y-1.5">
-                          <Label className="text-[10px] uppercase font-bold">Dirección</Label>
-                          <div className="relative">
-                            <MapPin className="absolute left-2.5 top-1/2 -translate-y-1/2 w-3.5 h-3.5 text-muted-foreground" />
-                            <Input 
-                              className="h-9 pl-8 text-xs bg-background" 
-                              value={clienteFE.direccion}
-                              onChange={(e) => setClienteFE({...clienteFE, direccion: e.target.value})}
-                              placeholder="Calle 123 # 45-67"
-                            />
-                          </div>
-                        </div>
                       </div>
                     ) : (
                       <div className="h-full flex flex-col items-center justify-center opacity-40 text-center py-10 border-2 border-dashed border-border rounded-2xl">
                         <ShieldCheck className="w-12 h-12 mb-2" />
-                        <p className="text-xs font-bold uppercase tracking-widest">Factura de Venta POS</p>
-                        <p className="text-[10px] max-w-[150px] mt-1">Se emitirá un ticket interno de "La Cabaña".</p>
+                        <p className="text-xs font-bold uppercase tracking-widest">Factura POS</p>
                       </div>
                     )}
                   </div>
@@ -305,7 +281,6 @@ export default function CajaPage() {
                 
                 <div className="bg-accent/40 p-4 md:p-8 border-t border-border">
                   <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
-                    {/* Metodos de Pago */}
                     <div className="space-y-4">
                       <p className="text-xs font-bold text-muted-foreground uppercase tracking-widest">Método de Pago</p>
                       <div className="grid grid-cols-3 gap-3">
@@ -345,14 +320,13 @@ export default function CajaPage() {
                       </div>
                     </div>
 
-                    {/* Totales */}
                     <div className="space-y-3">
                       <div className="flex justify-between text-sm text-muted-foreground">
                         <span>Subtotal:</span>
                         <span className="font-bold text-foreground">${subtotal.toLocaleString()}</span>
                       </div>
                       <div className="flex justify-between text-sm text-muted-foreground">
-                        <span>Servicio Sugerido (10%):</span>
+                        <span>Servicio (10%):</span>
                         <span className="font-bold text-foreground">${propinaSugerida.toLocaleString()}</span>
                       </div>
                       <Separator className="bg-border/50" />
@@ -376,29 +350,24 @@ export default function CajaPage() {
             <div className="h-full border-2 border-dashed border-border rounded-3xl flex flex-col items-center justify-center text-muted-foreground bg-accent/5 p-8">
               <Receipt className="w-16 h-16 mb-4 opacity-20" />
               <h3 className="text-xl font-headline">Selecciona una mesa para cobrar</h3>
-              <p className="text-sm text-center mt-2 max-w-xs">Elige una de las mesas activas a la izquierda para ver el detalle de su cuenta.</p>
             </div>
           )}
         </div>
       </div>
 
-      {/* Dialogo de Recibo Profesional */}
       <Dialog open={showReceipt} onOpenChange={setShowReceipt}>
         <DialogContent className="max-w-[400px] p-0 overflow-hidden bg-white text-black border-none rounded-none sm:rounded-none font-mono">
           <div className="p-8 space-y-4">
-            {/* Cabecera del Recibo */}
             <div className="text-center space-y-1">
               <div className="text-3xl mb-2">🤠</div>
               <h1 className="text-xl font-black uppercase tracking-tighter">La Cabaña</h1>
               <p className="text-[10px] font-bold">CARNE AL BARRIL & PARRILLA</p>
               <p className="text-[9px]">NIT: 900.123.456-7</p>
               <p className="text-[9px]">Calle 123 # 45 - 67, Bogotá</p>
-              <p className="text-[9px]">Tel: (601) 234 5678</p>
               
               {lastClosedOrden?.clienteFE && (
                 <div className="mt-4 border-y border-black/10 py-2">
-                  <p className="text-[11px] font-black uppercase">Factura Electrónica de Venta</p>
-                  <p className="text-[9px] font-bold mt-1">No. FE-000123</p>
+                  <p className="text-[11px] font-black uppercase">Factura Electrónica</p>
                 </div>
               )}
             </div>
@@ -406,24 +375,16 @@ export default function CajaPage() {
             <div className="border-t border-dashed border-black/30 pt-4 space-y-1 text-[10px]">
               <div className="flex justify-between">
                 <span>FECHA: {new Date().toLocaleDateString()}</span>
-                <span>HORA: {new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}</span>
-              </div>
-              <div className="flex justify-between">
-                <span>ORDEN: {lastClosedOrden?.id.split('-')[1] || '001'}</span>
                 <span>MESA: {lastClosedOrden?.mesaId}</span>
               </div>
-              <div>MESERO: {lastClosedOrden?.meseroId === '2' ? 'Juan Mesero' : 'Admin'}</div>
-              
               {lastClosedOrden?.clienteFE && (
                 <div className="mt-2 pt-2 border-t border-black/5">
                   <p className="font-bold">CLIENTE: {lastClosedOrden.clienteFE.nombre}</p>
                   <p>NIT/CC: {lastClosedOrden.clienteFE.numeroDocumento}</p>
-                  <p>EMAIL: {lastClosedOrden.clienteFE.email}</p>
                 </div>
               )}
             </div>
 
-            {/* Items */}
             <div className="border-t border-dashed border-black/30 pt-4">
               <table className="w-full text-[10px]">
                 <thead>
@@ -445,51 +406,27 @@ export default function CajaPage() {
               </table>
             </div>
 
-            {/* Totales */}
             <div className="border-t border-dashed border-black/30 pt-4 space-y-1 text-xs">
-              <div className="flex justify-between">
-                <span>SUBTOTAL:</span>
-                <span>${(lastClosedOrden?.items.reduce((acc, i) => acc + (i.precioUnitario * i.cantidad), 0) || 0).toLocaleString()}</span>
-              </div>
-              <div className="flex justify-between">
-                <span>PROPINA (10%):</span>
-                <span>${((lastClosedOrden?.items.reduce((acc, i) => acc + (i.precioUnitario * i.cantidad), 0) || 0) * 0.1).toLocaleString()}</span>
-              </div>
               <div className="flex justify-between font-black text-sm pt-2 border-t border-black/10">
-                <span>TOTAL A PAGAR:</span>
+                <span>TOTAL:</span>
                 <span>${((lastClosedOrden?.items.reduce((acc, i) => acc + (i.precioUnitario * i.cantidad), 0) || 0) * 1.1).toLocaleString()}</span>
               </div>
             </div>
 
-            {/* Info de Pago */}
             <div className="pt-4 text-center space-y-2">
               <div className="inline-block border border-black px-4 py-1 text-[10px] font-black uppercase">
-                PAGADO CON: {lastClosedOrden?.metodoPago}
+                PAGADO: {lastClosedOrden?.metodoPago}
               </div>
-              
-              {lastClosedOrden?.clienteFE && (
-                <div className="text-[8px] mt-2 opacity-80 text-left space-y-0.5">
-                  <p className="font-bold">CUFE: 82a9...d32f</p>
-                  <p>QR Validado por Factus ante la DIAN</p>
-                </div>
-              )}
-
               <p className="text-[9px] italic mt-4">"Gracias por preferir el sabor del barril"</p>
-              <p className="text-[8px] opacity-60">Software POS: La Cabaña System v1.1 - Factus Ready</p>
             </div>
 
             <div className="flex flex-col gap-2 pt-6 print:hidden">
               <Button onClick={handlePrint} className="w-full bg-black text-white hover:bg-zinc-800 gap-2 font-bold">
-                <Printer className="w-4 h-4" /> IMPRIMIR TICKET
+                <Printer className="w-4 h-4" /> IMPRIMIR
               </Button>
-              <div className="grid grid-cols-2 gap-2">
-                <Button variant="outline" className="border-black text-black gap-2 text-xs" onClick={() => setShowReceipt(false)}>
-                  <X className="w-3 h-3" /> CERRAR
-                </Button>
-                <Button variant="outline" className="border-black text-black gap-2 text-xs">
-                  <Share2 className="w-3 h-3" /> COMPARTIR
-                </Button>
-              </div>
+              <Button variant="outline" className="border-black text-black gap-2 text-xs" onClick={() => setShowReceipt(false)}>
+                CERRAR
+              </Button>
             </div>
           </div>
         </DialogContent>
