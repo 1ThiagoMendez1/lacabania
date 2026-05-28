@@ -1,4 +1,3 @@
-
 "use client"
 
 import { usePOSStore } from "@/lib/store";
@@ -13,7 +12,8 @@ import {
   BarChart3, 
   Utensils,
   Users,
-  LogOut
+  LogOut,
+  Printer
 } from "lucide-react";
 import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
@@ -43,6 +43,7 @@ export const ALL_MENU_ITEMS = [
   { icon: CircleDollarSign, label: "Caja", href: "/caja" },
   { icon: Package, label: "Inventario", href: "/inventario" },
   { icon: Users, label: "Personal", href: "/personal" },
+  { icon: Printer, label: "Impresoras", href: "/configuracion/impresoras" },
   { icon: BarChart3, label: "Reportes & AI", href: "/ai-insights" },
 ];
 
