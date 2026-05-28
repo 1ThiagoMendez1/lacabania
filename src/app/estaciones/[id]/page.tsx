@@ -215,9 +215,9 @@ export default function StationPage() {
                       <Button 
                         size="sm" 
                         className="w-full bg-green-600 hover:bg-green-700 text-white font-black h-12 rounded-xl mt-2 shadow-lg"
-                        onClick={() => updateItemEstado(order.id, item.id, 'LISTO')}
+                        onClick={() => updateItemEstado(order.id, item.id, 'ENTREGADO')}
                       >
-                        ¡PLATO LISTO! 🤠
+                        ENTREGADO 🤠
                       </Button>
                     </div>
                   ))}
