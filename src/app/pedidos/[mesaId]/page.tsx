@@ -21,7 +21,8 @@ import {
   CheckCircle,
   Truck,
   Timer,
-  Flame
+  Flame,
+  UtensilsCrossed
 } from "lucide-react";
 import { useState, useMemo } from "react";
 import { Input } from "@/components/ui/input";
@@ -124,7 +125,6 @@ export default function OrderPage() {
   const handleSendOrder = () => {
     if (cart.length === 0) return;
     
-    // Simplificación: Los ítems ahora pasan directo a EN PREPARACION
     const newItems: ItemOrden[] = cart.map(item => ({
       id: Math.random().toString(36).substr(2, 9),
       productoId: item.producto.id,
@@ -156,8 +156,8 @@ export default function OrderPage() {
     setCart([]);
     setShowConfirmDialog(false);
     toast({ 
-      title: "¡Marchando!", 
-      description: "El pedido ya está en preparación en las estaciones correspondientes." 
+      title: "¡Pedido en marcha!", 
+      description: "La cocina ya recibió la orden. 🤠" 
     });
   };
 
@@ -190,7 +190,6 @@ export default function OrderPage() {
                     </Button>
                   </div>
                 </div>
-                
                 <div className="flex items-center gap-2">
                   <Button 
                     variant="ghost" 
@@ -202,7 +201,7 @@ export default function OrderPage() {
                     onClick={(e) => { e.stopPropagation(); openNoteEditor(item); }}
                   >
                     <MessageSquarePlus className="w-3.5 h-3.5" />
-                    {item.notas ? "Cambiar Nota" : "Petición Especial"}
+                    {item.notas ? "Cambiar Nota" : "Nota especial"}
                   </Button>
                   {item.notas && (
                     <div className="flex-1 truncate italic text-[10px] text-primary/80 bg-primary/5 px-2 py-1 rounded-md border border-primary/10">
@@ -215,20 +214,20 @@ export default function OrderPage() {
           </div>
         )}
       </ScrollArea>
-      <div className="mt-auto pt-6 pb-12 lg:pb-6 border-t bg-card/80 backdrop-blur-xl -mx-6 px-6 rounded-t-3xl shadow-[0_-10px_40px_-15px_rgba(0,0,0,0.5)]">
+      <div className="mt-auto pt-6 pb-12 lg:pb-6 border-t bg-card/80 backdrop-blur-xl -mx-6 px-6 rounded-t-3xl shadow-2xl">
         <div className="flex justify-between items-center mb-6">
           <div className="flex flex-col">
-            <span className="text-muted-foreground font-black uppercase tracking-[0.2em] text-[10px]">Subtotal Pedido</span>
-            <span className="text-[10px] text-primary font-mono mt-0.5">{cartItemsCount} productos registrados</span>
+            <span className="text-muted-foreground font-black uppercase tracking-[0.2em] text-[10px]">Total Pedido</span>
+            <span className="text-[10px] text-primary font-mono mt-0.5">{cartItemsCount} items</span>
           </div>
           <span className="text-3xl font-black text-secondary glow-gold-text tracking-tighter">${cartTotal.toLocaleString()}</span>
         </div>
         <Button 
           disabled={cart.length === 0} 
           onClick={() => setShowConfirmDialog(true)} 
-          className="w-full h-14 md:h-16 text-lg font-black rounded-2xl shadow-2xl hover:glow-orange transition-all bg-primary active:scale-95 border-b-4 border-primary-foreground/20"
+          className="w-full h-14 md:h-16 text-lg font-black rounded-2xl shadow-xl bg-primary hover:glow-orange transition-all active:scale-95"
         >
-          ENVIAR A COCINA
+          MARCHAR ORDEN 🤠
         </Button>
       </div>
     </div>
@@ -236,7 +235,6 @@ export default function OrderPage() {
 
   return (
     <main className="flex flex-col h-svh bg-background overflow-hidden">
-      {/* Header */}
       <header className="p-3 md:p-6 flex justify-between items-center border-b bg-card/50 backdrop-blur-md sticky top-0 z-20">
         <div className="flex items-center gap-2 md:gap-4">
           <Button variant="ghost" size="icon" onClick={() => router.back()} className="rounded-full active:scale-90">
@@ -251,14 +249,13 @@ export default function OrderPage() {
         <div className="lg:hidden flex gap-2">
            <Sheet>
             <SheetTrigger asChild>
-              <Button variant="secondary" className="relative gap-2 font-bold h-10 px-4 rounded-full bg-accent/50 border-secondary/30 active:scale-95">
+              <Button variant="secondary" className="relative gap-2 font-bold h-10 px-4 rounded-full bg-accent/50 border-secondary/30">
                 <ShoppingCart className="w-4 h-4 text-secondary" />
                 {cartItemsCount > 0 && (
-                  <Badge className="absolute -top-1.5 -right-1.5 h-5 w-5 flex items-center justify-center p-0 bg-primary border-2 border-background animate-in zoom-in text-[10px] font-black">
+                  <Badge className="absolute -top-1.5 -right-1.5 h-5 w-5 flex items-center justify-center p-0 bg-primary border-2 border-background text-[10px] font-black">
                     {cartItemsCount}
                   </Badge>
                 )}
-                <span className="hidden sm:inline">Comanda</span>
               </Button>
             </SheetTrigger>
             <SheetContent side="bottom" className="h-[90vh] rounded-t-[3rem] border-t-4 border-t-primary paper-texture p-6 pt-8 overflow-hidden">
@@ -267,7 +264,7 @@ export default function OrderPage() {
                   <div className="p-2 bg-primary/10 rounded-lg">
                     <ShoppingCart className="w-6 h-6 text-primary" />
                   </div>
-                  Pedido Actual
+                  Orden Actual
                 </SheetTitle>
               </SheetHeader>
               <CartSummary />
@@ -283,7 +280,7 @@ export default function OrderPage() {
               <ListTodo className="w-4 h-4" /> Carta
             </TabsTrigger>
             <TabsTrigger value="status" className="rounded-xl data-[state=active]:bg-secondary data-[state=active]:text-secondary-foreground font-bold gap-2">
-              <Truck className="w-4 h-4" /> Seguimiento
+              <UtensilsCrossed className="w-4 h-4" /> Entregas
               {activeOrder?.items.filter(i => i.estado === 'LISTO').length! > 0 && (
                 <Badge className="ml-1 h-5 w-5 p-0 flex items-center justify-center bg-red-500 animate-pulse">
                   {activeOrder?.items.filter(i => i.estado === 'LISTO').length}
@@ -294,19 +291,17 @@ export default function OrderPage() {
         </div>
 
         <TabsContent value="menu" className="flex-1 flex flex-col lg:flex-row gap-0 lg:gap-8 p-0 lg:p-8 overflow-hidden">
-          {/* Menu Section */}
           <div className="flex-1 flex flex-col gap-3 p-3 lg:p-0 overflow-hidden">
             <div className="space-y-3">
               <div className="relative group">
                 <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
                 <Input 
-                  placeholder="Buscar plato o bebida..." 
-                  className="pl-10 h-11 bg-card/50 border-border focus-visible:ring-primary rounded-xl text-sm" 
+                  placeholder="Buscar..." 
+                  className="pl-10 h-11 bg-card/50 border-border rounded-xl" 
                   value={searchTerm} 
                   onChange={(e) => setSearchTerm(e.target.value)} 
                 />
               </div>
-              
               <ScrollArea className="w-full">
                 <div className="flex gap-2 pb-1.5">
                   {categories.map(cat => (
@@ -316,7 +311,7 @@ export default function OrderPage() {
                       size="sm" 
                       onClick={() => setSelectedCategory(cat)}
                       className={cn(
-                        "rounded-full px-4 h-8 transition-all active:scale-95 text-xs font-bold",
+                        "rounded-full px-4 h-8 text-xs font-bold transition-all",
                         selectedCategory === cat ? "shadow-md glow-orange" : "bg-card/30"
                       )}
                     >
@@ -333,15 +328,15 @@ export default function OrderPage() {
                 {filteredProducts.map(p => (
                   <Card 
                     key={p.id} 
-                    className="bg-card/40 border-border/50 active:scale-95 transition-all flex flex-col group overflow-hidden touch-manipulation"
+                    className="bg-card/40 border-border/50 active:scale-95 transition-all flex flex-col group overflow-hidden"
                     onClick={() => addToCart(p)}
                   >
-                    <CardContent className="p-3 md:p-5 flex flex-col justify-between h-full min-h-[140px] relative">
-                      <div className="mb-2">
-                        <Badge variant="outline" className="text-[7px] md:text-[9px] mb-2 font-mono uppercase tracking-tighter opacity-60">
+                    <CardContent className="p-3 md:p-5 flex flex-col justify-between h-full min-h-[140px]">
+                      <div>
+                        <Badge variant="outline" className="text-[7px] md:text-[9px] mb-2 uppercase opacity-60">
                           {p.categoria}
                         </Badge>
-                        <h4 className="font-bold text-xs md:text-base leading-tight group-active:text-primary transition-colors line-clamp-2">
+                        <h4 className="font-bold text-xs md:text-base leading-tight line-clamp-2">
                           {p.nombre}
                         </h4>
                       </div>
@@ -349,7 +344,7 @@ export default function OrderPage() {
                         <span className="text-sm md:text-xl font-black text-secondary">
                           ${p.precio.toLocaleString()}
                         </span>
-                        <div className="p-1.5 bg-primary/10 rounded-xl group-active:bg-primary group-active:text-white transition-all shadow-inner">
+                        <div className="p-1.5 bg-primary/10 rounded-xl group-active:bg-primary group-active:text-white transition-all">
                           <Plus className="w-4 h-4" />
                         </div>
                       </div>
@@ -360,12 +355,11 @@ export default function OrderPage() {
             </ScrollArea>
           </div>
 
-          {/* Desktop Cart Section */}
           <Card className="hidden lg:flex w-96 bg-card border-border paper-texture flex-col shadow-2xl overflow-hidden">
             <CardHeader className="border-b bg-accent/20">
               <CardTitle className="text-xl font-headline flex items-center gap-2">
                 <ShoppingCart className="w-5 h-5 text-primary" />
-                Comanda Actual
+                Comanda
               </CardTitle>
             </CardHeader>
             <div className="flex-1 p-6 overflow-hidden">
@@ -374,78 +368,85 @@ export default function OrderPage() {
           </Card>
         </TabsContent>
 
-        <TabsContent value="status" className="flex-1 p-4 md:p-8 overflow-hidden">
+        <TabsContent value="status" className="flex-1 p-3 md:p-8 overflow-hidden">
           <div className="max-w-4xl mx-auto h-full flex flex-col">
-            <h3 className="text-xl font-headline mb-6 flex items-center gap-2">
-              <Clock className="w-5 h-5 text-primary" />
-              Estado de Pedidos en Mesa {mesa.id}
-            </h3>
-            
             {!activeOrder || activeOrder.items.length === 0 ? (
               <div className="flex-1 flex flex-col items-center justify-center opacity-30 text-center space-y-4">
                 <div className="p-6 bg-accent/10 rounded-full">
-                  <StickyNote className="w-16 h-16" />
+                  <UtensilsCrossed className="w-16 h-16" />
                 </div>
-                <p className="font-headline text-2xl">No hay pedidos activos</p>
-                <p className="text-sm">Empieza registrando items en la Carta.</p>
+                <p className="font-headline text-2xl">Mesa despejada</p>
+                <p className="text-sm">No hay platos pendientes por entregar. 🤠</p>
               </div>
             ) : (
-              <ScrollArea className="flex-1 pr-4">
-                <div className="space-y-4 pb-10">
-                  {activeOrder.items.map((item) => {
-                    const statusConfig = {
-                      'PENDIENTE': { icon: Clock, color: 'text-muted-foreground', bg: 'bg-muted/10', label: 'En Cola' },
-                      'EN PREPARACION': { icon: Flame, color: 'text-secondary', bg: 'bg-secondary/10', label: 'En Fuego' },
-                      'LISTO': { icon: CheckCircle, color: 'text-green-500', bg: 'bg-green-500/10', label: 'LISTO PARA SALIR' },
-                      'ENTREGADO': { icon: Truck, color: 'text-blue-500', bg: 'bg-blue-500/10', label: 'Entregado' }
-                    };
-                    const config = statusConfig[item.estado];
+              <ScrollArea className="flex-1 pr-4 -mr-4">
+                <div className="space-y-3 pb-10">
+                  {activeOrder.items
+                    .filter(item => item.estado !== 'ENTREGADO')
+                    .map((item) => {
+                    const isReady = item.estado === 'LISTO';
                     const elapsed = Math.floor((new Date().getTime() - new Date(item.createdAt).getTime()) / 1000 / 60);
 
                     return (
                       <Card key={item.id} className={cn(
-                        "border-l-4 transition-all",
-                        item.estado === 'LISTO' ? "border-l-green-500 glow-gold" : "border-l-border"
+                        "border-none paper-texture transition-all overflow-hidden",
+                        isReady ? "ring-2 ring-green-500 shadow-xl" : "opacity-90 bg-accent/20"
                       )}>
-                        <CardContent className="p-4 flex flex-col md:flex-row md:items-center justify-between gap-4">
-                          <div className="flex gap-4">
-                            <div className="w-10 h-10 rounded-xl bg-accent/30 flex items-center justify-center font-black text-xl shrink-0">
+                        <CardContent className="p-4 flex items-center justify-between gap-4">
+                          <div className="flex gap-4 items-center">
+                            <div className={cn(
+                              "w-10 h-10 rounded-xl flex items-center justify-center font-black text-xl shrink-0",
+                              isReady ? "bg-green-500 text-white shadow-lg" : "bg-accent/30 text-muted-foreground"
+                            )}>
                               {item.cantidad}
                             </div>
-                            <div>
-                              <p className="font-bold text-lg leading-tight">{item.nombre}</p>
-                              <div className="flex items-center gap-3 mt-1">
-                                <Badge variant="outline" className={cn("text-[9px] gap-1 px-2", config.bg, config.color)}>
-                                  <config.icon className="w-3 h-3" />
-                                  {config.label}
-                                </Badge>
+                            <div className="min-w-0">
+                              <p className="font-bold text-sm md:text-lg leading-tight truncate">{item.nombre}</p>
+                              <div className="flex items-center gap-2 mt-1">
+                                {isReady ? (
+                                  <Badge className="bg-green-500 text-white animate-pulse text-[10px] uppercase font-black px-2 py-0">¡LISTO!</Badge>
+                                ) : (
+                                  <Badge variant="outline" className="text-[9px] uppercase font-bold opacity-60">En Cocina</Badge>
+                                )}
                                 <span className="text-[10px] text-muted-foreground flex items-center gap-1">
-                                  <Timer className="w-3 h-3" /> {elapsed} min
+                                  <Timer className="w-3 h-3" /> {elapsed}m
                                 </span>
                               </div>
                             </div>
                           </div>
                           
-                          <div className="flex gap-2 justify-end">
-                            {item.estado === 'LISTO' && (
-                              <Button 
-                                size="sm" 
-                                className="bg-green-600 hover:bg-green-700 text-white font-bold gap-2 px-6 rounded-xl shadow-lg animate-pulse"
-                                onClick={() => updateItemEstado(activeOrder.id, item.id, 'ENTREGADO')}
-                              >
-                                <Truck className="w-4 h-4" /> MARCAR ENTREGADO
-                              </Button>
+                          <Button 
+                            className={cn(
+                              "h-12 md:h-14 px-6 md:px-8 font-black rounded-xl transition-all shadow-lg active:scale-95",
+                              isReady ? "bg-green-600 hover:bg-green-700 text-white scale-105" : "bg-secondary text-secondary-foreground"
                             )}
-                            {item.estado === 'ENTREGADO' && (
-                              <div className="flex items-center gap-2 text-blue-500 font-bold text-xs uppercase bg-blue-500/10 px-4 py-2 rounded-xl">
-                                <CheckCircle2 className="w-4 h-4" /> En Mesa
-                              </div>
-                            )}
-                          </div>
+                            onClick={() => updateItemEstado(activeOrder.id, item.id, 'ENTREGADO')}
+                          >
+                            ENTREGAR 🤠
+                          </Button>
                         </CardContent>
                       </Card>
                     );
                   })}
+                  
+                  {/* Histórico rápido de entregados */}
+                  {activeOrder.items.some(i => i.estado === 'ENTREGADO') && (
+                    <div className="pt-8 opacity-40">
+                      <p className="text-[10px] font-black uppercase tracking-widest text-center mb-4">Entregado recientemente</p>
+                      <div className="space-y-2">
+                        {activeOrder.items
+                          .filter(i => i.estado === 'ENTREGADO')
+                          .slice(-3)
+                          .map(item => (
+                            <div key={item.id} className="flex justify-between items-center text-xs p-2 bg-accent/10 rounded-lg">
+                              <span>{item.cantidad}x {item.nombre}</span>
+                              <CheckCircle2 className="w-4 h-4 text-green-500" />
+                            </div>
+                          ))
+                        }
+                      </div>
+                    </div>
+                  )}
                 </div>
               </ScrollArea>
             )}
@@ -453,23 +454,18 @@ export default function OrderPage() {
         </TabsContent>
       </Tabs>
 
-      {/* Confirmation Dialog */}
       <AlertDialog open={showConfirmDialog} onOpenChange={setShowConfirmDialog}>
         <AlertDialogContent className="max-w-[90vw] md:max-w-md bg-card border-border paper-texture rounded-[2rem]">
           <AlertDialogHeader>
             <AlertDialogTitle className="text-xl md:text-2xl font-headline flex items-center gap-2">
-              <CheckCircle2 className="w-6 h-6 text-green-500" />
-              Validar Comanda
+              <UtensilsCrossed className="w-6 h-6 text-primary" />
+              Confirmar Comanda
             </AlertDialogTitle>
-            <AlertDialogDescription className="text-foreground text-sm">
-              Verifica los platos y las peticiones especiales con el cliente de la <strong>Mesa {mesaId}</strong>.
-            </AlertDialogDescription>
           </AlertDialogHeader>
-          
           <div className="my-4 space-y-3 max-h-[40vh] overflow-auto pr-2 border-y border-border/30 py-4">
             {cart.map(item => (
               <div key={item.tempId} className="flex flex-col gap-1.5">
-                <div className="flex justify-between items-center text-xs md:text-sm">
+                <div className="flex justify-between items-center text-sm">
                   <span className="font-bold flex gap-2">
                     <span className="text-primary">{item.cantidad}x</span> 
                     <span>{item.producto.nombre}</span>
@@ -477,58 +473,46 @@ export default function OrderPage() {
                   <span className="font-bold text-secondary">${(item.producto.precio * item.cantidad).toLocaleString()}</span>
                 </div>
                 {item.notas && (
-                  <div className="text-[10px] text-primary bg-primary/5 px-2.5 py-1.5 rounded-xl border border-primary/10 italic flex gap-2">
-                    <StickyNote className="w-3 h-3 shrink-0 mt-0.5" />
-                    <span>"{item.notas}"</span>
+                  <div className="text-[10px] text-primary bg-primary/5 px-2.5 py-1.5 rounded-xl border border-primary/10 italic">
+                    "{item.notas}"
                   </div>
                 )}
               </div>
             ))}
           </div>
-
           <div className="flex justify-between items-center mb-6 px-1">
-            <span className="text-sm font-headline uppercase tracking-widest text-muted-foreground">Total Final</span>
+            <span className="text-sm font-black uppercase text-muted-foreground">Total</span>
             <span className="text-2xl font-black text-secondary">${cartTotal.toLocaleString()}</span>
           </div>
-
           <AlertDialogFooter className="gap-2 sm:gap-3">
-            <AlertDialogCancel className="rounded-xl border-border h-12">Corregir</AlertDialogCancel>
+            <AlertDialogCancel className="rounded-xl h-12">Corregir</AlertDialogCancel>
             <AlertDialogAction 
               onClick={handleSendOrder}
-              className="rounded-xl bg-primary hover:bg-primary/90 font-bold px-8 shadow-lg glow-orange h-12"
+              className="rounded-xl bg-primary hover:glow-orange font-bold px-8 h-12"
             >
-              CONFIRMAR PEDIDO
+              MARCHAR 🤠
             </AlertDialogAction>
           </AlertDialogFooter>
         </AlertDialogContent>
       </AlertDialog>
 
-      {/* Note Editor Dialog */}
       <Dialog open={!!noteEditingItem} onOpenChange={(open) => !open && setNoteEditingItem(null)}>
         <DialogContent className="max-w-[90vw] bg-card border-border paper-texture rounded-[2rem]">
           <DialogHeader>
-            <DialogTitle className="text-lg md:text-xl font-headline">Nota para Cocina</DialogTitle>
+            <DialogTitle className="font-headline">Nota para Cocina</DialogTitle>
           </DialogHeader>
           <div className="space-y-4 py-4">
-            <div className="space-y-1">
-              <Label className="text-[10px] uppercase font-black text-primary tracking-widest">Producto seleccionado</Label>
-              <p className="font-black text-lg">{noteEditingItem?.producto.nombre}</p>
-            </div>
-            <div className="space-y-2">
-              <Label htmlFor="item-notes" className="text-xs font-bold">Instrucciones del cliente</Label>
-              <Textarea 
-                id="item-notes" 
-                placeholder="Ej: Término medio, sin cebolla, salsa aparte..." 
-                className="h-28 bg-background border-border rounded-xl focus-visible:ring-primary text-sm"
-                value={tempNote}
-                onChange={(e) => setTempNote(e.target.value)}
-                autoFocus
-              />
-            </div>
+            <p className="font-black text-lg">{noteEditingItem?.producto.nombre}</p>
+            <Textarea 
+              placeholder="Ej: Término medio, sin cebolla..." 
+              className="h-28 bg-background border-border rounded-xl"
+              value={tempNote}
+              onChange={(e) => setTempNote(e.target.value)}
+              autoFocus
+            />
           </div>
-          <DialogFooter className="gap-2">
-            <Button variant="ghost" className="rounded-xl" onClick={() => setNoteEditingItem(null)}>Cerrar</Button>
-            <Button className="bg-primary font-bold px-8 rounded-xl h-12 active:scale-95" onClick={saveNote}>LISTO</Button>
+          <DialogFooter>
+            <Button className="bg-primary font-bold w-full h-12 rounded-xl" onClick={saveNote}>GUARDAR NOTA</Button>
           </DialogFooter>
         </DialogContent>
       </Dialog>

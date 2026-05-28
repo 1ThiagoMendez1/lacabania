@@ -26,7 +26,6 @@ import { cn } from "@/lib/utils";
 import { Estacion } from "@/lib/types";
 import { useState, useEffect } from "react";
 
-// Componente para manejar el tiempo transcurrido y mostrar alertas visuales
 function TimeElapsed({ createdAt, onCriticalChange }: { createdAt: string, onCriticalChange?: (isCritical: boolean) => void }) {
   const [elapsed, setElapsed] = useState<number>(0);
 
@@ -42,7 +41,7 @@ function TimeElapsed({ createdAt, onCriticalChange }: { createdAt: string, onCri
     };
     
     calculate();
-    const interval = setInterval(calculate, 30000); // Actualizar cada 30 seg
+    const interval = setInterval(calculate, 30000);
     return () => clearInterval(interval);
   }, [createdAt, onCriticalChange]);
 
@@ -54,7 +53,7 @@ function TimeElapsed({ createdAt, onCriticalChange }: { createdAt: string, onCri
     <div className="flex flex-col items-end gap-1">
       <div className={cn(
         "flex items-center gap-1.5 px-3 py-1 rounded-full font-mono text-[10px] md:text-xs font-bold transition-all border",
-        isCritical ? "bg-black text-red-500 border-red-500 animate-bounce shadow-[0_0_15px_rgba(239,68,68,0.8)]" : 
+        isCritical ? "bg-black text-red-500 border-red-500 animate-bounce" : 
         isOverdue ? "bg-destructive text-destructive-foreground border-transparent animate-pulse" : 
         isWarning ? "bg-yellow-500 text-black border-transparent" : 
         "bg-green-500/20 text-green-500 border-green-500/30"
@@ -62,13 +61,6 @@ function TimeElapsed({ createdAt, onCriticalChange }: { createdAt: string, onCri
         <Timer className={cn("w-3 h-3 md:w-3.5 md:h-3.5", isCritical && "animate-spin")} />
         <span>{elapsed} MIN</span>
       </div>
-      
-      {isCritical && (
-        <div className="flex items-center gap-1 text-[8px] md:text-[10px] font-black text-red-500 uppercase animate-pulse">
-          <AlertTriangle className="w-2.5 h-2.5 md:w-3 md:h-3" />
-          <span>¡RETRASO!</span>
-        </div>
-      )}
     </div>
   );
 }
@@ -79,7 +71,6 @@ export default function StationPage() {
   const { ordenes, usuarios, updateItemEstado } = usePOSStore();
   const [hasCriticalOrders, setHasCriticalOrders] = useState(false);
 
-  // Filtramos ítems que están activamente en preparación para esta estación
   const ordersWithItems = ordenes
     .filter(o => o.estado === 'ABIERTA')
     .map(o => ({
@@ -92,7 +83,6 @@ export default function StationPage() {
     }))
     .filter(o => o.items.length > 0);
 
-  // Determinar si hay alguna orden crítica para la alerta global
   useEffect(() => {
     const checkCritical = () => {
       const now = new Date().getTime();
@@ -119,35 +109,29 @@ export default function StationPage() {
 
   return (
     <main className="p-4 md:p-8 max-w-[1600px] mx-auto min-h-full">
-      {/* Notificación de Alerta Global */}
       {hasCriticalOrders && (
         <div className="mb-6 animate-in slide-in-from-top-4 duration-500">
-          <div className="bg-red-600 text-white p-3 md:p-4 rounded-2xl flex items-center justify-between shadow-[0_0_30px_rgba(220,38,38,0.5)] border-2 border-red-400 animate-pulse">
+          <div className="bg-red-600 text-white p-3 md:p-4 rounded-2xl flex items-center justify-between shadow-xl border-2 border-red-400 animate-pulse">
             <div className="flex items-center gap-3 md:gap-4">
-              <div className="bg-white/20 p-1.5 md:p-2 rounded-full">
-                <BellRing className="w-5 h-5 md:w-6 md:h-6 animate-bounce" />
-              </div>
+              <BellRing className="w-6 h-6 animate-bounce" />
               <div>
-                <h4 className="text-sm md:text-lg font-black uppercase tracking-tighter">Atención Requerida</h4>
-                <p className="text-[10px] md:text-sm font-medium opacity-90">Pedidos con más de 1 hora de espera.</p>
+                <h4 className="text-sm md:text-lg font-black uppercase tracking-tighter">Retraso Crítico</h4>
+                <p className="text-[10px] md:text-sm font-medium opacity-90">Pedidos con espera excesiva.</p>
               </div>
-            </div>
-            <div className="hidden sm:block bg-white/20 px-4 py-1 rounded-full font-black text-xs">
-              ESTADO: CRÍTICO
             </div>
           </div>
         </div>
       )}
 
       <header className={cn(
-        "flex flex-col md:flex-row justify-between items-start md:items-center mb-8 bg-card p-4 md:p-8 rounded-[2rem] md:rounded-[2.5rem] border border-border/50 shadow-2xl relative overflow-hidden transition-all duration-500 gap-6",
-        hasCriticalOrders ? "border-red-500/50 shadow-red-500/10 ring-2 ring-red-500/20" : ""
+        "flex flex-col md:flex-row justify-between items-start md:items-center mb-8 bg-card p-4 md:p-8 rounded-[2rem] border border-border/50 shadow-2xl relative overflow-hidden transition-all duration-500 gap-6",
+        hasCriticalOrders ? "border-red-500/50" : ""
       )}>
         <div className="absolute inset-0 wood-texture opacity-20 pointer-events-none" />
         <div className="flex items-center gap-4 md:gap-6 relative z-10">
           <div className={cn(
-            "p-3 md:p-4 rounded-2xl md:rounded-3xl border transition-all duration-500",
-            hasCriticalOrders ? "bg-red-500/20 border-red-500/30 scale-105" : "bg-primary/10 border-primary/20"
+            "p-3 md:p-4 rounded-2xl border transition-all duration-500",
+            hasCriticalOrders ? "bg-red-500/20" : "bg-primary/10 border-primary/20"
           )}>
             {getStationIcon()}
           </div>
@@ -156,39 +140,23 @@ export default function StationPage() {
               Estación <span className={cn(hasCriticalOrders ? "text-red-500" : "text-secondary")}>{stationId}</span>
             </h2>
             <p className="text-[10px] md:text-sm text-muted-foreground flex items-center gap-2 mt-0.5 md:mt-1">
-              <Clock className="w-3 h-3 md:w-4 md:h-4" /> Monitor en tiempo real
+              <Clock className="w-3 h-3 md:w-4 md:h-4" /> Monitor Agregado
             </p>
           </div>
         </div>
         
         <div className="flex gap-6 md:gap-10 relative z-10 w-full md:w-auto border-t md:border-t-0 pt-4 md:pt-0">
           <div className="flex-1 md:flex-none text-left md:text-right">
-            <p className="text-[8px] md:text-[10px] text-muted-foreground uppercase font-black tracking-widest mb-0.5 md:mb-1">Items Totales</p>
-            <div className="flex items-center gap-2 md:justify-end">
-              <Hourglass className="w-4 h-4 md:w-5 md:h-5 text-primary" />
-              <p className="text-2xl md:text-4xl font-black text-primary">{ordersWithItems.reduce((acc, o) => acc + o.items.length, 0)}</p>
-            </div>
-          </div>
-          <div className="w-px h-10 md:h-12 bg-border/50" />
-          <div className="flex-1 md:flex-none text-left md:text-right">
-            <p className="text-[8px] md:text-[10px] text-muted-foreground uppercase font-black tracking-widest mb-0.5 md:mb-1">En Proceso</p>
-            <div className="flex items-center gap-2 md:justify-end">
-              <Flame className={cn("w-4 h-4 md:w-5 md:h-5 animate-pulse", hasCriticalOrders ? "text-red-500" : "text-secondary")} />
-              <p className={cn("text-2xl md:text-4xl font-black", hasCriticalOrders ? "text-red-500" : "text-secondary")}>
-                {ordersWithItems.reduce((acc, o) => acc + o.items.filter(i => i.estado === 'EN PREPARACION').length, 0)}
-              </p>
-            </div>
+            <p className="text-[8px] md:text-[10px] text-muted-foreground uppercase font-black tracking-widest mb-0.5 md:mb-1">Items Pendientes</p>
+            <p className="text-2xl md:text-4xl font-black text-primary">{ordersWithItems.reduce((acc, o) => acc + o.items.length, 0)}</p>
           </div>
         </div>
       </header>
 
       {ordersWithItems.length === 0 ? (
         <div className="flex flex-col items-center justify-center py-20 md:py-32 opacity-20">
-          <div className="w-16 h-16 md:w-24 md:h-24 bg-accent/20 rounded-full flex items-center justify-center mb-4 md:mb-6">
-             <CheckCircle2 className="w-8 h-8 md:w-12 md:h-12" />
-          </div>
-          <p className="text-xl md:text-2xl font-headline italic tracking-widest text-center">ESTACIÓN DESPEJADA</p>
-          <p className="text-[10px] md:text-sm mt-2 font-mono uppercase">Todo está bajo control 🤠</p>
+          <CheckCircle2 className="w-16 h-16 md:w-24 md:h-24 mb-4" />
+          <p className="text-xl md:text-2xl font-headline italic tracking-widest">ESTACIÓN DESPEJADA 🤠</p>
         </div>
       ) : (
         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4 md:gap-8">
@@ -199,7 +167,7 @@ export default function StationPage() {
                 key={order.id} 
                 className={cn(
                   "bg-card border-none paper-texture overflow-hidden flex flex-col shadow-2xl rounded-[1.5rem] md:rounded-[2rem] transition-all duration-500",
-                  isOrderCritical ? "ring-2 md:ring-4 ring-red-600 animate-pulse shadow-red-600/20" : "shadow-primary/5"
+                  isOrderCritical ? "ring-2 md:ring-4 ring-red-600 animate-pulse" : ""
                 )}
               >
                 <CardHeader className={cn(
@@ -208,105 +176,52 @@ export default function StationPage() {
                 )}>
                   <div className="flex justify-between items-start">
                     <div className={cn(
-                      "px-3 py-1 rounded-xl shadow-lg transform -rotate-1 md:-rotate-2",
-                      isOrderCritical ? "bg-red-600 text-white" : "bg-primary/90 text-white"
+                      "px-3 py-1 rounded-xl shadow-lg",
+                      isOrderCritical ? "bg-red-600 text-white" : "bg-primary text-white"
                     )}>
                       <span className="text-xl md:text-3xl font-black font-headline">MESA {order.mesaId}</span>
                     </div>
                     <TimeElapsed createdAt={order.createdAt} />
                   </div>
-                  
-                  <div className="flex justify-between items-center">
-                    <div className="flex items-center gap-2">
-                      <div className={cn(
-                        "w-5 h-5 md:w-6 md:h-6 rounded-full flex items-center justify-center",
-                        isOrderCritical ? "bg-red-500/30" : "bg-secondary/20"
-                      )}>
-                        <User className={cn("w-3 md:w-3.5 md:h-3.5", isOrderCritical ? "text-red-500" : "text-secondary")} />
-                      </div>
-                      <span className={cn(
-                        "text-[10px] md:text-xs font-bold uppercase tracking-widest",
-                        isOrderCritical ? "text-red-500" : "text-muted-foreground"
-                      )}>{order.meseroNombre}</span>
-                    </div>
-                  </div>
                 </CardHeader>
                 
-                <CardContent className="p-3 md:p-4 space-y-2 md:space-y-3 flex-1 bg-background/50 backdrop-blur-sm">
+                <CardContent className="p-3 md:p-4 space-y-2 md:space-y-3 flex-1">
                   {order.items.map((item) => (
                     <div 
                       key={item.id} 
                       className={cn(
-                        "group relative flex flex-col p-3 md:p-4 rounded-xl md:rounded-2xl border-2 transition-all select-none",
+                        "group relative flex flex-col p-3 md:p-4 rounded-xl border-2 transition-all",
                         item.estado === 'PENDIENTE' 
                           ? "bg-accent/20 border-border/50 border-dashed" 
-                          : "bg-secondary/10 border-secondary/40 shadow-[0_0_15px_rgba(234,179,8,0.05)]"
+                          : "bg-secondary/10 border-secondary/40"
                       )}
                     >
                       <div className="flex justify-between items-start mb-2">
                         <div className="flex gap-2 md:gap-3">
-                          <div className={cn(
-                            "w-8 h-8 md:w-10 md:h-10 rounded-lg md:rounded-xl flex items-center justify-center text-sm md:text-xl font-black shrink-0",
-                            item.estado === 'PENDIENTE' ? "bg-muted text-muted-foreground" : "bg-secondary text-secondary-foreground shadow-lg"
-                          )}>
+                          <div className="w-8 h-8 md:w-10 md:h-10 rounded-lg bg-secondary text-secondary-foreground flex items-center justify-center text-sm md:text-xl font-black shadow-lg">
                             {item.cantidad}
                           </div>
                           <div>
-                            <span className={cn(
-                              "text-sm md:text-lg font-black leading-tight block",
-                              item.estado === 'EN PREPARACION' && "text-secondary"
-                            )}>
-                              {item.nombre}
-                            </span>
+                            <span className="text-sm md:text-lg font-black leading-tight block">{item.nombre}</span>
                             {item.notas && (
-                              <p className="text-[8px] md:text-[10px] text-primary italic mt-1 font-medium bg-primary/5 px-1.5 md:px-2 py-0.5 rounded-md border border-primary/10">
+                              <p className="text-[8px] md:text-[10px] text-primary italic mt-1 font-medium bg-primary/5 px-2 py-0.5 rounded-md border border-primary/10">
                                 "{item.notas}"
                               </p>
                             )}
                           </div>
                         </div>
-                        
-                        {item.estado === 'EN PREPARACION' && (
-                          <div className="p-1.5 bg-secondary/20 rounded-full animate-pulse">
-                            <Flame className="w-3 h-3 md:w-4 md:h-4 text-secondary" />
-                          </div>
-                        )}
                       </div>
 
-                      <div className="grid grid-cols-1 gap-2 mt-2">
-                        {item.estado === 'PENDIENTE' ? (
-                          <Button 
-                            size="sm" 
-                            className="bg-secondary text-secondary-foreground font-bold h-9 rounded-lg gap-2"
-                            onClick={() => updateItemEstado(order.id, item.id, 'EN PREPARACION')}
-                          >
-                            <Play className="w-4 h-4" /> EMPEZAR
-                          </Button>
-                        ) : item.estado === 'EN PREPARACION' ? (
-                          <Button 
-                            size="sm" 
-                            className="bg-green-600 hover:bg-green-700 text-white font-bold h-9 rounded-lg gap-2"
-                            onClick={() => updateItemEstado(order.id, item.id, 'LISTO')}
-                          >
-                            <Check className="w-4 h-4" /> ¡LISTO!
-                          </Button>
-                        ) : null}
-                      </div>
+                      <Button 
+                        size="sm" 
+                        className="w-full bg-green-600 hover:bg-green-700 text-white font-black h-12 rounded-xl mt-2 shadow-lg"
+                        onClick={() => updateItemEstado(order.id, item.id, 'LISTO')}
+                      >
+                        ¡PLATO LISTO! 🤠
+                      </Button>
                     </div>
                   ))}
                 </CardContent>
-                
-                <div className={cn(
-                  "p-3 border-t flex justify-center",
-                  isOrderCritical ? "bg-red-600/10 border-red-600/20" : "bg-accent/20 border-border/50"
-                )}>
-                  <span className={cn(
-                    "text-[8px] md:text-[9px] font-mono",
-                    isOrderCritical ? "text-red-500 font-bold animate-pulse" : "text-muted-foreground/60"
-                  )}>
-                    {isOrderCritical ? "VALIDAR URGENTE CON MESERO" : "Monitoreo • La Cabaña POS"}
-                  </span>
-                </div>
               </Card>
             );
           })}
