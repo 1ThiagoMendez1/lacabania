@@ -8,6 +8,17 @@ export type EstadoComanda = 'PENDIENTE' | 'EN PREPARACION' | 'LISTO' | 'ENTREGAD
 
 export type MetodoPago = 'EFECTIVO' | 'TARJETA' | 'TRANSFERENCIA';
 
+export type TipoDocumentoFE = '13' | '31' | '11' | '12' | '21' | '22' | '41' | '42' | '47' | '50';
+
+export interface ClienteFE {
+  tipoDocumento: TipoDocumentoFE;
+  numeroDocumento: string;
+  nombre: string;
+  email: string;
+  telefono: string;
+  direccion: string;
+}
+
 export interface Usuario {
   id: string;
   nombre: string;
@@ -51,6 +62,8 @@ export interface Orden {
   items: ItemOrden[];
   estado: 'ABIERTA' | 'CERRADA' | 'ANULADA';
   metodoPago?: MetodoPago;
+  clienteFE?: ClienteFE;
+  facturaElectronicaId?: string;
   createdAt: string;
   updatedAt: string;
 }
