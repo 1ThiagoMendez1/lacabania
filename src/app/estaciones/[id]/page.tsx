@@ -79,6 +79,7 @@ export default function StationPage() {
   const { ordenes, usuarios, updateItemEstado } = usePOSStore();
   const [hasCriticalOrders, setHasCriticalOrders] = useState(false);
 
+  // Filtramos ítems que están activamente en preparación para esta estación
   const ordersWithItems = ordenes
     .filter(o => o.estado === 'ABIERTA')
     .map(o => ({
@@ -86,8 +87,7 @@ export default function StationPage() {
       meseroNombre: usuarios.find(u => u.id === o.meseroId)?.nombre || 'Sistema',
       items: o.items.filter(item => 
         item.estacion === stationId && 
-        item.estado !== 'LISTO' && 
-        item.estado !== 'ENTREGADO'
+        (item.estado === 'PENDIENTE' || item.estado === 'EN PREPARACION')
       )
     }))
     .filter(o => o.items.length > 0);
@@ -163,10 +163,10 @@ export default function StationPage() {
         
         <div className="flex gap-6 md:gap-10 relative z-10 w-full md:w-auto border-t md:border-t-0 pt-4 md:pt-0">
           <div className="flex-1 md:flex-none text-left md:text-right">
-            <p className="text-[8px] md:text-[10px] text-muted-foreground uppercase font-black tracking-widest mb-0.5 md:mb-1">Pendientes</p>
+            <p className="text-[8px] md:text-[10px] text-muted-foreground uppercase font-black tracking-widest mb-0.5 md:mb-1">Items Totales</p>
             <div className="flex items-center gap-2 md:justify-end">
               <Hourglass className="w-4 h-4 md:w-5 md:h-5 text-primary" />
-              <p className="text-2xl md:text-4xl font-black text-primary">{ordersWithItems.reduce((acc, o) => acc + o.items.filter(i => i.estado === 'PENDIENTE').length, 0)}</p>
+              <p className="text-2xl md:text-4xl font-black text-primary">{ordersWithItems.reduce((acc, o) => acc + o.items.length, 0)}</p>
             </div>
           </div>
           <div className="w-px h-10 md:h-12 bg-border/50" />
@@ -280,7 +280,7 @@ export default function StationPage() {
                             className="bg-secondary text-secondary-foreground font-bold h-9 rounded-lg gap-2"
                             onClick={() => updateItemEstado(order.id, item.id, 'EN PREPARACION')}
                           >
-                            <Play className="w-4 h-4" /> PREPARAR
+                            <Play className="w-4 h-4" /> EMPEZAR
                           </Button>
                         ) : item.estado === 'EN PREPARACION' ? (
                           <Button 
@@ -288,7 +288,7 @@ export default function StationPage() {
                             className="bg-green-600 hover:bg-green-700 text-white font-bold h-9 rounded-lg gap-2"
                             onClick={() => updateItemEstado(order.id, item.id, 'LISTO')}
                           >
-                            <Check className="w-4 h-4" /> LISTO
+                            <Check className="w-4 h-4" /> ¡LISTO!
                           </Button>
                         ) : null}
                       </div>

@@ -20,7 +20,8 @@ import {
   Clock,
   CheckCircle,
   Truck,
-  Timer
+  Timer,
+  Flame
 } from "lucide-react";
 import { useState, useMemo } from "react";
 import { Input } from "@/components/ui/input";
@@ -53,6 +54,7 @@ import {
 } from "@/components/ui/dialog";
 import { Label } from "@/components/ui/label";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { useToast } from "@/hooks/use-toast";
 
 type CartItem = {
   producto: Producto;
@@ -65,6 +67,7 @@ export default function OrderPage() {
   const { mesaId } = useParams();
   const router = useRouter();
   const { productos, mesas, ordenes, addOrden, updateMesaEstado, updateItemEstado, user } = usePOSStore();
+  const { toast } = useToast();
   
   const mesa = mesas.find(m => m.id === Number(mesaId));
   const activeOrder = useMemo(() => ordenes.find(o => o.mesaId === Number(mesaId) && o.estado === 'ABIERTA'), [ordenes, mesaId]);
@@ -120,6 +123,8 @@ export default function OrderPage() {
 
   const handleSendOrder = () => {
     if (cart.length === 0) return;
+    
+    // Simplificación: Los ítems ahora pasan directo a EN PREPARACION
     const newItems: ItemOrden[] = cart.map(item => ({
       id: Math.random().toString(36).substr(2, 9),
       productoId: item.producto.id,
@@ -128,7 +133,7 @@ export default function OrderPage() {
       precioUnitario: item.producto.precio,
       notas: item.notas,
       estacion: item.producto.estacion,
-      estado: 'PENDIENTE',
+      estado: 'EN PREPARACION',
       createdAt: new Date().toISOString()
     }));
     
@@ -150,7 +155,10 @@ export default function OrderPage() {
     
     setCart([]);
     setShowConfirmDialog(false);
-    toast({ title: "Pedido Enviado", description: "Los items han sido enviados a las estaciones correspondientes." });
+    toast({ 
+      title: "¡Marchando!", 
+      description: "El pedido ya está en preparación en las estaciones correspondientes." 
+    });
   };
 
   if (!mesa) return <div className="p-8">Mesa no encontrada</div>;
