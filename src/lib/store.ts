@@ -38,7 +38,7 @@ const initialUsuarios: Usuario[] = [
 ];
 
 const initialPermisos: Record<Rol, string[]> = {
-  ADMINISTRADOR: ["Dashboard", "Mesas", "Asado", "Parrilla", "Cocina", "Bar", "Caja", "Inventario", "Personal", "Reportes & AI", "Impresoras"],
+  ADMINISTRADOR: ["Dashboard", "Mesas", "Asado", "Parrilla", "Cocina", "Bar", "Caja", "Inventario", "Personal", "Reportes & AI", "Impresoras", "Historial Meseros"],
   MESERO: ["Mesas", "Asado", "Parrilla", "Cocina", "Bar"],
   COCINERO: ["Asado", "Parrilla", "Cocina"],
 };
@@ -97,6 +97,31 @@ const initialOrdenes: Orden[] = [
         createdAt: delayedTime,
         notas: 'Término Azul, urgente'
       }
+    ]
+  },
+  // Órdenes cerradas para historial
+  {
+    id: 'ORD-CERRADA-1',
+    mesaId: 1,
+    meseroId: '2',
+    estado: 'CERRADA',
+    metodoPago: 'EFECTIVO',
+    createdAt: new Date(Date.now() - 3600000).toISOString(),
+    updatedAt: new Date(Date.now() - 3000000).toISOString(),
+    items: [
+      { id: 'h1', productoId: 'p1', nombre: 'Picaña Mediana', cantidad: 2, precioUnitario: 85000, estacion: 'ASADO', estado: 'ENTREGADO', createdAt: new Date().toISOString() }
+    ]
+  },
+  {
+    id: 'ORD-CERRADA-2',
+    mesaId: 3,
+    meseroId: '2',
+    estado: 'CERRADA',
+    metodoPago: 'TARJETA',
+    createdAt: new Date(Date.now() - 7200000).toISOString(),
+    updatedAt: new Date(Date.now() - 6500000).toISOString(),
+    items: [
+      { id: 'h2', productoId: 'p5', nombre: 'Patacones con Hogao', cantidad: 3, precioUnitario: 18000, estacion: 'COCINA', estado: 'ENTREGADO', createdAt: new Date().toISOString() }
     ]
   }
 ];
