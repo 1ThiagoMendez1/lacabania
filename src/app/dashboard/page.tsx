@@ -9,7 +9,7 @@ import {
   Flame, 
   ChefHat, 
   Beer, 
-  Utensils 
+  LayoutGrid 
 } from "lucide-react";
 import { 
   BarChart, 
@@ -48,7 +48,7 @@ export default function DashboardPage() {
 
   const kpis = [
     { title: "Ventas Hoy", value: `$${totalVentasCerradas.toLocaleString()}`, change: "+12.5%", icon: DollarSign, color: "text-green-500" },
-    { title: "Mesas Activas", value: `${mesasOcupadas} / ${mesas.length}`, change: `${Math.round((mesasOcupadas/mesas.length)*100)}% Ocupación`, icon: Utensils, color: "text-secondary" },
+    { title: "Mesas Activas", value: `${mesasOcupadas} / ${mesas.length}`, change: `${Math.round((mesasOcupadas/mesas.length)*100)}% Ocupación`, icon: LayoutGrid, color: "text-secondary" },
     { title: "Pedidos Pendientes", value: pedidosPendientes.toString(), change: "En estaciones", icon: ClipboardCheck, color: "text-primary" },
     { title: "Ticket Promedio", value: `$${totalVentasCerradas > 0 ? Math.round(totalVentasCerradas / ordenes.filter(o => o.estado === 'CERRADA').length).toLocaleString() : 0}`, change: "+5% vs ayer", icon: TrendingUp, color: "text-blue-500" },
   ];

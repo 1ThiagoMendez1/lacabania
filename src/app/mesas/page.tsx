@@ -4,7 +4,7 @@
 import { usePOSStore } from "@/lib/store";
 import { Badge } from "@/components/ui/badge";
 import { cn } from "@/lib/utils";
-import { Clock, Users, UtensilsCrossed, PlusCircle, Edit, Ban, CheckCircle, Layers, AlertCircle, MapPin, Activity, Info } from "lucide-react";
+import { Clock, Users, UtensilsCrossed, PlusCircle, Edit, Ban, CheckCircle, Layers, AlertCircle, MapPin, Activity, Info, LayoutGrid } from "lucide-react";
 import { 
   Dialog, 
   DialogContent, 
@@ -126,7 +126,12 @@ export default function MesasPage() {
     <main className="p-4 md:p-8">
       <header className="flex flex-col sm:flex-row justify-between items-start sm:items-end mb-8 gap-4">
         <div>
-          <h2 className="text-2xl md:text-3xl font-headline text-foreground">Mapa de Mesas</h2>
+          <div className="flex items-center gap-3 mb-2">
+            <div className="p-2 bg-primary/10 rounded-lg">
+              <LayoutGrid className="w-8 h-8 text-primary" />
+            </div>
+            <h2 className="text-2xl md:text-3xl font-headline text-foreground">Mapa de Mesas</h2>
+          </div>
           <p className="text-sm text-muted-foreground">Selecciona una mesa para gestionar pedidos</p>
         </div>
         
