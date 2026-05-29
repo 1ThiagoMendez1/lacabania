@@ -242,24 +242,24 @@ export default function OrderPage() {
 
   return (
     <main className="flex flex-col h-svh bg-background overflow-hidden">
-      <header className="p-2 md:p-4 flex justify-between items-center border-b bg-card/50 backdrop-blur-md sticky top-0 z-20">
+      <header className="p-2 md:p-3 flex justify-between items-center border-b bg-card/50 backdrop-blur-md sticky top-0 z-20">
         <div className="flex items-center gap-2 md:gap-4">
-          <Button variant="ghost" size="icon" onClick={() => router.back()} className="rounded-full active:scale-90">
+          <Button variant="ghost" size="icon" onClick={() => router.back()} className="rounded-full active:scale-90 h-9 w-9">
             <ChevronLeft className="w-6 h-6" />
           </Button>
           <div>
-            <h2 className="text-xl md:text-2xl font-headline">Mesa {mesa.id}</h2>
-            <p className="text-[8px] text-muted-foreground uppercase tracking-widest">{mesa.zona}</p>
+            <h2 className="text-lg md:text-xl font-headline leading-tight">Mesa {mesa.id}</h2>
+            <p className="text-[7px] text-muted-foreground uppercase tracking-widest">{mesa.zona}</p>
           </div>
         </div>
         
         <div className="lg:hidden flex gap-2">
            <Sheet>
             <SheetTrigger asChild>
-              <Button variant="secondary" className="relative gap-2 font-bold h-9 px-4 rounded-full bg-accent/50 border-secondary/30">
-                <ShoppingCart className="w-4 h-4 text-secondary" />
+              <Button variant="secondary" className="relative gap-2 font-bold h-8 px-3 rounded-full bg-accent/50 border-secondary/30 text-xs">
+                <ShoppingCart className="w-3.5 h-3.5 text-secondary" />
                 {cartItemsCount > 0 && (
-                  <Badge className="absolute -top-1.5 -right-1.5 h-5 w-5 flex items-center justify-center p-0 bg-primary border-2 border-background text-[10px] font-black">
+                  <Badge className="absolute -top-1.5 -right-1.5 h-4 w-4 flex items-center justify-center p-0 bg-primary border-2 border-background text-[8px] font-black">
                     {cartItemsCount}
                   </Badge>
                 )}
@@ -281,7 +281,7 @@ export default function OrderPage() {
       </header>
 
       <Tabs defaultValue="menu" className="flex-1 flex flex-col overflow-hidden">
-        <div className="px-3 md:px-8 py-1 bg-accent/10 border-b">
+        <div className="px-3 md:px-8 bg-accent/10 border-b">
           <TabsList className="grid w-full grid-cols-2 max-w-md mx-auto h-10 bg-accent/20 rounded-xl p-1">
             <TabsTrigger value="menu" className="rounded-lg data-[state=active]:bg-primary data-[state=active]:text-white font-bold gap-2 text-xs">
               <ListTodo className="w-3.5 h-3.5" /> Carta
@@ -297,20 +297,20 @@ export default function OrderPage() {
           </TabsList>
         </div>
 
-        <TabsContent value="menu" className="flex-1 flex flex-col lg:flex-row gap-0 lg:gap-4 p-0 lg:p-4 overflow-hidden mt-0">
+        <TabsContent value="menu" className="flex-1 flex flex-col lg:flex-row gap-0 lg:gap-3 p-0 lg:p-3 overflow-hidden mt-0">
           <div className="flex-1 flex flex-col gap-2 p-2 lg:p-0 overflow-hidden">
-            <div className="space-y-2">
+            <div className="space-y-1.5">
               <div className="relative group">
-                <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
+                <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-3.5 h-3.5 text-muted-foreground" />
                 <Input 
                   placeholder="Buscar..." 
-                  className="pl-10 h-10 bg-card/50 border-border rounded-xl" 
+                  className="pl-10 h-9 bg-card/50 border-border rounded-xl text-sm" 
                   value={searchTerm} 
                   onChange={(e) => setSearchTerm(e.target.value)} 
                 />
               </div>
               <ScrollArea className="w-full">
-                <div className="flex gap-2 pb-1.5">
+                <div className="flex gap-2 pb-1">
                   {categories.map(cat => (
                     <Button 
                       key={cat} 
@@ -318,7 +318,7 @@ export default function OrderPage() {
                       size="sm" 
                       onClick={() => setSelectedCategory(cat)}
                       className={cn(
-                        "rounded-full px-4 h-7 text-[10px] font-bold transition-all",
+                        "rounded-full px-3 h-6 text-[9px] font-bold transition-all",
                         selectedCategory === cat ? "shadow-md glow-orange" : "bg-card/30"
                       )}
                     >
@@ -338,12 +338,12 @@ export default function OrderPage() {
                     className="bg-card/40 border-border/50 active:scale-95 transition-all flex flex-col group overflow-hidden"
                     onClick={() => addToCart(p)}
                   >
-                    <CardContent className="p-3 md:p-4 flex flex-col justify-between h-full min-h-[120px]">
+                    <CardContent className="p-3 md:p-4 flex flex-col justify-between h-full min-h-[110px]">
                       <div>
                         <Badge variant="outline" className="text-[7px] md:text-[8px] mb-1.5 uppercase opacity-60">
                           {p.categoria}
                         </Badge>
-                        <h4 className="font-bold text-[11px] md:text-sm leading-tight line-clamp-2">
+                        <h4 className="font-bold text-[10px] md:text-sm leading-tight line-clamp-2">
                           {p.nombre}
                         </h4>
                       </div>
@@ -363,52 +363,52 @@ export default function OrderPage() {
           </div>
 
           <Card className="hidden lg:flex w-80 bg-card border-border paper-texture flex-col shadow-2xl overflow-hidden">
-            <CardHeader className="border-b bg-accent/20 p-4">
-              <CardTitle className="text-lg font-headline flex items-center gap-2">
+            <CardHeader className="border-b bg-accent/20 p-3">
+              <CardTitle className="text-base font-headline flex items-center gap-2">
                 <ShoppingCart className="w-4 h-4 text-primary" />
                 Comanda
               </CardTitle>
             </CardHeader>
-            <div className="flex-1 p-4 overflow-hidden">
+            <div className="flex-1 p-3 overflow-hidden">
               <CartSummary />
             </div>
           </Card>
         </TabsContent>
 
-        <TabsContent value="status" className="flex-1 p-2 md:p-4 overflow-hidden mt-0">
-          <div className="max-w-6xl mx-auto h-full flex flex-col gap-4">
+        <TabsContent value="status" className="flex-1 p-1 md:p-2 overflow-hidden mt-0">
+          <div className="max-w-6xl mx-auto h-full flex flex-col gap-2">
             {pendingItems.length > 0 && (
-              <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 animate-in fade-in slide-in-from-top-4 duration-500">
+              <div className="grid grid-cols-1 sm:grid-cols-3 gap-2 animate-in fade-in slide-in-from-top-4 duration-500">
                 <Card className="bg-accent/20 border-border/50">
-                  <CardContent className="p-3 flex items-center gap-3">
-                    <div className="p-2 bg-primary/10 rounded-xl">
-                      <ChefHat className="w-4 h-4 text-primary" />
+                  <CardContent className="p-2 flex items-center gap-3">
+                    <div className="p-1.5 bg-primary/10 rounded-xl">
+                      <ChefHat className="w-3.5 h-3.5 text-primary" />
                     </div>
                     <div>
-                      <p className="text-[9px] font-black uppercase tracking-widest text-muted-foreground">En Cocina</p>
-                      <p className="text-lg font-black">{inKitchenCount} platos</p>
+                      <p className="text-[8px] font-black uppercase tracking-widest text-muted-foreground leading-none mb-0.5">En Cocina</p>
+                      <p className="text-base font-black leading-none">{inKitchenCount} platos</p>
                     </div>
                   </CardContent>
                 </Card>
                 <Card className="bg-green-500/10 border-green-500/20">
-                  <CardContent className="p-3 flex items-center gap-3">
-                    <div className="p-2 bg-green-500/10 rounded-xl">
-                      <BellRing className={cn("w-4 h-4 text-green-500", readyItemsCount > 0 && "animate-bounce")} />
+                  <CardContent className="p-2 flex items-center gap-3">
+                    <div className="p-1.5 bg-green-500/10 rounded-xl">
+                      <BellRing className={cn("w-3.5 h-3.5 text-green-500", readyItemsCount > 0 && "animate-bounce")} />
                     </div>
                     <div>
-                      <p className="text-[9px] font-black uppercase tracking-widest text-green-500/70">Listos para Entrega</p>
-                      <p className="text-lg font-black text-green-500">{readyItemsCount} platos</p>
+                      <p className="text-[8px] font-black uppercase tracking-widest text-green-500/70 leading-none mb-0.5">Listos para Entrega</p>
+                      <p className="text-base font-black text-green-500 leading-none">{readyItemsCount} platos</p>
                     </div>
                   </CardContent>
                 </Card>
                 <Card className="bg-secondary/10 border-secondary/20">
-                  <CardContent className="p-3 flex items-center gap-3">
-                    <div className="p-2 bg-secondary/10 rounded-xl">
-                      <PackageCheck className="w-4 h-4 text-secondary" />
+                  <CardContent className="p-2 flex items-center gap-3">
+                    <div className="p-1.5 bg-secondary/10 rounded-xl">
+                      <PackageCheck className="w-3.5 h-3.5 text-secondary" />
                     </div>
                     <div>
-                      <p className="text-[9px] font-black uppercase tracking-widest text-secondary/70">Atendiendo mesa</p>
-                      <p className="text-lg font-black text-secondary">#{mesaId}</p>
+                      <p className="text-[8px] font-black uppercase tracking-widest text-secondary/70 leading-none mb-0.5">Atendiendo mesa</p>
+                      <p className="text-base font-black text-secondary leading-none">#{mesaId}</p>
                     </div>
                   </CardContent>
                 </Card>
@@ -427,7 +427,7 @@ export default function OrderPage() {
               </div>
             ) : (
               <ScrollArea className="flex-1">
-                <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-3 pb-8">
+                <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-2 pb-8">
                   {pendingItems.map((item) => {
                     const isReady = item.estado === 'LISTO';
                     const elapsed = Math.floor((new Date().getTime() - new Date(item.createdAt).getTime()) / 1000 / 60);
@@ -436,31 +436,31 @@ export default function OrderPage() {
                       <Card 
                         key={item.id} 
                         className={cn(
-                          "border-none paper-texture transition-all duration-300 overflow-hidden group hover:scale-[1.02]",
+                          "border-none paper-texture transition-all duration-300 overflow-hidden group hover:scale-[1.01]",
                           isReady ? "ring-2 ring-green-500 shadow-[0_0_20px_rgba(34,197,94,0.15)] bg-green-500/5" : "bg-card/40 border border-border/50"
                         )}
                       >
                         <CardContent className="p-0">
                           <div className={cn(
-                            "p-3 border-b border-border/20 flex justify-between items-start",
+                            "p-2.5 border-b border-border/20 flex justify-between items-start",
                             isReady ? "bg-green-500/10" : "bg-accent/10"
                           )}>
-                            <div className="flex gap-3">
+                            <div className="flex gap-2.5">
                               <div className={cn(
-                                "w-10 h-10 rounded-xl flex items-center justify-center font-black text-xl shadow-lg border",
+                                "w-9 h-9 rounded-xl flex items-center justify-center font-black text-lg shadow-lg border",
                                 isReady ? "bg-green-500 text-white border-green-400" : "bg-accent text-muted-foreground border-border"
                               )}>
                                 {item.cantidad}
                               </div>
                               <div className="min-w-0 pr-2">
-                                <p className="font-bold text-base leading-tight truncate">{item.nombre}</p>
+                                <p className="font-bold text-sm leading-tight truncate">{item.nombre}</p>
                                 <div className="flex items-center gap-2 mt-1">
                                   {isReady ? (
-                                    <Badge className="bg-green-600 text-white animate-pulse text-[8px] uppercase font-black px-1.5 py-0 border-none">¡LISTO!</Badge>
+                                    <Badge className="bg-green-600 text-white animate-pulse text-[7px] uppercase font-black px-1.5 py-0 border-none">¡LISTO!</Badge>
                                   ) : (
-                                    <Badge variant="outline" className="text-[8px] uppercase font-bold opacity-60 bg-background/30">En Cocina</Badge>
+                                    <Badge variant="outline" className="text-[7px] uppercase font-bold opacity-60 bg-background/30">En Cocina</Badge>
                                   )}
-                                  <span className="text-[9px] text-muted-foreground flex items-center gap-1 font-mono">
+                                  <span className="text-[8px] text-muted-foreground flex items-center gap-1 font-mono">
                                     <Clock className="w-2.5 h-2.5" /> {elapsed}m
                                   </span>
                                 </div>
@@ -468,15 +468,15 @@ export default function OrderPage() {
                             </div>
                           </div>
                           
-                          <div className="p-3 space-y-2">
+                          <div className="p-2.5 space-y-2">
                             {item.notas && (
-                              <div className="text-[9px] text-primary italic bg-primary/5 p-1.5 rounded-lg border border-primary/10 mb-1">
+                              <div className="text-[8px] text-primary italic bg-primary/5 p-1.5 rounded-lg border border-primary/10 mb-1">
                                 "{item.notas}"
                               </div>
                             )}
                             <Button 
                               className={cn(
-                                "w-full h-12 font-black rounded-xl transition-all shadow-lg active:scale-95 text-base",
+                                "w-full h-11 font-black rounded-xl transition-all shadow-lg active:scale-95 text-sm",
                                 isReady ? "bg-green-600 hover:bg-green-700 text-white glow-gold" : "bg-secondary text-secondary-foreground"
                               )}
                               onClick={() => updateItemEstado(activeOrder.id, item.id, 'ENTREGADO')}
@@ -493,17 +493,17 @@ export default function OrderPage() {
             )}
 
             {activeOrder?.items.some(i => i.estado === 'ENTREGADO') && (
-              <div className="mt-auto border-t border-border/30 pt-2 pb-4 opacity-60">
-                <p className="text-[9px] font-black uppercase tracking-[0.3em] text-center mb-2">Entregado recientemente</p>
-                <div className="flex flex-wrap justify-center gap-1.5">
+              <div className="mt-auto border-t border-border/30 pt-1 pb-3 opacity-60">
+                <p className="text-[8px] font-black uppercase tracking-[0.3em] text-center mb-1.5">Reciente</p>
+                <div className="flex flex-wrap justify-center gap-1">
                   {activeOrder.items
                     .filter(i => i.estado === 'ENTREGADO')
                     .slice(-4)
                     .map(item => (
-                      <div key={item.id} className="flex items-center gap-1.5 text-[9px] bg-accent/20 px-2.5 py-1 rounded-full border border-border/30">
+                      <div key={item.id} className="flex items-center gap-1.5 text-[8px] bg-accent/20 px-2 py-0.5 rounded-full border border-border/30">
                         <span className="font-black text-green-500">{item.cantidad}x</span>
-                        <span className="font-medium truncate max-w-[100px]">{item.nombre}</span>
-                        <CheckCircle2 className="w-2.5 h-2.5 text-green-500" />
+                        <span className="font-medium truncate max-w-[80px]">{item.nombre}</span>
+                        <CheckCircle2 className="w-2 h-2 text-green-500" />
                       </div>
                     ))
                   }
