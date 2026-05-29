@@ -4,7 +4,7 @@
 import { usePOSStore } from "@/lib/store";
 import { 
   LayoutDashboard, 
-  LayoutGrid,
+  Map,
   ChefHat, 
   Flame, 
   Beer, 
@@ -36,7 +36,7 @@ import {
 
 export const ALL_MENU_ITEMS = [
   { icon: LayoutDashboard, label: "Dashboard", href: "/dashboard" },
-  { icon: LayoutGrid, label: "Mesas", href: "/mesas" },
+  { icon: Map, label: "Mesas", href: "/mesas" },
   { icon: Flame, label: "Asado", href: "/estaciones/asado" },
   { icon: Utensils, label: "Parrilla", href: "/estaciones/parrilla" },
   { icon: ChefHat, label: "Cocina", href: "/estaciones/cocina" },
