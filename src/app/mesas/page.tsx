@@ -419,8 +419,8 @@ function MesaCard({ mesa, user, onOpenMesa, onVerPedido, onStartEdit, onToggleFu
                   </Button>
                 )}
                 
-                {user?.rol === 'ADMINISTRADOR' && (
-                  <div className="grid grid-cols-2 gap-3">
+                <div className="grid grid-cols-2 gap-3">
+                  {user?.rol === 'ADMINISTRADOR' && (
                     <Button 
                       variant="outline" 
                       className="h-14 border-border/50 bg-background/50 hover:bg-accent/50 text-muted-foreground hover:text-foreground gap-2 rounded-2xl transition-all" 
@@ -429,11 +429,14 @@ function MesaCard({ mesa, user, onOpenMesa, onVerPedido, onStartEdit, onToggleFu
                       <Edit className="w-4 h-4" /> 
                       <span className="text-xs font-bold uppercase tracking-widest">Editar</span>
                     </Button>
-                    
+                  )}
+                  
+                  {(user?.rol === 'ADMINISTRADOR' || user?.rol === 'MESERO') && (
                     <Button 
                       variant="outline" 
                       className={cn(
-                        "h-14 gap-2 rounded-2xl transition-all border-border/50 bg-background/50", 
+                        "h-14 gap-2 rounded-2xl transition-all border-border/50 bg-background/50",
+                        user?.rol !== 'ADMINISTRADOR' && "col-span-2",
                         mesa.estado === 'FUERA SERVICIO' ? "hover:border-green-500 hover:text-green-500" : "hover:border-destructive/50 hover:text-destructive"
                       )} 
                       onClick={() => onToggleFueraServicio(mesa)} 
@@ -444,8 +447,8 @@ function MesaCard({ mesa, user, onOpenMesa, onVerPedido, onStartEdit, onToggleFu
                         {mesa.estado === 'FUERA SERVICIO' ? "Habilitar" : "Bloquear"}
                       </span>
                     </Button>
-                  </div>
-                )}
+                  )}
+                </div>
               </div>
 
               <div className="pt-4 text-center">
