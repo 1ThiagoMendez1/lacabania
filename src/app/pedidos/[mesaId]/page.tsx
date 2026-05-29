@@ -22,7 +22,10 @@ import {
   Truck,
   Timer,
   Flame,
-  UtensilsCrossed
+  UtensilsCrossed,
+  ChefHat,
+  BellRing,
+  PackageCheck
 } from "lucide-react";
 import { useState, useMemo } from "react";
 import { Input } from "@/components/ui/input";
@@ -161,6 +164,10 @@ export default function OrderPage() {
     });
   };
 
+  const pendingItems = activeOrder?.items.filter(item => item.estado !== 'ENTREGADO') || [];
+  const readyItemsCount = pendingItems.filter(item => item.estado === 'LISTO').length;
+  const inKitchenCount = pendingItems.filter(item => item.estado === 'EN PREPARACION' || item.estado === 'PENDIENTE').length;
+
   if (!mesa) return <div className="p-8">Mesa no encontrada</div>;
 
   const CartSummary = () => (
@@ -281,9 +288,9 @@ export default function OrderPage() {
             </TabsTrigger>
             <TabsTrigger value="status" className="rounded-xl data-[state=active]:bg-secondary data-[state=active]:text-secondary-foreground font-bold gap-2">
               <UtensilsCrossed className="w-4 h-4" /> Entregas
-              {activeOrder?.items.filter(i => i.estado === 'LISTO').length! > 0 && (
+              {readyItemsCount > 0 && (
                 <Badge className="ml-1 h-5 w-5 p-0 flex items-center justify-center bg-red-500 animate-pulse">
-                  {activeOrder?.items.filter(i => i.estado === 'LISTO').length}
+                  {readyItemsCount}
                 </Badge>
               )}
             </TabsTrigger>
@@ -369,86 +376,140 @@ export default function OrderPage() {
         </TabsContent>
 
         <TabsContent value="status" className="flex-1 p-3 md:p-8 overflow-hidden">
-          <div className="max-w-4xl mx-auto h-full flex flex-col">
-            {!activeOrder || activeOrder.items.length === 0 ? (
+          <div className="max-w-6xl mx-auto h-full flex flex-col gap-6">
+            {pendingItems.length > 0 && (
+              <div className="grid grid-cols-1 sm:grid-cols-3 gap-4 animate-in fade-in slide-in-from-top-4 duration-500">
+                <Card className="bg-accent/20 border-border/50">
+                  <CardContent className="p-4 flex items-center gap-4">
+                    <div className="p-2 bg-primary/10 rounded-xl">
+                      <ChefHat className="w-5 h-5 text-primary" />
+                    </div>
+                    <div>
+                      <p className="text-[10px] font-black uppercase tracking-widest text-muted-foreground">En Cocina</p>
+                      <p className="text-xl font-black">{inKitchenCount} platos</p>
+                    </div>
+                  </CardContent>
+                </Card>
+                <Card className="bg-green-500/10 border-green-500/20">
+                  <CardContent className="p-4 flex items-center gap-4">
+                    <div className="p-2 bg-green-500/10 rounded-xl">
+                      <BellRing className={cn("w-5 h-5 text-green-500", readyItemsCount > 0 && "animate-bounce")} />
+                    </div>
+                    <div>
+                      <p className="text-[10px] font-black uppercase tracking-widest text-green-500/70">Listos para Entrega</p>
+                      <p className="text-xl font-black text-green-500">{readyItemsCount} platos</p>
+                    </div>
+                  </CardContent>
+                </Card>
+                <Card className="bg-secondary/10 border-secondary/20">
+                  <CardContent className="p-4 flex items-center gap-4">
+                    <div className="p-2 bg-secondary/10 rounded-xl">
+                      <PackageCheck className="w-5 h-5 text-secondary" />
+                    </div>
+                    <div>
+                      <p className="text-[10px] font-black uppercase tracking-widest text-secondary/70">Atendiendo mesa</p>
+                      <p className="text-xl font-black text-secondary">#{mesaId}</p>
+                    </div>
+                  </CardContent>
+                </Card>
+              </div>
+            )}
+
+            {!activeOrder || pendingItems.length === 0 ? (
               <div className="flex-1 flex flex-col items-center justify-center opacity-30 text-center space-y-4">
-                <div className="p-6 bg-accent/10 rounded-full">
-                  <UtensilsCrossed className="w-16 h-16" />
+                <div className="p-8 bg-accent/10 rounded-full">
+                  <UtensilsCrossed className="w-20 h-20" />
                 </div>
-                <p className="font-headline text-2xl">Mesa despejada</p>
-                <p className="text-sm">No hay platos pendientes por entregar. 🤠</p>
+                <p className="font-headline text-3xl">Mesa despejada 🤠</p>
+                <p className="text-sm max-w-xs mx-auto opacity-70">
+                  No hay platos pendientes por entregar. Todo está en marcha o servido.
+                </p>
               </div>
             ) : (
-              <ScrollArea className="flex-1 pr-4 -mr-4">
-                <div className="space-y-3 pb-10">
-                  {activeOrder.items
-                    .filter(item => item.estado !== 'ENTREGADO')
-                    .map((item) => {
+              <ScrollArea className="flex-1">
+                <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-4 pb-12">
+                  {pendingItems.map((item) => {
                     const isReady = item.estado === 'LISTO';
                     const elapsed = Math.floor((new Date().getTime() - new Date(item.createdAt).getTime()) / 1000 / 60);
 
                     return (
-                      <Card key={item.id} className={cn(
-                        "border-none paper-texture transition-all overflow-hidden",
-                        isReady ? "ring-2 ring-green-500 shadow-xl" : "opacity-90 bg-accent/20"
-                      )}>
-                        <CardContent className="p-4 flex items-center justify-between gap-4">
-                          <div className="flex gap-4 items-center">
-                            <div className={cn(
-                              "w-10 h-10 rounded-xl flex items-center justify-center font-black text-xl shrink-0",
-                              isReady ? "bg-green-500 text-white shadow-lg" : "bg-accent/30 text-muted-foreground"
-                            )}>
-                              {item.cantidad}
-                            </div>
-                            <div className="min-w-0">
-                              <p className="font-bold text-sm md:text-lg leading-tight truncate">{item.nombre}</p>
-                              <div className="flex items-center gap-2 mt-1">
-                                {isReady ? (
-                                  <Badge className="bg-green-500 text-white animate-pulse text-[10px] uppercase font-black px-2 py-0">¡LISTO!</Badge>
-                                ) : (
-                                  <Badge variant="outline" className="text-[9px] uppercase font-bold opacity-60">En Cocina</Badge>
-                                )}
-                                <span className="text-[10px] text-muted-foreground flex items-center gap-1">
-                                  <Timer className="w-3 h-3" /> {elapsed}m
-                                </span>
+                      <Card 
+                        key={item.id} 
+                        className={cn(
+                          "border-none paper-texture transition-all duration-300 overflow-hidden group hover:scale-[1.02]",
+                          isReady ? "ring-2 ring-green-500 shadow-[0_0_20px_rgba(34,197,94,0.15)] bg-green-500/5" : "bg-card/40 border border-border/50"
+                        )}
+                      >
+                        <CardContent className="p-0">
+                          <div className={cn(
+                            "p-4 border-b border-border/20 flex justify-between items-start",
+                            isReady ? "bg-green-500/10" : "bg-accent/10"
+                          )}>
+                            <div className="flex gap-4">
+                              <div className={cn(
+                                "w-12 h-12 rounded-2xl flex items-center justify-center font-black text-2xl shadow-lg border",
+                                isReady ? "bg-green-500 text-white border-green-400" : "bg-accent text-muted-foreground border-border"
+                              )}>
+                                {item.cantidad}
+                              </div>
+                              <div className="min-w-0 pr-2">
+                                <p className="font-bold text-lg leading-tight truncate">{item.nombre}</p>
+                                <div className="flex items-center gap-2 mt-1.5">
+                                  {isReady ? (
+                                    <Badge className="bg-green-600 text-white animate-pulse text-[9px] uppercase font-black px-2 py-0 border-none">¡LISTO!</Badge>
+                                  ) : (
+                                    <Badge variant="outline" className="text-[9px] uppercase font-bold opacity-60 bg-background/30">En Cocina</Badge>
+                                  )}
+                                  <span className="text-[10px] text-muted-foreground flex items-center gap-1 font-mono">
+                                    <Clock className="w-3 h-3" /> {elapsed}m
+                                  </span>
+                                </div>
                               </div>
                             </div>
                           </div>
                           
-                          <Button 
-                            className={cn(
-                              "h-12 md:h-14 px-6 md:px-8 font-black rounded-xl transition-all shadow-lg active:scale-95",
-                              isReady ? "bg-green-600 hover:bg-green-700 text-white scale-105" : "bg-secondary text-secondary-foreground"
+                          <div className="p-4 space-y-3">
+                            {item.notas && (
+                              <div className="text-[10px] text-primary italic bg-primary/5 p-2 rounded-lg border border-primary/10 mb-2">
+                                "{item.notas}"
+                              </div>
                             )}
-                            onClick={() => updateItemEstado(activeOrder.id, item.id, 'ENTREGADO')}
-                          >
-                            ENTREGAR 🤠
-                          </Button>
+                            <Button 
+                              className={cn(
+                                "w-full h-14 font-black rounded-xl transition-all shadow-lg active:scale-95 text-lg",
+                                isReady ? "bg-green-600 hover:bg-green-700 text-white glow-gold" : "bg-secondary text-secondary-foreground"
+                              )}
+                              onClick={() => updateItemEstado(activeOrder.id, item.id, 'ENTREGADO')}
+                            >
+                              ENTREGAR 🤠
+                            </Button>
+                          </div>
                         </CardContent>
                       </Card>
                     );
                   })}
-                  
-                  {/* Histórico rápido de entregados */}
-                  {activeOrder.items.some(i => i.estado === 'ENTREGADO') && (
-                    <div className="pt-8 opacity-40">
-                      <p className="text-[10px] font-black uppercase tracking-widest text-center mb-4">Entregado recientemente</p>
-                      <div className="space-y-2">
-                        {activeOrder.items
-                          .filter(i => i.estado === 'ENTREGADO')
-                          .slice(-3)
-                          .map(item => (
-                            <div key={item.id} className="flex justify-between items-center text-xs p-2 bg-accent/10 rounded-lg">
-                              <span>{item.cantidad}x {item.nombre}</span>
-                              <CheckCircle2 className="w-4 h-4 text-green-500" />
-                            </div>
-                          ))
-                        }
-                      </div>
-                    </div>
-                  )}
                 </div>
               </ScrollArea>
+            )}
+
+            {/* Histórico rápido simplificado */}
+            {activeOrder?.items.some(i => i.estado === 'ENTREGADO') && (
+              <div className="mt-auto border-t border-border/30 pt-4 pb-6 opacity-60">
+                <p className="text-[10px] font-black uppercase tracking-[0.3em] text-center mb-4">Entregado recientemente</p>
+                <div className="flex flex-wrap justify-center gap-2">
+                  {activeOrder.items
+                    .filter(i => i.estado === 'ENTREGADO')
+                    .slice(-5)
+                    .map(item => (
+                      <div key={item.id} className="flex items-center gap-2 text-[10px] bg-accent/20 px-3 py-1.5 rounded-full border border-border/30">
+                        <span className="font-black text-green-500">{item.cantidad}x</span>
+                        <span className="font-medium">{item.nombre}</span>
+                        <CheckCircle2 className="w-3 h-3 text-green-500" />
+                      </div>
+                    ))
+                  }
+                </div>
+              </div>
             )}
           </div>
         </TabsContent>
