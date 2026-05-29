@@ -196,6 +196,7 @@ export default function MesasPage() {
               <MesaCard 
                 key={mesa.id} 
                 mesa={mesa} 
+                user={user}
                 onOpenMesa={handleOpenMesa} 
                 onVerPedido={handleVerPedido} 
                 onStartEdit={handleStartEdit} 
@@ -213,6 +214,7 @@ export default function MesasPage() {
               <MesaCard 
                 key={mesa.id} 
                 mesa={mesa} 
+                user={user}
                 onOpenMesa={handleOpenMesa} 
                 onVerPedido={handleVerPedido} 
                 onStartEdit={handleStartEdit} 
@@ -256,7 +258,7 @@ export default function MesasPage() {
   );
 }
 
-function MesaCard({ mesa, onOpenMesa, onVerPedido, onStartEdit, onToggleFueraServicio, getStatusColor, ordenes }: any) {
+function MesaCard({ mesa, user, onOpenMesa, onVerPedido, onStartEdit, onToggleFueraServicio, getStatusColor, ordenes }: any) {
     const activeOrder = ordenes.find((o: Orden) => o.mesaId === mesa.id && o.estado === 'ABIERTA');
     const [delayLevel, setDelayLevel] = useState<'none' | 'warning' | 'critical'>('none');
 
@@ -417,31 +419,33 @@ function MesaCard({ mesa, onOpenMesa, onVerPedido, onStartEdit, onToggleFueraSer
                   </Button>
                 )}
                 
-                <div className="grid grid-cols-2 gap-3">
-                  <Button 
-                    variant="outline" 
-                    className="h-14 border-border/50 bg-background/50 hover:bg-accent/50 text-muted-foreground hover:text-foreground gap-2 rounded-2xl transition-all" 
-                    onClick={() => onStartEdit(mesa)}
-                  >
-                    <Edit className="w-4 h-4" /> 
-                    <span className="text-xs font-bold uppercase tracking-widest">Editar</span>
-                  </Button>
-                  
-                  <Button 
-                    variant="outline" 
-                    className={cn(
-                      "h-14 gap-2 rounded-2xl transition-all border-border/50 bg-background/50", 
-                      mesa.estado === 'FUERA SERVICIO' ? "hover:border-green-500 hover:text-green-500" : "hover:border-destructive/50 hover:text-destructive"
-                    )} 
-                    onClick={() => onToggleFueraServicio(mesa)} 
-                    disabled={mesa.estado !== 'LIBRE' && mesa.estado !== 'FUERA SERVICIO'}
-                  >
-                    {mesa.estado === 'FUERA SERVICIO' ? <CheckCircle className="w-4 h-4" /> : <Ban className="w-4 h-4" />}
-                    <span className="text-xs font-bold uppercase tracking-widest">
-                      {mesa.estado === 'FUERA SERVICIO' ? "Habilitar" : "Bloquear"}
-                    </span>
-                  </Button>
-                </div>
+                {user?.rol === 'ADMINISTRADOR' && (
+                  <div className="grid grid-cols-2 gap-3">
+                    <Button 
+                      variant="outline" 
+                      className="h-14 border-border/50 bg-background/50 hover:bg-accent/50 text-muted-foreground hover:text-foreground gap-2 rounded-2xl transition-all" 
+                      onClick={() => onStartEdit(mesa)}
+                    >
+                      <Edit className="w-4 h-4" /> 
+                      <span className="text-xs font-bold uppercase tracking-widest">Editar</span>
+                    </Button>
+                    
+                    <Button 
+                      variant="outline" 
+                      className={cn(
+                        "h-14 gap-2 rounded-2xl transition-all border-border/50 bg-background/50", 
+                        mesa.estado === 'FUERA SERVICIO' ? "hover:border-green-500 hover:text-green-500" : "hover:border-destructive/50 hover:text-destructive"
+                      )} 
+                      onClick={() => onToggleFueraServicio(mesa)} 
+                      disabled={mesa.estado !== 'LIBRE' && mesa.estado !== 'FUERA SERVICIO'}
+                    >
+                      {mesa.estado === 'FUERA SERVICIO' ? <CheckCircle className="w-4 h-4" /> : <Ban className="w-4 h-4" />}
+                      <span className="text-xs font-bold uppercase tracking-widest">
+                        {mesa.estado === 'FUERA SERVICIO' ? "Habilitar" : "Bloquear"}
+                      </span>
+                    </Button>
+                  </div>
+                )}
               </div>
 
               <div className="pt-4 text-center">
