@@ -180,7 +180,7 @@ export default function CajaPage() {
                           <tr key={item.id} className="border-b border-border/30">
                             <td className="py-3 font-bold pr-2">{item.cantidad}x</td>
                             <td className="py-3 text-foreground">{item.nombre}</td>
-                            <td className="py-3 text-right font-bold text-foreground">${(item.precioUnitario * item.cantidad).toLocaleString()}</td>
+                            <td className="py-3 text-right font-bold text-foreground">${(item.precioUnitario * item.cantidad).toLocaleString('es-CO')}</td>
                           </tr>
                         ))}
                       </tbody>
@@ -323,16 +323,16 @@ export default function CajaPage() {
                     <div className="space-y-3">
                       <div className="flex justify-between text-sm text-muted-foreground">
                         <span>Subtotal:</span>
-                        <span className="font-bold text-foreground">${subtotal.toLocaleString()}</span>
+                        <span className="font-bold text-foreground">${subtotal.toLocaleString('es-CO')}</span>
                       </div>
                       <div className="flex justify-between text-sm text-muted-foreground">
                         <span>Servicio (10%):</span>
-                        <span className="font-bold text-foreground">${propinaSugerida.toLocaleString()}</span>
+                        <span className="font-bold text-foreground">${propinaSugerida.toLocaleString('es-CO')}</span>
                       </div>
                       <Separator className="bg-border/50" />
                       <div className="flex justify-between items-end py-2">
                         <span className="text-lg font-headline text-foreground">TOTAL:</span>
-                        <span className="text-4xl font-black text-secondary glow-gold-text">${total.toLocaleString()}</span>
+                        <span className="text-4xl font-black text-secondary glow-gold-text">${total.toLocaleString('es-CO')}</span>
                       </div>
                       <Button 
                         className="w-full h-14 text-lg font-bold rounded-xl mt-4 shadow-lg hover:glow-orange transition-all" 
@@ -399,7 +399,7 @@ export default function CajaPage() {
                     <tr key={item.id}>
                       <td className="py-2 align-top">{item.cantidad}</td>
                       <td className="py-2 pr-2">{item.nombre}</td>
-                      <td className="py-2 text-right align-top">${(item.precioUnitario * item.cantidad).toLocaleString()}</td>
+                      <td className="py-2 text-right align-top">${(item.precioUnitario * item.cantidad).toLocaleString('es-CO')}</td>
                     </tr>
                   ))}
                 </tbody>
@@ -409,7 +409,7 @@ export default function CajaPage() {
             <div className="border-t border-dashed border-black/30 pt-4 space-y-1 text-xs">
               <div className="flex justify-between font-black text-sm pt-2 border-t border-black/10">
                 <span>TOTAL:</span>
-                <span>${((lastClosedOrden?.items.reduce((acc, i) => acc + (i.precioUnitario * i.cantidad), 0) || 0) * 1.1).toLocaleString()}</span>
+                <span>${((lastClosedOrden?.items.reduce((acc, i) => acc + (i.precioUnitario * i.cantidad), 0) || 0) * 1.1).toLocaleString('es-CO')}</span>
               </div>
             </div>
 

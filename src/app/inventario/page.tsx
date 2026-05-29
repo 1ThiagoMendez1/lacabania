@@ -188,11 +188,11 @@ export default function InventarioPage() {
                 <div className="space-y-2">
                   <Label>Precio de Venta (COP)</Label>
                   <div className="relative">
-                    <span className="absolute left-3 top-1/2 -translate-y-1/2 text-secondary font-bold">$</span>
+                    <span className="absolute left-3 top-1/2 -translate-y-1/2 text-secondary font-bold">COP $</span>
                     <Input 
                       type="number" 
                       placeholder="0"
-                      className="pl-7 bg-background/50 font-black text-secondary"
+                      className="pl-14 bg-background/50 font-black text-secondary"
                       value={newProduct.precio} 
                       onChange={(e) => setNewProduct({...newProduct, precio: parseFloat(e.target.value)})} 
                     />

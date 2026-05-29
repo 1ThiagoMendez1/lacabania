@@ -73,11 +73,11 @@ export default function AIInsightsPage() {
             <CardContent className="grid grid-cols-2 gap-6 pt-4">
               <div className="bg-accent/30 p-6 rounded-2xl">
                 <p className="text-xs text-muted-foreground mb-2">Hoy (Est.)</p>
-                <p className="text-3xl font-black text-secondary">${insights.dailySalesForecast.toLocaleString()}</p>
+                <p className="text-3xl font-black text-secondary">${insights.dailySalesForecast.toLocaleString('es-CO')}</p>
               </div>
               <div className="bg-accent/30 p-6 rounded-2xl">
                 <p className="text-xs text-muted-foreground mb-2">Semana (Est.)</p>
-                <p className="text-3xl font-black text-secondary">${insights.weeklySalesForecast.toLocaleString()}</p>
+                <p className="text-3xl font-black text-secondary">${insights.weeklySalesForecast.toLocaleString('es-CO')}</p>
               </div>
             </CardContent>
           </Card>

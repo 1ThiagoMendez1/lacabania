@@ -47,10 +47,10 @@ export default function DashboardPage() {
     .reduce((acc, o) => acc + o.items.filter(i => i.estado === 'PENDIENTE' || i.estado === 'EN PREPARACION').length, 0);
 
   const kpis = [
-    { title: "Ventas Hoy", value: `$${totalVentasCerradas.toLocaleString()}`, change: "+12.5%", icon: DollarSign, color: "text-green-500" },
+    { title: "Ventas Hoy", value: `$${totalVentasCerradas.toLocaleString('es-CO')}`, change: "+12.5%", icon: DollarSign, color: "text-green-500" },
     { title: "Mesas Activas", value: `${mesasOcupadas} / ${mesas.length}`, change: `${Math.round((mesasOcupadas/mesas.length)*100)}% Ocupación`, icon: Map, color: "text-secondary" },
     { title: "Pedidos Pendientes", value: pedidosPendientes.toString(), change: "En estaciones", icon: ClipboardCheck, color: "text-primary" },
-    { title: "Ticket Promedio", value: `$${totalVentasCerradas > 0 ? Math.round(totalVentasCerradas / ordenes.filter(o => o.estado === 'CERRADA').length).toLocaleString() : 0}`, change: "+5% vs ayer", icon: TrendingUp, color: "text-blue-500" },
+    { title: "Ticket Promedio", value: `$${totalVentasCerradas > 0 ? Math.round(totalVentasCerradas / ordenes.filter(o => o.estado === 'CERRADA').length).toLocaleString('es-CO') : 0}`, change: "+5% vs ayer", icon: TrendingUp, color: "text-blue-500" },
   ];
 
   const stations = [
@@ -69,7 +69,7 @@ export default function DashboardPage() {
         <div className="bg-card px-4 py-2 rounded-lg border border-border flex items-center gap-4">
           <div className="text-right">
             <p className="text-xs font-mono uppercase text-muted-foreground">Cierre Actual</p>
-            <p className="font-bold text-secondary">${totalVentasCerradas.toLocaleString()}</p>
+            <p className="font-bold text-secondary">${totalVentasCerradas.toLocaleString('es-CO')}</p>
           </div>
           <div className="w-px h-8 bg-border" />
           <button className="bg-primary text-primary-foreground px-4 py-2 rounded-md text-sm font-semibold hover:glow-orange transition-all">
