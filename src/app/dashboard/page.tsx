@@ -1,4 +1,3 @@
-
 "use client"
 
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -44,6 +43,7 @@ import { Label } from "@/components/ui/label";
 import { Separator } from "@/components/ui/separator";
 import { useToast } from "@/hooks/use-toast";
 import { Gasto } from "@/lib/types";
+import { Badge } from "@/components/ui/badge";
 
 const chartData = [
   { name: '12:00', ventas: 450000 },
