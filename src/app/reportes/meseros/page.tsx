@@ -1,3 +1,4 @@
+
 "use client"
 
 import { usePOSStore } from "@/lib/store";
@@ -32,7 +33,8 @@ export default function HistorialMeserosPage() {
   const { ordenes, usuarios } = usePOSStore();
   const [searchTerm, setSearchTerm] = useState("");
 
-  const meseros = usuarios.filter(u => u.rol === 'MESERO' || u.rol === 'ADMINISTRADOR');
+  // Solo incluimos a los meseros para los reportes de desempeño
+  const meseros = usuarios.filter(u => u.rol === 'MESERO');
   
   const closedOrders = useMemo(() => {
     return ordenes.filter(o => o.estado === 'CERRADA').sort((a, b) => 
@@ -136,22 +138,26 @@ export default function HistorialMeserosPage() {
             </CardTitle>
           </CardHeader>
           <CardContent className="p-4 space-y-4">
-            {performanceStats.map((m, index) => (
-              <div key={m.id} className="flex items-center justify-between p-4 bg-accent/10 rounded-2xl border border-border/30 group hover:border-primary/50 transition-all">
-                <div className="flex items-center gap-4">
-                  <div className="w-8 h-8 rounded-full bg-primary/20 flex items-center justify-center text-primary font-bold text-xs">
-                    {index + 1}
+            {performanceStats.length === 0 ? (
+              <p className="text-center text-xs text-muted-foreground py-10 italic">Sin datos de meseros activos.</p>
+            ) : (
+              performanceStats.map((m, index) => (
+                <div key={m.id} className="flex items-center justify-between p-4 bg-accent/10 rounded-2xl border border-border/30 group hover:border-primary/50 transition-all">
+                  <div className="flex items-center gap-4">
+                    <div className="w-8 h-8 rounded-full bg-primary/20 flex items-center justify-center text-primary font-bold text-xs">
+                      {index + 1}
+                    </div>
+                    <div>
+                      <p className="font-bold text-sm">{m.nombre}</p>
+                      <p className="text-[10px] text-muted-foreground uppercase font-black">{m.orderCount} mesas</p>
+                    </div>
                   </div>
-                  <div>
-                    <p className="font-bold text-sm">{m.nombre}</p>
-                    <p className="text-[10px] text-muted-foreground uppercase font-black">{m.orderCount} mesas</p>
+                  <div className="text-right">
+                    <p className="text-sm font-black text-secondary">${m.totalSales.toLocaleString('es-CO')}</p>
                   </div>
                 </div>
-                <div className="text-right">
-                  <p className="text-sm font-black text-secondary">${m.totalSales.toLocaleString('es-CO')}</p>
-                </div>
-              </div>
-            ))}
+              ))
+            )}
           </CardContent>
         </Card>
 
