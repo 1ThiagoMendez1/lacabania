@@ -11,7 +11,8 @@ import {
   ChevronRight,
   ClipboardList,
   CircleDollarSign,
-  Users
+  Users,
+  UtensilsCrossed
 } from "lucide-react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { 
@@ -59,7 +60,9 @@ export default function HistorialMeserosPage() {
   const filteredOrders = useMemo(() => {
     return closedOrders.filter(o => {
       const meseroName = usuarios.find(u => u.id === o.meseroId)?.nombre.toLowerCase() || "";
-      return meseroName.includes(searchTerm.toLowerCase()) || o.id.includes(searchTerm);
+      const orderId = o.id.toLowerCase();
+      const search = searchTerm.toLowerCase();
+      return meseroName.includes(search) || orderId.includes(search);
     });
   }, [closedOrders, searchTerm, usuarios]);
 
@@ -128,7 +131,7 @@ export default function HistorialMeserosPage() {
         </Card>
       </div>
 
-      <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
+      <div className="grid grid-cols-1 lg:grid-cols-4 gap-8">
         {/* Performance Sidebar */}
         <Card className="bg-card border-border shadow-2xl rounded-[2rem] overflow-hidden">
           <CardHeader className="bg-accent/20 border-b border-border/50">
@@ -162,7 +165,7 @@ export default function HistorialMeserosPage() {
         </Card>
 
         {/* Detailed History */}
-        <Card className="lg:col-span-2 bg-card border-border shadow-2xl rounded-[2rem] overflow-hidden">
+        <Card className="lg:col-span-3 bg-card border-border shadow-2xl rounded-[2rem] overflow-hidden">
           <CardHeader className="flex flex-row items-center justify-between bg-accent/20 border-b border-border/50 p-6">
             <CardTitle className="text-lg font-headline flex items-center gap-2">
               <ClipboardList className="w-5 h-5 text-primary" />
@@ -184,6 +187,7 @@ export default function HistorialMeserosPage() {
                 <TableRow className="border-border">
                   <TableHead className="text-[10px] font-black uppercase tracking-widest">Mesero</TableHead>
                   <TableHead className="text-[10px] font-black uppercase tracking-widest">Mesa</TableHead>
+                  <TableHead className="text-[10px] font-black uppercase tracking-widest">Consumo</TableHead>
                   <TableHead className="text-[10px] font-black uppercase tracking-widest">Fecha / Hora</TableHead>
                   <TableHead className="text-right text-[10px] font-black uppercase tracking-widest">Total</TableHead>
                   <TableHead className="text-center text-[10px] font-black uppercase tracking-widest">Pago</TableHead>
@@ -192,14 +196,15 @@ export default function HistorialMeserosPage() {
               <TableBody>
                 {filteredOrders.length === 0 ? (
                   <TableRow>
-                    <TableCell colSpan={5} className="text-center py-20 text-muted-foreground italic">
+                    <TableCell colSpan={6} className="text-center py-20 text-muted-foreground italic">
                       No se encontraron registros en el historial.
                     </TableCell>
                   </TableRow>
                 ) : (
                   filteredOrders.map((o) => {
                     const mesero = usuarios.find(u => u.id === o.meseroId);
-                    const total = o.items.reduce((sum, i) => sum + (i.precioUnitario * i.cantidad), 0) * 1.1; // Total con propina
+                    const subtotal = o.items.reduce((sum, i) => sum + (i.precioUnitario * i.cantidad), 0);
+                    const total = subtotal * 1.1; // Total con propina
                     
                     return (
                       <TableRow key={o.id} className="border-border hover:bg-accent/10 transition-colors">
@@ -213,6 +218,16 @@ export default function HistorialMeserosPage() {
                           <Badge variant="secondary" className="bg-primary/10 text-primary border-primary/20">
                             Mesa {o.mesaId}
                           </Badge>
+                        </TableCell>
+                        <TableCell className="max-w-[250px]">
+                          <div className="flex flex-col gap-1 py-1">
+                            {o.items.map((item) => (
+                              <div key={item.id} className="flex items-center gap-1.5 text-[9px] bg-accent/20 px-2 py-0.5 rounded-lg border border-border/30">
+                                <span className="font-black text-primary">{item.cantidad}x</span>
+                                <span className="font-medium truncate">{item.nombre}</span>
+                              </div>
+                            ))}
+                          </div>
                         </TableCell>
                         <TableCell>
                           <div className="flex flex-col text-[10px]">
