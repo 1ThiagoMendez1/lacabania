@@ -9,12 +9,11 @@ import {
   Beer, 
   CircleDollarSign, 
   Package, 
-  BarChart3, 
-  Utensils,
   Users,
   LogOut,
   Printer,
-  History
+  History,
+  Utensils
 } from "lucide-react";
 import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
@@ -46,7 +45,6 @@ export const ALL_MENU_ITEMS = [
   { icon: History, label: "Historial Meseros", href: "/reportes/meseros" },
   { icon: Users, label: "Personal", href: "/personal" },
   { icon: Printer, label: "Impresoras", href: "/configuracion/impresoras" },
-  { icon: BarChart3, label: "Reportes & AI", href: "/ai-insights" },
 ];
 
 export function AppSidebar() {
@@ -57,7 +55,6 @@ export function AppSidebar() {
 
   if (!user) return null;
 
-  // En móvil siempre queremos la vista expandida (con labels) para mejor usabilidad
   const isExpanded = state === "expanded" || isMobile;
   const userPermisos = permisos[user.rol] || [];
   const filteredMenu = ALL_MENU_ITEMS.filter(item => userPermisos.includes(item.label));
