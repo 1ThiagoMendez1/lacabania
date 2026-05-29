@@ -221,8 +221,8 @@ export default function OrderPage() {
           </div>
         )}
       </ScrollArea>
-      <div className="mt-auto pt-6 pb-12 lg:pb-6 border-t bg-card/80 backdrop-blur-xl -mx-6 px-6 rounded-t-3xl shadow-2xl">
-        <div className="flex justify-between items-center mb-6">
+      <div className="mt-auto pt-4 pb-12 lg:pb-4 border-t bg-card/80 backdrop-blur-xl -mx-6 px-6 rounded-t-3xl shadow-2xl">
+        <div className="flex justify-between items-center mb-4">
           <div className="flex flex-col">
             <span className="text-muted-foreground font-black uppercase tracking-[0.2em] text-[10px]">Total Pedido</span>
             <span className="text-[10px] text-primary font-mono mt-0.5">{cartItemsCount} items</span>
@@ -242,21 +242,21 @@ export default function OrderPage() {
 
   return (
     <main className="flex flex-col h-svh bg-background overflow-hidden">
-      <header className="p-3 md:p-6 flex justify-between items-center border-b bg-card/50 backdrop-blur-md sticky top-0 z-20">
+      <header className="p-2 md:p-4 flex justify-between items-center border-b bg-card/50 backdrop-blur-md sticky top-0 z-20">
         <div className="flex items-center gap-2 md:gap-4">
           <Button variant="ghost" size="icon" onClick={() => router.back()} className="rounded-full active:scale-90">
             <ChevronLeft className="w-6 h-6" />
           </Button>
           <div>
-            <h2 className="text-xl md:text-3xl font-headline">Mesa {mesa.id}</h2>
-            <p className="text-[9px] text-muted-foreground uppercase tracking-widest">{mesa.zona}</p>
+            <h2 className="text-xl md:text-2xl font-headline">Mesa {mesa.id}</h2>
+            <p className="text-[8px] text-muted-foreground uppercase tracking-widest">{mesa.zona}</p>
           </div>
         </div>
         
         <div className="lg:hidden flex gap-2">
            <Sheet>
             <SheetTrigger asChild>
-              <Button variant="secondary" className="relative gap-2 font-bold h-10 px-4 rounded-full bg-accent/50 border-secondary/30">
+              <Button variant="secondary" className="relative gap-2 font-bold h-9 px-4 rounded-full bg-accent/50 border-secondary/30">
                 <ShoppingCart className="w-4 h-4 text-secondary" />
                 {cartItemsCount > 0 && (
                   <Badge className="absolute -top-1.5 -right-1.5 h-5 w-5 flex items-center justify-center p-0 bg-primary border-2 border-background text-[10px] font-black">
@@ -281,15 +281,15 @@ export default function OrderPage() {
       </header>
 
       <Tabs defaultValue="menu" className="flex-1 flex flex-col overflow-hidden">
-        <div className="px-3 md:px-8 py-2 bg-accent/10 border-b">
-          <TabsList className="grid w-full grid-cols-2 max-w-md mx-auto h-12 bg-accent/20 rounded-2xl p-1">
-            <TabsTrigger value="menu" className="rounded-xl data-[state=active]:bg-primary data-[state=active]:text-white font-bold gap-2">
-              <ListTodo className="w-4 h-4" /> Carta
+        <div className="px-3 md:px-8 py-1 bg-accent/10 border-b">
+          <TabsList className="grid w-full grid-cols-2 max-w-md mx-auto h-10 bg-accent/20 rounded-xl p-1">
+            <TabsTrigger value="menu" className="rounded-lg data-[state=active]:bg-primary data-[state=active]:text-white font-bold gap-2 text-xs">
+              <ListTodo className="w-3.5 h-3.5" /> Carta
             </TabsTrigger>
-            <TabsTrigger value="status" className="rounded-xl data-[state=active]:bg-secondary data-[state=active]:text-secondary-foreground font-bold gap-2">
-              <UtensilsCrossed className="w-4 h-4" /> Entregas
+            <TabsTrigger value="status" className="rounded-lg data-[state=active]:bg-secondary data-[state=active]:text-secondary-foreground font-bold gap-2 text-xs">
+              <UtensilsCrossed className="w-3.5 h-3.5" /> Entregas
               {readyItemsCount > 0 && (
-                <Badge className="ml-1 h-5 w-5 p-0 flex items-center justify-center bg-red-500 animate-pulse">
+                <Badge className="ml-1 h-4 w-4 p-0 flex items-center justify-center bg-red-500 animate-pulse text-[9px]">
                   {readyItemsCount}
                 </Badge>
               )}
@@ -297,14 +297,14 @@ export default function OrderPage() {
           </TabsList>
         </div>
 
-        <TabsContent value="menu" className="flex-1 flex flex-col lg:flex-row gap-0 lg:gap-8 p-0 lg:p-8 overflow-hidden">
-          <div className="flex-1 flex flex-col gap-3 p-3 lg:p-0 overflow-hidden">
-            <div className="space-y-3">
+        <TabsContent value="menu" className="flex-1 flex flex-col lg:flex-row gap-0 lg:gap-4 p-0 lg:p-4 overflow-hidden mt-0">
+          <div className="flex-1 flex flex-col gap-2 p-2 lg:p-0 overflow-hidden">
+            <div className="space-y-2">
               <div className="relative group">
                 <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
                 <Input 
                   placeholder="Buscar..." 
-                  className="pl-10 h-11 bg-card/50 border-border rounded-xl" 
+                  className="pl-10 h-10 bg-card/50 border-border rounded-xl" 
                   value={searchTerm} 
                   onChange={(e) => setSearchTerm(e.target.value)} 
                 />
@@ -318,7 +318,7 @@ export default function OrderPage() {
                       size="sm" 
                       onClick={() => setSelectedCategory(cat)}
                       className={cn(
-                        "rounded-full px-4 h-8 text-xs font-bold transition-all",
+                        "rounded-full px-4 h-7 text-[10px] font-bold transition-all",
                         selectedCategory === cat ? "shadow-md glow-orange" : "bg-card/30"
                       )}
                     >
@@ -330,29 +330,29 @@ export default function OrderPage() {
               </ScrollArea>
             </div>
 
-            <ScrollArea className="flex-1 -mx-3 px-3 lg:-mx-2 lg:px-2">
-              <div className="grid grid-cols-2 sm:grid-cols-3 xl:grid-cols-4 gap-3 md:gap-4 py-2">
+            <ScrollArea className="flex-1 -mx-2 px-2">
+              <div className="grid grid-cols-2 sm:grid-cols-3 xl:grid-cols-4 gap-2 md:gap-3 py-1">
                 {filteredProducts.map(p => (
                   <Card 
                     key={p.id} 
                     className="bg-card/40 border-border/50 active:scale-95 transition-all flex flex-col group overflow-hidden"
                     onClick={() => addToCart(p)}
                   >
-                    <CardContent className="p-3 md:p-5 flex flex-col justify-between h-full min-h-[140px]">
+                    <CardContent className="p-3 md:p-4 flex flex-col justify-between h-full min-h-[120px]">
                       <div>
-                        <Badge variant="outline" className="text-[7px] md:text-[9px] mb-2 uppercase opacity-60">
+                        <Badge variant="outline" className="text-[7px] md:text-[8px] mb-1.5 uppercase opacity-60">
                           {p.categoria}
                         </Badge>
-                        <h4 className="font-bold text-xs md:text-base leading-tight line-clamp-2">
+                        <h4 className="font-bold text-[11px] md:text-sm leading-tight line-clamp-2">
                           {p.nombre}
                         </h4>
                       </div>
-                      <div className="flex justify-between items-end mt-2">
-                        <span className="text-sm md:text-xl font-black text-secondary">
+                      <div className="flex justify-between items-end mt-1.5">
+                        <span className="text-xs md:text-lg font-black text-secondary">
                           ${p.precio.toLocaleString()}
                         </span>
-                        <div className="p-1.5 bg-primary/10 rounded-xl group-active:bg-primary group-active:text-white transition-all">
-                          <Plus className="w-4 h-4" />
+                        <div className="p-1 bg-primary/10 rounded-lg group-active:bg-primary group-active:text-white transition-all">
+                          <Plus className="w-3.5 h-3.5" />
                         </div>
                       </div>
                     </CardContent>
@@ -362,53 +362,53 @@ export default function OrderPage() {
             </ScrollArea>
           </div>
 
-          <Card className="hidden lg:flex w-96 bg-card border-border paper-texture flex-col shadow-2xl overflow-hidden">
-            <CardHeader className="border-b bg-accent/20">
-              <CardTitle className="text-xl font-headline flex items-center gap-2">
-                <ShoppingCart className="w-5 h-5 text-primary" />
+          <Card className="hidden lg:flex w-80 bg-card border-border paper-texture flex-col shadow-2xl overflow-hidden">
+            <CardHeader className="border-b bg-accent/20 p-4">
+              <CardTitle className="text-lg font-headline flex items-center gap-2">
+                <ShoppingCart className="w-4 h-4 text-primary" />
                 Comanda
               </CardTitle>
             </CardHeader>
-            <div className="flex-1 p-6 overflow-hidden">
+            <div className="flex-1 p-4 overflow-hidden">
               <CartSummary />
             </div>
           </Card>
         </TabsContent>
 
-        <TabsContent value="status" className="flex-1 p-3 md:p-8 overflow-hidden">
-          <div className="max-w-6xl mx-auto h-full flex flex-col gap-6">
+        <TabsContent value="status" className="flex-1 p-2 md:p-4 overflow-hidden mt-0">
+          <div className="max-w-6xl mx-auto h-full flex flex-col gap-4">
             {pendingItems.length > 0 && (
-              <div className="grid grid-cols-1 sm:grid-cols-3 gap-4 animate-in fade-in slide-in-from-top-4 duration-500">
+              <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 animate-in fade-in slide-in-from-top-4 duration-500">
                 <Card className="bg-accent/20 border-border/50">
-                  <CardContent className="p-4 flex items-center gap-4">
+                  <CardContent className="p-3 flex items-center gap-3">
                     <div className="p-2 bg-primary/10 rounded-xl">
-                      <ChefHat className="w-5 h-5 text-primary" />
+                      <ChefHat className="w-4 h-4 text-primary" />
                     </div>
                     <div>
-                      <p className="text-[10px] font-black uppercase tracking-widest text-muted-foreground">En Cocina</p>
-                      <p className="text-xl font-black">{inKitchenCount} platos</p>
+                      <p className="text-[9px] font-black uppercase tracking-widest text-muted-foreground">En Cocina</p>
+                      <p className="text-lg font-black">{inKitchenCount} platos</p>
                     </div>
                   </CardContent>
                 </Card>
                 <Card className="bg-green-500/10 border-green-500/20">
-                  <CardContent className="p-4 flex items-center gap-4">
+                  <CardContent className="p-3 flex items-center gap-3">
                     <div className="p-2 bg-green-500/10 rounded-xl">
-                      <BellRing className={cn("w-5 h-5 text-green-500", readyItemsCount > 0 && "animate-bounce")} />
+                      <BellRing className={cn("w-4 h-4 text-green-500", readyItemsCount > 0 && "animate-bounce")} />
                     </div>
                     <div>
-                      <p className="text-[10px] font-black uppercase tracking-widest text-green-500/70">Listos para Entrega</p>
-                      <p className="text-xl font-black text-green-500">{readyItemsCount} platos</p>
+                      <p className="text-[9px] font-black uppercase tracking-widest text-green-500/70">Listos para Entrega</p>
+                      <p className="text-lg font-black text-green-500">{readyItemsCount} platos</p>
                     </div>
                   </CardContent>
                 </Card>
                 <Card className="bg-secondary/10 border-secondary/20">
-                  <CardContent className="p-4 flex items-center gap-4">
+                  <CardContent className="p-3 flex items-center gap-3">
                     <div className="p-2 bg-secondary/10 rounded-xl">
-                      <PackageCheck className="w-5 h-5 text-secondary" />
+                      <PackageCheck className="w-4 h-4 text-secondary" />
                     </div>
                     <div>
-                      <p className="text-[10px] font-black uppercase tracking-widest text-secondary/70">Atendiendo mesa</p>
-                      <p className="text-xl font-black text-secondary">#{mesaId}</p>
+                      <p className="text-[9px] font-black uppercase tracking-widest text-secondary/70">Atendiendo mesa</p>
+                      <p className="text-lg font-black text-secondary">#{mesaId}</p>
                     </div>
                   </CardContent>
                 </Card>
@@ -416,18 +416,18 @@ export default function OrderPage() {
             )}
 
             {!activeOrder || pendingItems.length === 0 ? (
-              <div className="flex-1 flex flex-col items-center justify-center opacity-30 text-center space-y-4">
-                <div className="p-8 bg-accent/10 rounded-full">
-                  <UtensilsCrossed className="w-20 h-20" />
+              <div className="flex-1 flex flex-col items-center justify-center opacity-30 text-center space-y-2">
+                <div className="p-6 bg-accent/10 rounded-full">
+                  <UtensilsCrossed className="w-16 h-16" />
                 </div>
-                <p className="font-headline text-3xl">Mesa despejada 🤠</p>
-                <p className="text-sm max-w-xs mx-auto opacity-70">
+                <p className="font-headline text-2xl">Mesa despejada 🤠</p>
+                <p className="text-xs max-w-xs mx-auto opacity-70">
                   No hay platos pendientes por entregar. Todo está en marcha o servido.
                 </p>
               </div>
             ) : (
               <ScrollArea className="flex-1">
-                <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-4 pb-12">
+                <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-3 pb-8">
                   {pendingItems.map((item) => {
                     const isReady = item.estado === 'LISTO';
                     const elapsed = Math.floor((new Date().getTime() - new Date(item.createdAt).getTime()) / 1000 / 60);
@@ -442,41 +442,41 @@ export default function OrderPage() {
                       >
                         <CardContent className="p-0">
                           <div className={cn(
-                            "p-4 border-b border-border/20 flex justify-between items-start",
+                            "p-3 border-b border-border/20 flex justify-between items-start",
                             isReady ? "bg-green-500/10" : "bg-accent/10"
                           )}>
-                            <div className="flex gap-4">
+                            <div className="flex gap-3">
                               <div className={cn(
-                                "w-12 h-12 rounded-2xl flex items-center justify-center font-black text-2xl shadow-lg border",
+                                "w-10 h-10 rounded-xl flex items-center justify-center font-black text-xl shadow-lg border",
                                 isReady ? "bg-green-500 text-white border-green-400" : "bg-accent text-muted-foreground border-border"
                               )}>
                                 {item.cantidad}
                               </div>
                               <div className="min-w-0 pr-2">
-                                <p className="font-bold text-lg leading-tight truncate">{item.nombre}</p>
-                                <div className="flex items-center gap-2 mt-1.5">
+                                <p className="font-bold text-base leading-tight truncate">{item.nombre}</p>
+                                <div className="flex items-center gap-2 mt-1">
                                   {isReady ? (
-                                    <Badge className="bg-green-600 text-white animate-pulse text-[9px] uppercase font-black px-2 py-0 border-none">¡LISTO!</Badge>
+                                    <Badge className="bg-green-600 text-white animate-pulse text-[8px] uppercase font-black px-1.5 py-0 border-none">¡LISTO!</Badge>
                                   ) : (
-                                    <Badge variant="outline" className="text-[9px] uppercase font-bold opacity-60 bg-background/30">En Cocina</Badge>
+                                    <Badge variant="outline" className="text-[8px] uppercase font-bold opacity-60 bg-background/30">En Cocina</Badge>
                                   )}
-                                  <span className="text-[10px] text-muted-foreground flex items-center gap-1 font-mono">
-                                    <Clock className="w-3 h-3" /> {elapsed}m
+                                  <span className="text-[9px] text-muted-foreground flex items-center gap-1 font-mono">
+                                    <Clock className="w-2.5 h-2.5" /> {elapsed}m
                                   </span>
                                 </div>
                               </div>
                             </div>
                           </div>
                           
-                          <div className="p-4 space-y-3">
+                          <div className="p-3 space-y-2">
                             {item.notas && (
-                              <div className="text-[10px] text-primary italic bg-primary/5 p-2 rounded-lg border border-primary/10 mb-2">
+                              <div className="text-[9px] text-primary italic bg-primary/5 p-1.5 rounded-lg border border-primary/10 mb-1">
                                 "{item.notas}"
                               </div>
                             )}
                             <Button 
                               className={cn(
-                                "w-full h-14 font-black rounded-xl transition-all shadow-lg active:scale-95 text-lg",
+                                "w-full h-12 font-black rounded-xl transition-all shadow-lg active:scale-95 text-base",
                                 isReady ? "bg-green-600 hover:bg-green-700 text-white glow-gold" : "bg-secondary text-secondary-foreground"
                               )}
                               onClick={() => updateItemEstado(activeOrder.id, item.id, 'ENTREGADO')}
@@ -492,19 +492,18 @@ export default function OrderPage() {
               </ScrollArea>
             )}
 
-            {/* Histórico rápido simplificado */}
             {activeOrder?.items.some(i => i.estado === 'ENTREGADO') && (
-              <div className="mt-auto border-t border-border/30 pt-4 pb-6 opacity-60">
-                <p className="text-[10px] font-black uppercase tracking-[0.3em] text-center mb-4">Entregado recientemente</p>
-                <div className="flex flex-wrap justify-center gap-2">
+              <div className="mt-auto border-t border-border/30 pt-2 pb-4 opacity-60">
+                <p className="text-[9px] font-black uppercase tracking-[0.3em] text-center mb-2">Entregado recientemente</p>
+                <div className="flex flex-wrap justify-center gap-1.5">
                   {activeOrder.items
                     .filter(i => i.estado === 'ENTREGADO')
-                    .slice(-5)
+                    .slice(-4)
                     .map(item => (
-                      <div key={item.id} className="flex items-center gap-2 text-[10px] bg-accent/20 px-3 py-1.5 rounded-full border border-border/30">
+                      <div key={item.id} className="flex items-center gap-1.5 text-[9px] bg-accent/20 px-2.5 py-1 rounded-full border border-border/30">
                         <span className="font-black text-green-500">{item.cantidad}x</span>
-                        <span className="font-medium">{item.nombre}</span>
-                        <CheckCircle2 className="w-3 h-3 text-green-500" />
+                        <span className="font-medium truncate max-w-[100px]">{item.nombre}</span>
+                        <CheckCircle2 className="w-2.5 h-2.5 text-green-500" />
                       </div>
                     ))
                   }
@@ -523,7 +522,7 @@ export default function OrderPage() {
               Confirmar Comanda
             </AlertDialogTitle>
           </AlertDialogHeader>
-          <div className="my-4 space-y-3 max-h-[40vh] overflow-auto pr-2 border-y border-border/30 py-4">
+          <div className="my-3 space-y-2 max-h-[35vh] overflow-auto pr-2 border-y border-border/30 py-3">
             {cart.map(item => (
               <div key={item.tempId} className="flex flex-col gap-1.5">
                 <div className="flex justify-between items-center text-sm">
@@ -534,15 +533,15 @@ export default function OrderPage() {
                   <span className="font-bold text-secondary">${(item.producto.precio * item.cantidad).toLocaleString()}</span>
                 </div>
                 {item.notas && (
-                  <div className="text-[10px] text-primary bg-primary/5 px-2.5 py-1.5 rounded-xl border border-primary/10 italic">
+                  <div className="text-[9px] text-primary bg-primary/5 px-2 py-1 rounded-xl border border-primary/10 italic">
                     "{item.notas}"
                   </div>
                 )}
               </div>
             ))}
           </div>
-          <div className="flex justify-between items-center mb-6 px-1">
-            <span className="text-sm font-black uppercase text-muted-foreground">Total</span>
+          <div className="flex justify-between items-center mb-4 px-1">
+            <span className="text-xs font-black uppercase text-muted-foreground">Total</span>
             <span className="text-2xl font-black text-secondary">${cartTotal.toLocaleString()}</span>
           </div>
           <AlertDialogFooter className="gap-2 sm:gap-3">
