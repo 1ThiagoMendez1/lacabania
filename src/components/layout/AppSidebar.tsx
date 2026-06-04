@@ -13,7 +13,8 @@ import {
   LogOut,
   Printer,
   History,
-  Utensils
+  Utensils,
+  ClipboardList
 } from "lucide-react";
 import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
@@ -41,6 +42,7 @@ export const ALL_MENU_ITEMS = [
   { icon: ChefHat, label: "Cocina", href: "/estaciones/cocina" },
   { icon: Beer, label: "Bar", href: "/estaciones/bar" },
   { icon: CircleDollarSign, label: "Caja", href: "/caja" },
+  { icon: ClipboardList, label: "Menú Carta", href: "/menu" },
   { icon: Package, label: "Inventario", href: "/inventario" },
   { icon: History, label: "Historial Meseros", href: "/reportes/meseros" },
   { icon: Users, label: "Personal", href: "/personal" },
@@ -59,6 +61,12 @@ export function AppSidebar() {
   const userPermisos = permisos[user.rol] || [];
   const filteredMenu = ALL_MENU_ITEMS.filter(item => userPermisos.includes(item.label));
   const lowStockCount = productos.filter(p => p.stock <= p.stockMinimo).length;
+  const expiringCount = productos.filter(p => {
+    if (!p.fechaVencimiento) return false;
+    const daysUntilExp = (new Date(p.fechaVencimiento).getTime() - new Date().getTime()) / (1000 * 60 * 60 * 24);
+    return daysUntilExp <= 7;
+  }).length;
+  const alertsCount = lowStockCount + expiringCount;
 
   const handleLogout = () => {
     logout();
@@ -130,9 +138,9 @@ export function AppSidebar() {
                             {item.label}
                           </span>
                         )}
-                        {isExpanded && item.label === "Inventario" && lowStockCount > 0 && (
-                          <Badge className="ml-auto bg-destructive text-[10px] h-5 px-1.5 border-2 border-sidebar-background">
-                            {lowStockCount}
+                        {isExpanded && item.label === "Inventario" && alertsCount > 0 && (
+                          <Badge variant="destructive" className="ml-auto rounded-full px-1.5 py-0 min-w-5 h-5 flex items-center justify-center text-[10px]">
+                            {alertsCount}
                           </Badge>
                         )}
                       </Link>

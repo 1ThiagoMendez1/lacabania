@@ -24,7 +24,7 @@ import { Badge } from "@/components/ui/badge";
 import { Rol } from "@/lib/types";
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 
-const ROLES: Rol[] = ["ADMINISTRADOR", "CAJERO", "MESERO", "COCINERO", "BARTENDER"];
+const ROLES: Rol[] = ["ADMINISTRADOR", "MESERO", "CAJERO"];
 
 export default function PermisosPage() {
   const { permisos, togglePermiso, user } = usePOSStore();

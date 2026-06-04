@@ -64,13 +64,16 @@ import { ALL_MENU_ITEMS } from "@/components/layout/AppSidebar";
 import { Checkbox } from "@/components/ui/checkbox";
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 
-const ROLES: Rol[] = ["ADMINISTRADOR", "MESERO", "COCINERO"];
+const ROLES: Rol[] = ["ADMINISTRADOR", "MESERO", "CAJERO"];
 
 export default function PersonalPage() {
   const { usuarios, addUsuario, updateUsuario, deleteUsuario, permisos, togglePermiso, user } = usePOSStore();
   const [searchTerm, setSearchTerm] = useState("");
   const [isDialogOpen, setIsDialogOpen] = useState(false);
+  const [isEditDialogOpen, setIsEditDialogOpen] = useState(false);
   const { toast } = useToast();
+
+  const [staffToEdit, setStaffToEdit] = useState<Partial<Usuario>>({});
 
   const [newStaff, setNewStaff] = useState<Partial<Usuario>>({
     nombre: "",
@@ -91,7 +94,7 @@ export default function PersonalPage() {
     total: usuarios.length,
     activos: usuarios.filter(u => u.estado === 'ACTIVO').length,
     meseros: usuarios.filter(u => u.rol === 'MESERO').length,
-    cocina: usuarios.filter(u => u.rol === 'COCINERO').length,
+    caja: usuarios.filter(u => u.rol === 'CAJERO').length,
   };
 
   const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -105,9 +108,9 @@ export default function PersonalPage() {
     }
   };
 
-  const handleCreateStaff = () => {
-    if (!newStaff.nombre || !newStaff.cedula) {
-      toast({ variant: "destructive", title: "Datos Incompletos", description: "El nombre y la cédula son obligatorios." });
+  const handleCreateStaff = async () => {
+    if (!newStaff.nombre || !newStaff.cedula || !newStaff.rol) {
+      toast({ variant: "destructive", title: "Campos Incompletos", description: "Por favor diligencia todos los campos obligatorios antes de guardar." });
       return;
     }
 
@@ -123,18 +126,73 @@ export default function PersonalPage() {
       telefono: newStaff.telefono || "",
       estado: "ACTIVO",
       fechaIngreso: new Date().toISOString().split('T')[0],
-      fotoDocumento: newStaff.fotoDocumento
+      fotoDocumento: newStaff.fotoDocumento || undefined
     };
-    addUsuario(staff);
-    setIsDialogOpen(false);
-    setNewStaff({ nombre: "", cedula: "", rol: "MESERO", telefono: "", estado: "ACTIVO", fotoDocumento: "" });
-    toast({ title: "Personal Registrado", description: `${staff.nombre} ha sido agregado al equipo.` });
+
+    try {
+      await addUsuario(staff);
+      setIsDialogOpen(false);
+      setNewStaff({ nombre: "", cedula: "", rol: "MESERO", telefono: "", estado: "ACTIVO", fotoDocumento: "" });
+      toast({ title: "Personal Registrado", description: `${staff.nombre} ha sido agregado al equipo.` });
+    } catch (error: any) {
+      console.error("Error creating staff:", error);
+      toast({
+        variant: "destructive",
+        title: "Error al Guardar",
+        description: error.message || "No se pudo registrar en la base de datos. Verifica si la cédula ya existe."
+      });
+    }
   };
 
-  const toggleEstado = (user: Usuario) => {
+  const handleEditStaff = async () => {
+    if (!staffToEdit.id || !staffToEdit.nombre || !staffToEdit.cedula || !staffToEdit.rol) {
+      toast({ variant: "destructive", title: "Campos Incompletos", description: "Por favor diligencia todos los campos obligatorios antes de guardar." });
+      return;
+    }
+
+    const cedula = staffToEdit.cedula;
+    const pin = cedula.length >= 4 ? cedula.slice(-4) : cedula;
+
+    try {
+      await updateUsuario(staffToEdit.id, {
+        nombre: staffToEdit.nombre,
+        cedula: cedula,
+        rol: staffToEdit.rol,
+        pin: pin,
+        telefono: staffToEdit.telefono,
+        estado: staffToEdit.estado,
+        fotoDocumento: staffToEdit.fotoDocumento || undefined
+      });
+      setIsEditDialogOpen(false);
+      toast({ title: "Personal Actualizado", description: `${staffToEdit.nombre} ha sido modificado.` });
+    } catch (error: any) {
+      console.error("Error editing staff:", error);
+      toast({
+        variant: "destructive",
+        title: "Error al Actualizar",
+        description: error.message || "No se pudieron guardar los cambios en la base de datos."
+      });
+    }
+  };
+
+  const openEditDialog = (user: Usuario) => {
+    setStaffToEdit(user);
+    setIsEditDialogOpen(true);
+  };
+
+  const toggleEstado = async (user: Usuario) => {
     const nuevoEstado = user.estado === 'ACTIVO' ? 'INACTIVO' : 'ACTIVO';
-    updateUsuario(user.id, { estado: nuevoEstado });
-    toast({ title: "Estado Actualizado", description: `${user.nombre} ahora está ${nuevoEstado.toLowerCase()}.` });
+    try {
+      await updateUsuario(user.id, { estado: nuevoEstado });
+      toast({ title: "Estado Actualizado", description: `${user.nombre} ahora está ${nuevoEstado.toLowerCase()}.` });
+    } catch (error: any) {
+      console.error("Error toggling staff status:", error);
+      toast({
+        variant: "destructive",
+        title: "Error al Cambiar Estado",
+        description: error.message || "No se pudo actualizar el estado en la base de datos."
+      });
+    }
   };
 
   const handleDelete = (id: string) => {
@@ -146,7 +204,7 @@ export default function PersonalPage() {
     switch (rol) {
       case 'ADMINISTRADOR': return <Badge className="bg-purple-500/20 text-purple-500 border-purple-500/50">ADMIN</Badge>;
       case 'MESERO': return <Badge className="bg-green-500/20 text-green-500 border-green-500/50">MESERO</Badge>;
-      case 'COCINERO': return <Badge className="bg-orange-500/20 text-orange-500 border-orange-500/50">COCINA</Badge>;
+      case 'CAJERO': return <Badge className="bg-blue-500/20 text-blue-500 border-blue-500/50">CAJA</Badge>;
       default: return <Badge variant="outline">{rol}</Badge>;
     }
   };
@@ -195,9 +253,9 @@ export default function PersonalPage() {
                     <UserPlus className="w-5 h-5" /> Nuevo
                   </Button>
                 </DialogTrigger>
-                <DialogContent className="bg-card border-border text-foreground max-w-2xl">
-                  <DialogHeader><DialogTitle className="text-2xl font-headline">Nuevo Integrante</DialogTitle></DialogHeader>
-                  <div className="grid gap-6 py-4">
+                <DialogContent className="bg-card border-border text-foreground max-w-[95vw] md:max-w-2xl rounded-[2rem] p-4 md:p-6 max-h-[90vh] flex flex-col">
+                  <DialogHeader><DialogTitle className="text-xl md:text-2xl font-headline">Nuevo Integrante</DialogTitle></DialogHeader>
+                  <div className="grid gap-6 py-2 overflow-y-auto px-1 flex-1">
                     <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
                       <div className="space-y-4">
                         <div className="space-y-2">
@@ -215,7 +273,7 @@ export default function PersonalPage() {
                             <SelectContent className="bg-card border-border">
                               <SelectItem value="ADMINISTRADOR">Administrador</SelectItem>
                               <SelectItem value="MESERO">Mesero</SelectItem>
-                              <SelectItem value="COCINERO">Cocinero</SelectItem>
+                              <SelectItem value="CAJERO">Cajero</SelectItem>
                             </SelectContent>
                           </Select>
                         </div>
@@ -223,27 +281,90 @@ export default function PersonalPage() {
 
                       <div className="space-y-4">
                         <Label>Documento de Identidad (Foto)</Label>
-                        <div className="border-2 border-dashed border-border rounded-xl p-4 flex flex-col items-center justify-center gap-4 bg-accent/10 min-h-[200px] relative overflow-hidden group">
+                        <label className="border-2 border-dashed border-border rounded-xl p-4 flex flex-col items-center justify-center gap-4 bg-accent/10 min-h-[200px] relative overflow-hidden group cursor-pointer hover:bg-accent/20 transition-colors block w-full">
                           {newStaff.fotoDocumento ? (
                             <>
                               <img src={newStaff.fotoDocumento} alt="Documento" className="absolute inset-0 w-full h-full object-cover" />
                               <div className="absolute inset-0 bg-black/60 opacity-0 group-hover:opacity-100 flex items-center justify-center transition-opacity">
-                                <Button variant="outline" size="sm" className="bg-background" onClick={() => setNewStaff({...newStaff, fotoDocumento: ""})}>Cambiar</Button>
+                                <span className="bg-background text-foreground border border-input px-3 py-1 rounded-md text-sm shadow-sm font-medium">Cambiar</span>
                               </div>
                             </>
                           ) : (
                             <>
                               <FileImage className="w-12 h-12 text-muted-foreground opacity-30" />
-                              <Input type="file" accept="image/*" className="absolute inset-0 opacity-0 cursor-pointer" onChange={handleFileChange} />
+                              <span className="text-sm text-muted-foreground font-medium">Toca para subir foto</span>
                             </>
                           )}
-                        </div>
+                          <input type="file" accept="image/*" className="hidden" onChange={handleFileChange} />
+                        </label>
                       </div>
                     </div>
                   </div>
                   <DialogFooter>
                     <Button variant="ghost" onClick={() => setIsDialogOpen(false)}>Cancelar</Button>
                     <Button className="bg-primary font-bold" onClick={handleCreateStaff}>AGREGAR</Button>
+                  </DialogFooter>
+                </DialogContent>
+              </Dialog>
+
+              <Dialog open={isEditDialogOpen} onOpenChange={setIsEditDialogOpen}>
+                <DialogContent className="bg-card border-border text-foreground max-w-[95vw] md:max-w-2xl rounded-[2rem] p-4 md:p-6 max-h-[90vh] flex flex-col">
+                  <DialogHeader><DialogTitle className="text-xl md:text-2xl font-headline">Editar Integrante</DialogTitle></DialogHeader>
+                  <div className="grid gap-6 py-2 overflow-y-auto px-1 flex-1">
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                      <div className="space-y-4">
+                        <div className="space-y-2">
+                          <Label>Nombre Completo</Label>
+                          <Input value={staffToEdit.nombre || ""} onChange={(e) => setStaffToEdit({...staffToEdit, nombre: e.target.value})} placeholder="Ej: Pedro Pérez" />
+                        </div>
+                        <div className="space-y-2">
+                          <Label>Cédula</Label>
+                          <Input value={staffToEdit.cedula || ""} onChange={(e) => setStaffToEdit({...staffToEdit, cedula: e.target.value})} placeholder="Número de documento" />
+                        </div>
+                        <div className="space-y-2">
+                          <Label>Cargo</Label>
+                          <Select onValueChange={(val) => setStaffToEdit({...staffToEdit, rol: val as Rol})} value={staffToEdit.rol}>
+                            <SelectTrigger><SelectValue placeholder="Selecciona Rol" /></SelectTrigger>
+                            <SelectContent className="bg-card border-border">
+                              <SelectItem value="ADMINISTRADOR">Administrador</SelectItem>
+                              <SelectItem value="MESERO">Mesero</SelectItem>
+                              <SelectItem value="CAJERO">Cajero</SelectItem>
+                            </SelectContent>
+                          </Select>
+                        </div>
+                      </div>
+
+                      <div className="space-y-4">
+                        <Label>Documento de Identidad (Foto)</Label>
+                        <label className="border-2 border-dashed border-border rounded-xl p-4 flex flex-col items-center justify-center gap-4 bg-accent/10 min-h-[200px] relative overflow-hidden group cursor-pointer hover:bg-accent/20 transition-colors block w-full">
+                          {staffToEdit.fotoDocumento ? (
+                            <>
+                              <img src={staffToEdit.fotoDocumento} alt="Documento" className="absolute inset-0 w-full h-full object-cover" />
+                              <div className="absolute inset-0 bg-black/60 opacity-0 group-hover:opacity-100 flex items-center justify-center transition-opacity">
+                                <span className="bg-background text-foreground border border-input px-3 py-1 rounded-md text-sm shadow-sm font-medium">Cambiar</span>
+                              </div>
+                            </>
+                          ) : (
+                            <>
+                              <FileImage className="w-12 h-12 text-muted-foreground opacity-30" />
+                              <span className="text-sm text-muted-foreground font-medium">Toca para subir foto</span>
+                            </>
+                          )}
+                          <input type="file" accept="image/*" className="hidden" onChange={(e) => {
+                            const file = e.target.files?.[0];
+                            if (file) {
+                              const reader = new FileReader();
+                              reader.onloadend = () => setStaffToEdit({ ...staffToEdit, fotoDocumento: reader.result as string });
+                              reader.readAsDataURL(file);
+                            }
+                          }} />
+                        </label>
+                      </div>
+                    </div>
+                  </div>
+                  <DialogFooter>
+                    <Button variant="ghost" onClick={() => setIsEditDialogOpen(false)}>Cancelar</Button>
+                    <Button className="bg-primary font-bold" onClick={handleEditStaff}>GUARDAR CAMBIOS</Button>
                   </DialogFooter>
                 </DialogContent>
               </Dialog>
@@ -273,6 +394,21 @@ export default function PersonalPage() {
                     <TableCell>
                       <div className="flex items-center gap-2 text-xs font-mono">
                         <IdCard className="w-3 h-3 text-muted-foreground" /> {u.cedula}
+                        {u.fotoDocumento && (
+                          <Dialog>
+                            <DialogTrigger asChild>
+                              <Button variant="ghost" size="icon" className="h-6 w-6 ml-2 hover:text-primary" title="Ver Documento">
+                                <ImageIcon className="w-4 h-4" />
+                              </Button>
+                            </DialogTrigger>
+                            <DialogContent className="max-w-md bg-card border-border text-foreground">
+                              <DialogHeader><DialogTitle className="font-headline">Documento: {u.nombre}</DialogTitle></DialogHeader>
+                              <div className="mt-4 rounded-xl overflow-hidden border border-border">
+                                <img src={u.fotoDocumento} alt={`Documento de ${u.nombre}`} className="w-full h-auto object-contain max-h-[70vh]" />
+                              </div>
+                            </DialogContent>
+                          </Dialog>
+                        )}
                       </div>
                     </TableCell>
                     <TableCell>{getRoleBadge(u.rol)}</TableCell>
@@ -292,6 +428,9 @@ export default function PersonalPage() {
                           <Button variant="ghost" size="icon"><MoreVertical className="w-4 h-4" /></Button>
                         </DropdownMenuTrigger>
                         <DropdownMenuContent align="end" className="bg-card border-border">
+                          <DropdownMenuItem className="cursor-pointer" onClick={() => openEditDialog(u)}>
+                            Editar
+                          </DropdownMenuItem>
                           <DropdownMenuItem className="cursor-pointer" onClick={() => toggleEstado(u)}>
                             {u.estado === 'ACTIVO' ? 'Inactivar' : 'Activar'}
                           </DropdownMenuItem>

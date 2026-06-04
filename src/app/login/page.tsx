@@ -21,7 +21,7 @@ export default function LoginPage() {
   const { toast } = useToast();
 
   const getRedirectPath = (rol: string) => {
-    const userPermisos = permisos[rol as any] || [];
+    const userPermisos = permisos[rol as keyof typeof permisos] || [];
     const firstAllowedItem = ALL_MENU_ITEMS.find(item => userPermisos.includes(item.label));
     return firstAllowedItem ? firstAllowedItem.href : "/dashboard";
   };
@@ -42,8 +42,8 @@ export default function LoginPage() {
     }
   };
 
-  const handleLogin = (pinToAuth: string) => {
-    const success = login(pinToAuth);
+  const handleLogin = async (pinToAuth: string) => {
+    const success = await login(pinToAuth);
     if (success) {
       toast({
         title: "¡Bienvenido!",

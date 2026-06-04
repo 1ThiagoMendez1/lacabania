@@ -68,11 +68,15 @@ function TimeElapsed({ createdAt, onCriticalChange }: { createdAt: string, onCri
 export default function StationPage() {
   const { id } = useParams();
   const stationId = (id as string).toUpperCase() as Estacion;
-  const { ordenes, usuarios, updateItemEstado } = usePOSStore();
+  const { ordenes, usuarios, updateItemEstado, user } = usePOSStore();
   const [hasCriticalOrders, setHasCriticalOrders] = useState(false);
 
   const ordersWithItems = ordenes
-    .filter(o => o.estado === 'ABIERTA')
+    .filter(o => {
+      const matchEstado = o.estado === 'ABIERTA';
+      const matchMesero = user?.rol !== 'MESERO' || o.meseroId === user.id;
+      return matchEstado && matchMesero;
+    })
     .map(o => ({
       ...o,
       meseroNombre: usuarios.find(u => u.id === o.meseroId)?.nombre || 'Sistema',

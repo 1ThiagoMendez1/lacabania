@@ -25,13 +25,15 @@ import {
   UtensilsCrossed,
   ChefHat,
   BellRing,
-  PackageCheck
+  PackageCheck,
+  Ban
 } from "lucide-react";
 import { useState, useMemo } from "react";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
-import { cn } from "@/lib/utils";
-import { ItemOrden, Producto, Orden } from "@/lib/types";
+import { cn, uuidv4 } from "@/lib/utils";
+import { ItemOrden, MenuItem, Orden } from "@/lib/types";
+import { printKitchenTickets } from "@/lib/printHelper";
 import {
   Sheet,
   SheetContent,
@@ -61,7 +63,7 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { useToast } from "@/hooks/use-toast";
 
 type CartItem = {
-  producto: Producto;
+  menuItem: MenuItem;
   cantidad: number;
   notas?: string;
   tempId: string;
@@ -70,7 +72,7 @@ type CartItem = {
 export default function OrderPage() {
   const { mesaId } = useParams();
   const router = useRouter();
-  const { productos, mesas, ordenes, addOrden, updateMesaEstado, updateItemEstado, user } = usePOSStore();
+  const { menuItems, mesas, ordenes, addOrden, updateMesaEstado, updateItemEstado, user, isCajaCerrada, fechaOperativa } = usePOSStore();
   const { toast } = useToast();
   
   const mesa = mesas.find(m => m.id === Number(mesaId));
@@ -84,20 +86,33 @@ export default function OrderPage() {
   const [noteEditingItem, setNoteEditingItem] = useState<CartItem | null>(null);
   const [tempNote, setTempNote] = useState("");
 
-  const categories = ["TODOS", ...new Set(productos.map(p => p.categoria))];
-  const filteredProducts = productos.filter(p => 
-    p.nombre.toLowerCase().includes(searchTerm.toLowerCase()) && 
-    (selectedCategory === "TODOS" || p.categoria === selectedCategory)
-  );
+  if (!mesa) {
+    return (
+      <div className="flex h-screen items-center justify-center bg-background">
+        <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary"></div>
+      </div>
+    );
+  }
 
-  const cartTotal = cart.reduce((a, b) => a + (b.producto.precio * b.cantidad), 0);
-  const cartItemsCount = cart.reduce((a, b) => a + b.cantidad, 0);
+  const cartTotal = cart.reduce((acc, item) => acc + (item.menuItem.precio * item.cantidad), 0);
+  const cartItemsCount = cart.reduce((acc, item) => acc + item.cantidad, 0);
 
-  const addToCart = (product: Producto) => {
+  // Normalizar categorías a mayúsculas para evitar duplicados
+  const normalizedCategories = Array.from(new Set(menuItems.map(m => m.categoria.trim().toUpperCase())));
+  const categories = ['TODOS', ...normalizedCategories];
+
+  const filteredItems = menuItems.filter(m => {
+    const matchSearch = m.nombre.toLowerCase().includes(searchTerm.toLowerCase());
+    const matchCategory = selectedCategory === 'TODOS' || m.categoria.trim().toUpperCase() === selectedCategory;
+    return matchSearch && matchCategory;
+  });
+
+  const addToCart = (item: MenuItem) => {
+    if (isCajaCerrada) return;
     setCart(prev => {
-      const existing = prev.find(item => item.producto.id === product.id);
-      if (existing) return prev.map(item => item.producto.id === product.id ? { ...item, cantidad: item.cantidad + 1 } : item);
-      return [...prev, { producto: product, cantidad: 1, tempId: Math.random().toString(36).substr(2, 9) }];
+      const existing = prev.find(i => i.menuItem.id === item.id);
+      if (existing) return prev.map(i => i.menuItem.id === item.id ? { ...i, cantidad: i.cantidad + 1 } : i);
+      return [...prev, { menuItem: item, cantidad: 1, tempId: Math.random().toString(36).substr(2, 9) }];
     });
   };
 
@@ -126,42 +141,101 @@ export default function OrderPage() {
   };
 
   const handleSendOrder = () => {
+    if (isCajaCerrada) {
+      toast({
+        variant: "destructive",
+        title: "Ventas Bloqueadas",
+        description: "La caja de hoy ya está cerrada. No se pueden marchar nuevos pedidos. 🤠"
+      });
+      return;
+    }
     if (cart.length === 0) return;
+
+    // Helper to get timestamp locked to current operational date
+    const getOperationalTimestamp = () => {
+      const now = new Date();
+      const timePart = now.toTimeString().split(' ')[0]; // hh:mm:ss
+      const ms = String(now.getMilliseconds()).padStart(3, '0');
+      const offsetMinutes = now.getTimezoneOffset();
+      const absOffset = Math.abs(offsetMinutes);
+      const sign = offsetMinutes > 0 ? '-' : '+';
+      const offsetHours = String(Math.floor(absOffset / 60)).padStart(2, '0');
+      const offsetMins = String(absOffset % 60).padStart(2, '0');
+      const timezoneOffsetStr = `${sign}${offsetHours}:${offsetMins}`;
+      
+      const activeDate = fechaOperativa || new Date(now.getTime() - (offsetMinutes * 60000)).toISOString().split('T')[0];
+      return `${activeDate}T${timePart}.${ms}${timezoneOffsetStr}`;
+    };
+
+    const operationalTimestamp = getOperationalTimestamp();
     
     const newItems: ItemOrden[] = cart.map(item => ({
-      id: Math.random().toString(36).substr(2, 9),
-      productoId: item.producto.id,
-      nombre: item.producto.nombre,
+      id: uuidv4(),
+      menuItemId: item.menuItem.id,
+      nombre: item.menuItem.nombre,
       cantidad: item.cantidad,
-      precioUnitario: item.producto.precio,
+      precioUnitario: item.menuItem.precio,
       notas: item.notas,
-      estacion: item.producto.estacion,
+      estacion: item.menuItem.estacion,
       estado: 'EN PREPARACION',
-      createdAt: new Date().toISOString()
+      createdAt: operationalTimestamp
     }));
     
     if (activeOrder) {
-      const updatedItems = [...activeOrder.items, ...newItems];
-      usePOSStore.getState().updateOrden(activeOrder.id, { items: updatedItems });
+      usePOSStore.getState().addItemsToOrden(activeOrder.id, newItems);
     } else {
+      // Usar UUID real para que Supabase no rechace el insert
+      const orderId = uuidv4();
+      
       addOrden({ 
-        id: `ORD-${Date.now()}`, 
+        id: orderId, 
         mesaId: Number(mesaId), 
-        meseroId: user?.id || 'sys', 
+        meseroId: user?.id || '00000000-0000-0000-0000-000000000000', 
         items: newItems, 
         estado: 'ABIERTA', 
-        createdAt: new Date().toISOString(), 
-        updatedAt: new Date().toISOString() 
+        createdAt: operationalTimestamp, 
+        updatedAt: operationalTimestamp 
       });
       updateMesaEstado(Number(mesaId), 'EN PEDIDO', user?.id);
     }
     
+    // Intentar imprimir comandas en segundo plano
+    printKitchenTickets(mesa.numero, user?.nombre || 'Mesero', newItems)
+      .then(() => {
+        toast({
+          title: "Comandas impresas",
+          description: "Tickets de comanda enviados a las estaciones correspondientes.",
+        });
+      })
+      .catch((err: any) => {
+        console.error("Error al imprimir comandas:", err);
+        toast({
+          variant: "destructive",
+          title: "Error de Impresión",
+          description: err.message || "No se pudieron imprimir algunos tickets de comanda. Verifica la conexión con QZ Tray.",
+        });
+      });
+
     setCart([]);
     setShowConfirmDialog(false);
+    
+    if (typeof document !== 'undefined') {
+      document.body.style.pointerEvents = 'auto';
+      document.body.style.overflow = 'auto';
+    }
+
     toast({ 
       title: "¡Pedido en marcha!", 
       description: "La cocina ya recibió la orden. 🤠" 
     });
+    
+    setTimeout(() => {
+      if (user?.rol === 'MESERO' || user?.rol === 'ADMINISTRADOR') {
+        router.push('/mesas');
+      } else {
+        router.back();
+      }
+    }, 600);
   };
 
   const pendingItems = activeOrder?.items.filter(item => item.estado !== 'ENTREGADO') || [];
@@ -171,29 +245,29 @@ export default function OrderPage() {
   if (!mesa) return <div className="p-8">Mesa no encontrada</div>;
 
   const CartSummary = () => (
-    <div className="flex flex-col h-full">
-      <ScrollArea className="flex-1 -mx-2 px-2">
+    <div className="flex flex-col h-full w-full">
+      <ScrollArea className="flex-1 px-1">
         {cart.length === 0 ? (
           <div className="flex flex-col items-center justify-center py-20 text-muted-foreground opacity-50">
             <ShoppingCart className="w-12 h-12 mb-4" />
-            <p className="font-headline">Comanda vacía</p>
+            <p className="font-headline text-center">Comanda vacía</p>
           </div>
         ) : (
-          <div className="space-y-3 py-4">
+          <div className="space-y-3 py-2 pr-3">
             {cart.map(item => (
-              <div key={item.tempId} className="flex flex-col gap-2 p-3 bg-accent/30 rounded-xl border border-border/50">
-                <div className="flex justify-between items-start">
-                  <div className="flex-1">
-                    <p className="text-sm font-bold">{item.producto.nombre}</p>
-                    <p className="text-xs text-secondary font-mono">${(item.producto.precio * item.cantidad).toLocaleString()}</p>
+              <div key={item.tempId} className="flex flex-col gap-2 p-3 bg-accent/20 rounded-xl border border-border/50 shadow-sm w-full">
+                <div className="flex justify-between items-center w-full gap-2">
+                  <div className="flex-1 min-w-0">
+                    <p className="text-sm font-bold truncate">{item.menuItem.nombre}</p>
+                    <p className="text-xs text-secondary font-mono">${(item.menuItem.precio * item.cantidad).toLocaleString()}</p>
                   </div>
-                  <div className="flex items-center gap-3">
-                    <Button variant="outline" size="icon" className="h-8 w-8 rounded-full border-border/50" onClick={(e) => { e.stopPropagation(); removeFromCart(item.tempId); }}>
-                      <Minus className="w-3.5 h-3.5" />
+                  <div className="flex items-center gap-2 shrink-0">
+                    <Button variant="outline" size="icon" className="h-7 w-7 sm:h-8 sm:w-8 rounded-full border-border/50" onClick={(e) => { e.stopPropagation(); removeFromCart(item.tempId); }}>
+                      <Minus className="w-3 h-3" />
                     </Button>
                     <span className="text-sm font-black w-4 text-center">{item.cantidad}</span>
-                    <Button variant="outline" size="icon" className="h-8 w-8 rounded-full border-border/50" onClick={(e) => { e.stopPropagation(); addToCart(item.producto); }}>
-                      <Plus className="w-3.5 h-3.5" />
+                    <Button variant="outline" size="icon" className="h-7 w-7 sm:h-8 sm:w-8 rounded-full border-border/50" onClick={(e) => { e.stopPropagation(); addToCart(item.menuItem); }}>
+                      <Plus className="w-3 h-3" />
                     </Button>
                   </div>
                 </div>
@@ -202,13 +276,13 @@ export default function OrderPage() {
                     variant="ghost" 
                     size="sm" 
                     className={cn(
-                      "h-8 text-[10px] font-bold px-3 rounded-xl gap-1.5",
+                      "h-7 text-[10px] font-bold px-2 rounded-lg gap-1",
                       item.notas ? "bg-primary/20 text-primary border border-primary/20" : "bg-accent/50 text-muted-foreground"
                     )}
                     onClick={(e) => { e.stopPropagation(); openNoteEditor(item); }}
                   >
-                    <MessageSquarePlus className="w-3.5 h-3.5" />
-                    {item.notas ? "Cambiar Nota" : "Nota especial"}
+                    <MessageSquarePlus className="w-3 h-3" />
+                    {item.notas ? "Nota" : "Añadir nota"}
                   </Button>
                   {item.notas && (
                     <div className="flex-1 truncate italic text-[10px] text-primary/80 bg-primary/5 px-2 py-1 rounded-md border border-primary/10">
@@ -221,27 +295,33 @@ export default function OrderPage() {
           </div>
         )}
       </ScrollArea>
-      <div className="mt-auto pt-4 pb-12 lg:pb-4 border-t bg-card/80 backdrop-blur-xl -mx-6 px-6 rounded-t-3xl shadow-2xl">
-        <div className="flex justify-between items-center mb-4">
+      <div className="mt-2 pt-4 pb-2 border-t bg-background/90 backdrop-blur-xl w-full">
+        <div className="flex justify-between items-center mb-4 px-1">
           <div className="flex flex-col">
-            <span className="text-muted-foreground font-black uppercase tracking-[0.2em] text-[10px]">Total Pedido</span>
+            <span className="text-muted-foreground font-black uppercase tracking-[0.2em] text-[10px]">Total</span>
             <span className="text-[10px] text-primary font-mono mt-0.5">{cartItemsCount} items</span>
           </div>
-          <span className="text-3xl font-black text-secondary glow-gold-text tracking-tighter">${cartTotal.toLocaleString()}</span>
+          <span className="text-2xl sm:text-3xl font-black text-secondary glow-gold-text tracking-tighter">${cartTotal.toLocaleString()}</span>
         </div>
         <Button 
-          disabled={cart.length === 0} 
+          disabled={cart.length === 0 || isCajaCerrada} 
           onClick={() => setShowConfirmDialog(true)} 
-          className="w-full h-14 md:h-16 text-lg font-black rounded-2xl shadow-xl bg-primary hover:glow-orange transition-all active:scale-95"
+          className="w-full h-14 text-base sm:text-lg font-black rounded-xl shadow-xl bg-primary hover:bg-primary/90 hover:glow-orange transition-all active:scale-95"
         >
-          MARCHAR ORDEN 🤠
+          {isCajaCerrada ? "CAJA CERRADA 🤠" : "MARCHAR ORDEN 🤠"}
         </Button>
       </div>
     </div>
   );
 
   return (
-    <main className="flex flex-col h-svh bg-background overflow-hidden">
+    <main className="flex flex-col h-full bg-background overflow-hidden">
+      {isCajaCerrada && (
+        <div className="bg-red-600 text-white text-center py-2 text-xs font-black uppercase tracking-widest flex items-center justify-center gap-2">
+          <Ban className="w-4 h-4 animate-pulse" />
+          Caja Cerrada - Ventas Bloqueadas hoy 🤠
+        </div>
+      )}
       <header className="p-2 md:p-3 flex justify-between items-center border-b bg-card/50 backdrop-blur-md sticky top-0 z-20">
         <div className="flex items-center gap-2 md:gap-4">
           <Button variant="ghost" size="icon" onClick={() => router.back()} className="rounded-full active:scale-90 h-9 w-9">
@@ -265,16 +345,18 @@ export default function OrderPage() {
                 )}
               </Button>
             </SheetTrigger>
-            <SheetContent side="bottom" className="h-[90vh] rounded-t-[3rem] border-t-4 border-t-primary paper-texture p-6 pt-8 overflow-hidden">
-              <SheetHeader className="mb-4">
-                <SheetTitle className="text-2xl font-headline flex items-center gap-2">
+            <SheetContent side="bottom" className="h-[90vh] rounded-t-[3rem] border-t-4 border-t-primary paper-texture p-4 sm:p-6 pt-8 overflow-hidden flex flex-col">
+              <SheetHeader className="mb-4 shrink-0">
+                <SheetTitle className="text-xl sm:text-2xl font-headline flex items-center gap-2">
                   <div className="p-2 bg-primary/10 rounded-lg">
-                    <ShoppingCart className="w-6 h-6 text-primary" />
+                    <ShoppingCart className="w-5 h-5 sm:w-6 sm:h-6 text-primary" />
                   </div>
                   Orden Actual
                 </SheetTitle>
               </SheetHeader>
-              <CartSummary />
+              <div className="flex-1 overflow-hidden">
+                <CartSummary />
+              </div>
             </SheetContent>
           </Sheet>
         </div>
@@ -331,28 +413,28 @@ export default function OrderPage() {
             </div>
 
             <ScrollArea className="flex-1 -mx-2 px-2">
-              <div className="grid grid-cols-2 sm:grid-cols-3 xl:grid-cols-4 gap-2 md:gap-3 py-1">
-                {filteredProducts.map(p => (
+              <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-3 md:gap-4 pt-2 pb-28 max-w-7xl mx-auto w-full px-1">
+                {filteredItems.map(m => (
                   <Card 
-                    key={p.id} 
-                    className="bg-card/40 border-border/50 active:scale-95 transition-all flex flex-col group overflow-hidden"
-                    onClick={() => addToCart(p)}
+                    key={m.id} 
+                    className="bg-card/60 border-border/60 hover:border-primary/50 hover:shadow-lg active:scale-95 transition-all flex flex-col group overflow-hidden w-full mx-auto max-w-sm sm:max-w-none"
+                    onClick={() => addToCart(m)}
                   >
-                    <CardContent className="p-3 md:p-4 flex flex-col justify-between h-full min-h-[110px]">
-                      <div>
-                        <Badge variant="outline" className="text-[7px] md:text-[8px] mb-1.5 uppercase opacity-60">
-                          {p.categoria}
+                    <CardContent className="p-4 flex items-center justify-between h-full gap-3">
+                      <div className="flex-1 text-left">
+                        <Badge variant="outline" className="text-[9px] mb-1.5 uppercase opacity-80 border-primary/30 font-bold">
+                          {m.categoria}
                         </Badge>
-                        <h4 className="font-bold text-[10px] md:text-sm leading-tight line-clamp-2">
-                          {p.nombre}
+                        <h4 className="font-bold text-sm md:text-base leading-tight">
+                          {m.nombre}
                         </h4>
                       </div>
-                      <div className="flex justify-between items-end mt-1.5">
-                        <span className="text-xs md:text-lg font-black text-secondary">
-                          ${p.precio.toLocaleString()}
+                      <div className="flex flex-col items-end gap-2 shrink-0">
+                        <span className="text-base md:text-lg font-black text-secondary">
+                          ${m.precio.toLocaleString()}
                         </span>
-                        <div className="p-1 bg-primary/10 rounded-lg group-active:bg-primary group-active:text-white transition-all">
-                          <Plus className="w-3.5 h-3.5" />
+                        <div className="p-2 bg-primary/10 rounded-xl group-hover:bg-primary/20 transition-all">
+                          <Plus className="w-4 h-4 text-primary" />
                         </div>
                       </div>
                     </CardContent>
@@ -528,9 +610,9 @@ export default function OrderPage() {
                 <div className="flex justify-between items-center text-sm">
                   <span className="font-bold flex gap-2">
                     <span className="text-primary">{item.cantidad}x</span> 
-                    <span>{item.producto.nombre}</span>
+                    <span>{item.menuItem.nombre}</span>
                   </span>
-                  <span className="font-bold text-secondary">${(item.producto.precio * item.cantidad).toLocaleString()}</span>
+                  <span className="font-bold text-secondary">${(item.menuItem.precio * item.cantidad).toLocaleString()}</span>
                 </div>
                 {item.notas && (
                   <div className="text-[9px] text-primary bg-primary/5 px-2 py-1 rounded-xl border border-primary/10 italic">
@@ -562,7 +644,7 @@ export default function OrderPage() {
             <DialogTitle className="font-headline">Nota para Cocina</DialogTitle>
           </DialogHeader>
           <div className="space-y-4 py-4">
-            <p className="font-black text-lg">{noteEditingItem?.producto.nombre}</p>
+            <p className="font-black text-lg">{noteEditingItem?.menuItem.nombre}</p>
             <Textarea 
               placeholder="Ej: Término medio, sin cebolla..." 
               className="h-28 bg-background border-border rounded-xl"
@@ -576,6 +658,41 @@ export default function OrderPage() {
           </DialogFooter>
         </DialogContent>
       </Dialog>
+
+      {/* Floating Bottom Cart (Mobile) */}
+      {cartItemsCount > 0 && (
+        <div className="lg:hidden fixed bottom-6 left-4 right-4 z-50 animate-in slide-in-from-bottom-10 duration-300 pointer-events-none">
+          <Sheet>
+            <SheetTrigger asChild>
+              <Button className="w-full h-14 bg-primary text-primary-foreground font-black text-lg rounded-2xl shadow-[0_8px_30px_rgb(239,108,0,0.4)] flex justify-between items-center px-6 pointer-events-auto hover:bg-primary/90 active:scale-95 transition-all">
+                <div className="flex items-center gap-3">
+                  <div className="relative">
+                    <ShoppingCart className="w-6 h-6" />
+                    <Badge className="absolute -top-2 -right-2 h-5 w-5 flex items-center justify-center p-0 bg-background text-primary border-2 border-primary text-[10px] font-black rounded-full">
+                      {cartItemsCount}
+                    </Badge>
+                  </div>
+                  <span className="uppercase tracking-widest text-xs opacity-90">Ver Orden</span>
+                </div>
+                <span>${cartTotal.toLocaleString()}</span>
+              </Button>
+            </SheetTrigger>
+            <SheetContent side="bottom" className="h-[90vh] rounded-t-[3rem] border-t-4 border-t-primary paper-texture p-4 sm:p-6 pt-8 overflow-hidden flex flex-col">
+              <SheetHeader className="mb-4 shrink-0">
+                <SheetTitle className="text-xl sm:text-2xl font-headline flex items-center gap-2">
+                  <div className="p-2 bg-primary/10 rounded-lg">
+                    <ShoppingCart className="w-5 h-5 sm:w-6 sm:h-6 text-primary" />
+                  </div>
+                  Orden Actual
+                </SheetTitle>
+              </SheetHeader>
+              <div className="flex-1 overflow-hidden">
+                <CartSummary />
+              </div>
+            </SheetContent>
+          </Sheet>
+        </div>
+      )}
     </main>
   );
 }

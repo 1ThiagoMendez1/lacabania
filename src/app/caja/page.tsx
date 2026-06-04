@@ -19,7 +19,8 @@ import {
   Mail,
   MapPin,
   Phone,
-  ShieldCheck
+  ShieldCheck,
+  Ban
 } from "lucide-react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -49,7 +50,7 @@ import {
 } from "@/components/ui/select";
 
 export default function CajaPage() {
-  const { ordenes, mesas, closeOrden } = usePOSStore();
+  const { ordenes, mesas, closeOrden, isCajaCerrada } = usePOSStore();
   const { toast } = useToast();
   const [selectedMesaId, setSelectedMesaId] = useState<number | null>(null);
   const [metodoPago, setMetodoPago] = useState<MetodoPago | null>(null);
@@ -71,13 +72,21 @@ export default function CajaPage() {
     m.estado === 'OCUPADA' || m.estado === 'EN PEDIDO' || m.estado === 'LISTA PAGAR'
   );
 
-  const activeOrden = ordenes.find(o => o.mesaId === selectedMesaId && o.estado === 'ABIERTA');
+  const activeOrden = ordenes.find(o => String(o.mesaId) === String(selectedMesaId) && o.estado === 'ABIERTA');
 
-  const subtotal = activeOrden?.items.reduce((acc, item) => acc + (item.precioUnitario * item.cantidad), 0) || 0;
+  const subtotal = (activeOrden?.items || []).reduce((acc, item) => acc + (item.precioUnitario * item.cantidad), 0);
   const propinaSugerida = subtotal * 0.10;
   const total = subtotal + propinaSugerida;
 
   const handleCerrarCuenta = async () => {
+    if (isCajaCerrada) {
+      toast({
+        variant: "destructive",
+        title: "Ventas Bloqueadas",
+        description: "La caja de hoy ya está cerrada. No se pueden procesar cobros. 🤠"
+      });
+      return;
+    }
     if (!activeOrden || !selectedMesaId || !metodoPago) return;
     
     if (requireFE && (!clienteFE.numeroDocumento || !clienteFE.nombre || !clienteFE.email)) {
@@ -126,6 +135,16 @@ export default function CajaPage() {
           <p className="text-sm text-muted-foreground">Gestión de cobros y cierre de mesas 🤠</p>
         </div>
       </header>
+
+      {isCajaCerrada && (
+        <div className="mb-6 bg-red-600/20 border-2 border-red-500 text-red-500 p-4 rounded-2xl flex items-center gap-3 shadow-lg print:hidden animate-in slide-in-from-top-4 duration-500">
+          <Ban className="w-6 h-6 animate-pulse shrink-0" />
+          <div>
+            <h4 className="text-sm font-black uppercase tracking-tight">Caja Cerrada</h4>
+            <p className="text-xs font-medium opacity-90">Las ventas del día han sido bloqueadas debido al Cierre Diario. No se pueden procesar cobros ni cerrar cuentas.</p>
+          </div>
+        </div>
+      )}
 
       <div className="flex-1 flex flex-col lg:flex-row gap-8 overflow-hidden print:hidden">
         <div className="w-full lg:w-80 flex flex-col gap-4">
@@ -176,7 +195,7 @@ export default function CajaPage() {
                     <h3 className="text-xs font-black uppercase tracking-widest text-muted-foreground mb-4">Consumo</h3>
                     <table className="w-full text-sm">
                       <tbody>
-                        {activeOrden.items.map((item) => (
+                        {(activeOrden.items || []).map((item) => (
                           <tr key={item.id} className="border-b border-border/30">
                             <td className="py-3 font-bold pr-2">{item.cantidad}x</td>
                             <td className="py-3 text-foreground">{item.nombre}</td>
@@ -336,16 +355,34 @@ export default function CajaPage() {
                       </div>
                       <Button 
                         className="w-full h-14 text-lg font-bold rounded-xl mt-4 shadow-lg hover:glow-orange transition-all" 
-                        disabled={!metodoPago} 
+                        disabled={!metodoPago || isCajaCerrada} 
                         onClick={handleCerrarCuenta}
                       >
-                        {metodoPago ? (requireFE ? 'EMITIR FACTURA DIAN' : `CONFIRMAR PAGO EN ${metodoPago}`) : 'SELECCIONA PAGO'}
+                        {isCajaCerrada ? "CAJA CERRADA" : (metodoPago ? (requireFE ? 'EMITIR FACTURA DIAN' : `CONFIRMAR PAGO EN ${metodoPago}`) : 'SELECCIONA PAGO')}
                       </Button>
                     </div>
                   </div>
                 </div>
               </CardContent>
             </Card>
+          ) : selectedMesaId ? (
+            <div className="h-full border-2 border-dashed border-border rounded-3xl flex flex-col items-center justify-center text-muted-foreground bg-accent/5 p-8 text-center">
+              <Receipt className="w-16 h-16 mb-4 opacity-20" />
+              {ordenes.filter(o => String(o.mesaId) === String(selectedMesaId)).length > 0 ? (
+                <>
+                  <h3 className="text-xl font-headline text-orange-500 mb-2">Mesa sin orden ABIERTA</h3>
+                  <p className="text-sm">
+                    Esta mesa tiene {ordenes.filter(o => String(o.mesaId) === String(selectedMesaId)).length} orden(es), 
+                    pero ninguna en estado ABIERTA. (Estados actuales: {ordenes.filter(o => String(o.mesaId) === String(selectedMesaId)).map(o => o.estado).join(', ')})
+                  </p>
+                </>
+              ) : (
+                <>
+                  <h3 className="text-xl font-headline text-destructive mb-2">Mesa sin pedidos registrados</h3>
+                  <p className="text-sm">La mesa está marcada como ocupada, pero no tiene ninguna orden asociada en el sistema.</p>
+                </>
+              )}
+            </div>
           ) : (
             <div className="h-full border-2 border-dashed border-border rounded-3xl flex flex-col items-center justify-center text-muted-foreground bg-accent/5 p-8">
               <Receipt className="w-16 h-16 mb-4 opacity-20" />

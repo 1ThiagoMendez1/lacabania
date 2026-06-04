@@ -4,7 +4,7 @@
 import { usePOSStore } from "@/lib/store";
 import { Badge } from "@/components/ui/badge";
 import { cn } from "@/lib/utils";
-import { Clock, Users, UtensilsCrossed, PlusCircle, Edit, Ban, CheckCircle, Layers, AlertCircle, MapPin, Activity, Info, Map } from "lucide-react";
+import { Clock, Users, UtensilsCrossed, PlusCircle, Edit, Ban, CheckCircle, Layers, AlertCircle, MapPin, Activity, Info, Map, Trash2 } from "lucide-react";
 import { 
   Dialog, 
   DialogContent, 
@@ -30,12 +30,20 @@ import { Mesa, Orden } from "@/lib/types";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 
 export default function MesasPage() {
-  const { mesas, updateMesaEstado, updateMesa, addMesa, user, ordenes } = usePOSStore();
+  const { mesas, updateMesaEstado, updateMesa, addMesa, deleteMesa, user, ordenes, isCajaCerrada } = usePOSStore();
   const [selectedMesaId, setSelectedMesaId] = useState<number | null>(null);
   const [isAddMesaOpen, setIsAddMesaOpen] = useState(false);
   const [isEditMode, setIsEditMode] = useState(false);
   const router = useRouter();
   const { toast } = useToast();
+
+  useEffect(() => {
+    // Asegurar que el body vuelva a recibir eventos de clic al montar la página
+    if (typeof document !== 'undefined') {
+      document.body.style.pointerEvents = 'auto';
+      document.body.style.overflow = 'auto';
+    }
+  }, []);
 
   const [newMesa, setNewMesa] = useState({
     id: "",
@@ -58,6 +66,14 @@ export default function MesasPage() {
   };
 
   const handleOpenMesa = (mesaId: number) => {
+    if (isCajaCerrada) {
+      toast({
+        variant: "destructive",
+        title: "Ventas Bloqueadas",
+        description: "No se pueden abrir mesas porque la caja de hoy ya está cerrada. 🤠"
+      });
+      return;
+    }
     const mesa = mesas.find(m => m.id === mesaId);
     if (mesa?.estado === 'FUERA SERVICIO') {
       toast({
@@ -119,6 +135,15 @@ export default function MesasPage() {
     updateMesaEstado(mesa.id, nuevoEstado);
   };
 
+  const handleDeleteMesa = (mesaId: number) => {
+    deleteMesa(mesaId);
+    toast({
+      variant: "destructive",
+      title: "Mesa Eliminada",
+      description: `La Mesa ${mesaId} ha sido eliminada del sistema.`
+    });
+  };
+
   const mesasPlanta1 = mesas.filter(m => m.zona === 'Primer Piso');
   const mesasPlanta2 = mesas.filter(m => m.zona === 'Segundo Piso');
 
@@ -178,6 +203,16 @@ export default function MesasPage() {
         )}
       </header>
 
+      {isCajaCerrada && (
+        <div className="mb-6 bg-red-600/20 border-2 border-red-500 text-red-500 p-4 rounded-2xl flex items-center gap-3 shadow-lg animate-in slide-in-from-top-4 duration-500">
+          <Ban className="w-6 h-6 animate-pulse shrink-0" />
+          <div>
+            <h4 className="text-sm font-black uppercase tracking-tight">Caja Cerrada</h4>
+            <p className="text-xs font-medium opacity-90">Las ventas del día han sido bloqueadas debido al Cierre Diario. No se permiten nuevas comandas o cobros.</p>
+          </div>
+        </div>
+      )}
+
       <Tabs defaultValue="piso1" className="w-full">
         <TabsList className="bg-accent/30 border border-border p-1 h-12 mb-6 w-full sm:w-auto overflow-x-auto overflow-y-hidden">
           <TabsTrigger value="piso1" className="flex-1 sm:flex-none data-[state=active]:bg-primary data-[state=active]:text-white gap-2 px-6">
@@ -201,6 +236,7 @@ export default function MesasPage() {
                 onVerPedido={handleVerPedido} 
                 onStartEdit={handleStartEdit} 
                 onToggleFueraServicio={toggleFueraServicio} 
+                onDeleteMesa={handleDeleteMesa}
                 getStatusColor={getStatusColor}
                 ordenes={ordenes}
               />
@@ -219,6 +255,7 @@ export default function MesasPage() {
                 onVerPedido={handleVerPedido} 
                 onStartEdit={handleStartEdit} 
                 onToggleFueraServicio={toggleFueraServicio} 
+                onDeleteMesa={handleDeleteMesa}
                 getStatusColor={getStatusColor}
                 ordenes={ordenes}
               />
@@ -258,9 +295,11 @@ export default function MesasPage() {
   );
 }
 
-function MesaCard({ mesa, user, onOpenMesa, onVerPedido, onStartEdit, onToggleFueraServicio, getStatusColor, ordenes }: any) {
+function MesaCard({ mesa, user, onOpenMesa, onVerPedido, onStartEdit, onToggleFueraServicio, onDeleteMesa, getStatusColor, ordenes }: any) {
+    const { isCajaCerrada } = usePOSStore();
     const activeOrder = ordenes.find((o: Orden) => o.mesaId === mesa.id && o.estado === 'ABIERTA');
     const [delayLevel, setDelayLevel] = useState<'none' | 'warning' | 'critical'>('none');
+    const [isOpen, setIsOpen] = useState(false);
 
     useEffect(() => {
       if (!activeOrder) {
@@ -284,7 +323,7 @@ function MesaCard({ mesa, user, onOpenMesa, onVerPedido, onStartEdit, onToggleFu
     }, [activeOrder]);
 
     return (
-        <Dialog>
+        <Dialog open={isOpen} onOpenChange={setIsOpen}>
           <DialogTrigger asChild>
             <button
               className={cn(
@@ -398,10 +437,16 @@ function MesaCard({ mesa, user, onOpenMesa, onVerPedido, onStartEdit, onToggleFu
                 {mesa.estado === 'LIBRE' ? (
                   <Button 
                     className="w-full h-16 text-xl bg-primary hover:glow-orange font-bold rounded-[1.25rem] transition-all hover:scale-[1.02] shadow-xl group" 
-                    onClick={() => onOpenMesa(mesa.id)}
+                    onClick={() => {
+                      setIsOpen(false);
+                      setTimeout(() => {
+                        onOpenMesa(mesa.id);
+                      }, 100);
+                    }}
+                    disabled={isCajaCerrada}
                   >
                     <PlusCircle className="w-6 h-6 mr-2 transition-transform group-hover:rotate-90" />
-                    ABRIR MESA
+                    {isCajaCerrada ? "CAJA CERRADA" : "ABRIR MESA"}
                   </Button>
                 ) : mesa.estado === 'FUERA SERVICIO' ? (
                   <div className="bg-destructive/10 border border-destructive/20 p-6 rounded-3xl text-center space-y-2">
@@ -412,23 +457,42 @@ function MesaCard({ mesa, user, onOpenMesa, onVerPedido, onStartEdit, onToggleFu
                 ) : (
                   <Button 
                     className="w-full h-16 bg-secondary text-secondary-foreground hover:glow-gold font-bold text-xl rounded-[1.25rem] transition-all hover:scale-[1.02] shadow-xl group" 
-                    onClick={() => onVerPedido(mesa.id)}
+                    onClick={() => {
+                      setIsOpen(false);
+                      setTimeout(() => {
+                        onVerPedido(mesa.id);
+                      }, 100);
+                    }}
+                    disabled={isCajaCerrada}
                   >
                     <UtensilsCrossed className="w-6 h-6 mr-2 transition-transform group-hover:scale-110" />
-                    GESTIONAR PEDIDO
+                    {isCajaCerrada ? "CAJA CERRADA" : "GESTIONAR PEDIDO"}
                   </Button>
                 )}
                 
-                <div className="grid grid-cols-2 gap-3">
+                <div className={cn("grid gap-3", user?.rol === 'ADMINISTRADOR' ? "grid-cols-3" : "grid-cols-1")}>
                   {user?.rol === 'ADMINISTRADOR' && (
-                    <Button 
-                      variant="outline" 
-                      className="h-14 border-border/50 bg-background/50 hover:bg-accent/50 text-muted-foreground hover:text-foreground gap-2 rounded-2xl transition-all" 
-                      onClick={() => onStartEdit(mesa)}
-                    >
-                      <Edit className="w-4 h-4" /> 
-                      <span className="text-xs font-bold uppercase tracking-widest">Editar</span>
-                    </Button>
+                    <>
+                      <Button 
+                        variant="outline" 
+                        className="h-14 border-border/50 bg-background/50 hover:bg-accent/50 text-muted-foreground hover:text-foreground gap-2 rounded-2xl transition-all" 
+                        onClick={() => onStartEdit(mesa)}
+                      >
+                        <Edit className="w-4 h-4" /> 
+                      </Button>
+                      <Button 
+                        variant="outline" 
+                        className="h-14 border-border/50 bg-background/50 hover:bg-destructive/10 text-muted-foreground hover:text-destructive gap-2 rounded-2xl transition-all" 
+                        onClick={() => {
+                          if (confirm("¿Estás seguro de eliminar esta mesa?")) {
+                            onDeleteMesa(mesa.id);
+                          }
+                        }}
+                        disabled={mesa.estado !== 'LIBRE' && mesa.estado !== 'FUERA SERVICIO'}
+                      >
+                        <Trash2 className="w-4 h-4" /> 
+                      </Button>
+                    </>
                   )}
                   
                   {(user?.rol === 'ADMINISTRADOR' || user?.rol === 'MESERO') && (
@@ -436,7 +500,6 @@ function MesaCard({ mesa, user, onOpenMesa, onVerPedido, onStartEdit, onToggleFu
                       variant="outline" 
                       className={cn(
                         "h-14 gap-2 rounded-2xl transition-all border-border/50 bg-background/50",
-                        user?.rol !== 'ADMINISTRADOR' && "col-span-2",
                         mesa.estado === 'FUERA SERVICIO' ? "hover:border-green-500 hover:text-green-500" : "hover:border-destructive/50 hover:text-destructive"
                       )} 
                       onClick={() => onToggleFueraServicio(mesa)} 

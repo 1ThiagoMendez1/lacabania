@@ -1,4 +1,4 @@
-export type Rol = 'ADMINISTRADOR' | 'MESERO' | 'COCINERO';
+export type Rol = 'ADMINISTRADOR' | 'MESERO' | 'CAJERO';
 
 export type Estacion = 'ASADO' | 'PARRILLA' | 'COCINA' | 'BAR';
 
@@ -33,6 +33,7 @@ export interface Usuario {
 
 export interface Producto {
   id: string;
+  sku?: string;
   nombre: string;
   descripcion: string;
   precio: number;
@@ -41,11 +42,26 @@ export interface Producto {
   imagen?: string;
   stock: number;
   stockMinimo: number;
+  unidadMedida?: string;
+  costoProveedor?: number;
+  fechaVencimiento?: string;
+  ubicacion?: string;
+}
+
+export interface MenuItem {
+  id: string;
+  nombre: string;
+  descripcion: string;
+  precio: number;
+  categoria: string;
+  estacion: Estacion;
+  imagen?: string;
+  disponible: boolean;
 }
 
 export interface ItemOrden {
   id: string;
-  productoId: string;
+  menuItemId: string;
   nombre: string;
   cantidad: number;
   precioUnitario: number;

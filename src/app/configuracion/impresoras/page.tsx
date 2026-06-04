@@ -1,9 +1,10 @@
 "use client"
 
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
+import { Input } from "@/components/ui/input";
 import { 
   Printer, 
   Wifi, 
@@ -17,7 +18,8 @@ import {
   ChefHat,
   Receipt,
   CheckCircle2,
-  AlertCircle
+  AlertCircle,
+  Server
 } from "lucide-react";
 import {
   Select,
@@ -29,6 +31,7 @@ import {
 import { Label } from "@/components/ui/label";
 import { cn } from "@/lib/utils";
 import { useToast } from "@/hooks/use-toast";
+import { usePOSStore } from "@/lib/store";
 
 const STATIONS = [
   { id: 'ASADO', label: 'Estación Asado', icon: Flame, color: 'text-primary' },
@@ -39,42 +42,70 @@ const STATIONS = [
 ];
 
 export default function ImpresorasPage() {
-  const [isConnected, setIsConnected] = useState(false);
-  const [isConnecting, setIsConnecting] = useState(false);
-  const [availablePrinters, setAvailablePrinters] = useState<string[]>([]);
-  const [mappings, setMappings] = useState<Record<string, string>>({});
+  const { 
+    isQzConnected, 
+    isQzConnecting, 
+    availablePrinters, 
+    printerMappings, 
+    ipServidorImpresion,
+    connectQz, 
+    updatePrinterMapping, 
+    updateIpServidorImpresion,
+    printTicket 
+  } = usePOSStore();
   const { toast } = useToast();
 
+  const [serverIp, setServerIp] = useState("localhost");
+
+  useEffect(() => {
+    if (ipServidorImpresion) {
+      setServerIp(ipServidorImpresion);
+    }
+  }, [ipServidorImpresion]);
+
+  const handleSaveIp = async () => {
+    try {
+      await updateIpServidorImpresion(serverIp);
+      toast({
+        title: "IP Guardada",
+        description: `IP del servidor de impresión configurada a: ${serverIp}`,
+      });
+    } catch (error: any) {
+      toast({
+        variant: "destructive",
+        title: "Error al guardar IP",
+        description: error.message || "No se pudo actualizar la IP del servidor.",
+      });
+    }
+  };
+
   const handleConnect = async () => {
-    setIsConnecting(true);
-    // Simulación de conexión a QZ Tray
-    setTimeout(() => {
-      setIsConnected(true);
-      setIsConnecting(false);
-      setAvailablePrinters([
-        "EPSON TM-T20II (Caja)",
-        "Kitchen-Printer-1 (Asado)",
-        "Kitchen-Printer-2 (Cocina)",
-        "Bar-Thermal-P01",
-        "PDF-Printer"
-      ]);
+    try {
+      await connectQz();
       toast({
         title: "QZ Tray Conectado",
         description: "Servidor de impresión local detectado exitosamente.",
       });
-    }, 1500);
+    } catch (error) {
+      console.error("Error conectando a QZ Tray:", error);
+      toast({
+        variant: "destructive",
+        title: "QZ Tray no detectado",
+        description: "Asegúrate de tener la aplicación QZ Tray instalada y abierta en tu computadora.",
+      });
+    }
   };
 
   const handleUpdateMapping = (stationId: string, printerName: string) => {
-    setMappings(prev => ({ ...prev, [stationId]: printerName }));
+    updatePrinterMapping(stationId, printerName);
     toast({
       title: "Configuración Guardada",
       description: `Impresora asignada a ${stationId}.`,
     });
   };
 
-  const testPrint = (stationId: string) => {
-    const printer = mappings[stationId];
+  const testPrint = async (stationId: string) => {
+    const printer = printerMappings[stationId];
     if (!printer) {
       toast({
         variant: "destructive",
@@ -83,10 +114,33 @@ export default function ImpresorasPage() {
       });
       return;
     }
-    toast({
-      title: "Prueba Enviada",
-      description: `Imprimiendo ticket de prueba en: ${printer}`,
-    });
+    
+    try {
+      const data = [
+        '\x1B\x40', // Init printer
+        '\x1B\x61\x01', // Center text
+        'La Cabana\n',
+        '--------------------------------\n',
+        'TICKET DE PRUEBA\n',
+        `Estacion: ${stationId}\n`,
+        '--------------------------------\n',
+        '\n\n\n\x1D\x56\x41\x10' // Cut paper
+      ];
+      
+      await printTicket(stationId, data);
+      
+      toast({
+        title: "Prueba Enviada",
+        description: `Imprimiendo ticket de prueba en: ${printer}`,
+      });
+    } catch (error: any) {
+      console.error("Error al imprimir:", error);
+      toast({
+        variant: "destructive",
+        title: "Fallo al imprimir",
+        description: error.message || "No se pudo completar la impresión de prueba.",
+      });
+    }
   };
 
   return (
@@ -105,39 +159,79 @@ export default function ImpresorasPage() {
         <div className="w-full md:w-auto">
           <Button 
             onClick={handleConnect} 
-            disabled={isConnecting}
+            disabled={isQzConnecting}
             className={cn(
               "w-full md:w-auto font-bold gap-2 h-12 rounded-xl transition-all",
-              isConnected ? "bg-green-600 hover:bg-green-700" : "bg-primary"
+              isQzConnected ? "bg-green-600 hover:bg-green-700" : "bg-primary"
             )}
           >
-            {isConnecting ? (
+            {isQzConnecting ? (
               <RefreshCw className="w-5 h-5 animate-spin" />
-            ) : isConnected ? (
+            ) : isQzConnected ? (
               <Wifi className="w-5 h-5" />
             ) : (
               <WifiOff className="w-5 h-5" />
             )}
-            {isConnected ? "QZ TRAY CONECTADO" : "CONECTAR QZ TRAY"}
+            {isQzConnected ? "QZ TRAY CONECTADO" : "CONECTAR QZ TRAY"}
           </Button>
         </div>
       </header>
 
-      {!isConnected ? (
-        <Card className="bg-card/50 border-dashed border-2 border-border p-12 flex flex-col items-center text-center space-y-4">
-          <div className="p-6 bg-accent/30 rounded-full">
-            <HardDrive className="w-12 h-12 text-muted-foreground opacity-20" />
-          </div>
-          <div className="max-w-md">
-            <h3 className="text-xl font-headline mb-2">Servidor de impresión inactivo</h3>
-            <p className="text-sm text-muted-foreground">
-              Asegúrate de que la aplicación <strong>QZ Tray</strong> esté ejecutándose en esta computadora para poder gestionar las impresoras térmicas.
-            </p>
-          </div>
-          <Button variant="outline" onClick={handleConnect} className="rounded-xl px-8 h-12">
-            Reintentar Conexión
-          </Button>
-        </Card>
+      {!isQzConnected ? (
+        <div className="space-y-6 max-w-2xl mx-auto">
+          <Card className="bg-card/50 border-dashed border-2 border-border p-12 flex flex-col items-center text-center space-y-4">
+            <div className="p-6 bg-accent/30 rounded-full">
+              <HardDrive className="w-12 h-12 text-muted-foreground opacity-20" />
+            </div>
+            <div className="max-w-md">
+              <h3 className="text-xl font-headline mb-2">Servidor de impresión inactivo</h3>
+              <p className="text-sm text-muted-foreground">
+                Asegúrate de que la aplicación <strong>QZ Tray</strong> esté ejecutándose en esta computadora para poder gestionar las impresoras térmicas.
+              </p>
+            </div>
+            <Button variant="outline" onClick={handleConnect} className="rounded-xl px-8 h-12">
+              Reintentar Conexión
+            </Button>
+          </Card>
+
+          <Card className="bg-card border-border shadow-lg rounded-[2rem] overflow-hidden">
+            <CardHeader className="bg-accent/20 border-b border-border/50">
+              <CardTitle className="text-lg font-headline flex items-center gap-2">
+                <Server className="w-5 h-5 text-primary" />
+                Servidor de Impresión (Red Local)
+              </CardTitle>
+              <CardDescription>
+                Configura la IP de la computadora que tiene las impresoras físicamente conectadas (para permitir imprimir desde celulares).
+              </CardDescription>
+            </CardHeader>
+            <CardContent className="p-6 space-y-4">
+              <div className="space-y-2">
+                <Label htmlFor="ip-servidor-disconnected" className="font-bold text-xs uppercase tracking-wider text-muted-foreground">
+                  IP de la Computadora Principal
+                </Label>
+                <div className="flex gap-2">
+                  <Input
+                    id="ip-servidor-disconnected"
+                    type="text"
+                    placeholder="e.g. 192.168.1.30 o localhost"
+                    value={serverIp}
+                    onChange={(e) => setServerIp(e.target.value)}
+                    className="bg-background/50 h-11"
+                  />
+                  <Button 
+                    onClick={handleSaveIp}
+                    className="h-11 rounded-lg px-4 bg-primary font-bold transition-all hover:bg-primary/90"
+                  >
+                    Guardar IP
+                  </Button>
+                </div>
+                <p className="text-[11px] text-muted-foreground leading-normal">
+                  Nota: Los celulares de los meseros se conectarán a esta IP para mandar las comandas de forma remota.
+                </p>
+              </div>
+            </CardContent>
+          </Card>
+        </div>
       ) : (
         <div className="grid grid-cols-1 md:grid-cols-2 gap-8 animate-in fade-in duration-500">
           <Card className="bg-card border-border paper-texture shadow-xl rounded-[2rem] overflow-hidden">
@@ -156,14 +250,14 @@ export default function ImpresorasPage() {
                       <station.icon className={cn("w-4 h-4", station.color)} />
                       {station.label}
                     </Label>
-                    {mappings[station.id] && (
+                    {printerMappings[station.id] && (
                       <Badge className="bg-green-500/10 text-green-500 border-green-500/30 text-[9px] py-0">ACTIVA</Badge>
                     )}
                   </div>
                   <div className="flex gap-2">
                     <Select 
                       onValueChange={(val) => handleUpdateMapping(station.id, val)}
-                      value={mappings[station.id]}
+                      value={printerMappings[station.id]}
                     >
                       <SelectTrigger className="bg-background/50 h-11">
                         <SelectValue placeholder="Seleccionar Impresora" />
@@ -189,6 +283,44 @@ export default function ImpresorasPage() {
           </Card>
 
           <div className="space-y-6">
+            <Card className="bg-card border-border shadow-lg rounded-[2rem] overflow-hidden">
+              <CardHeader className="bg-accent/20 border-b border-border/50">
+                <CardTitle className="text-lg font-headline flex items-center gap-2">
+                  <Server className="w-5 h-5 text-primary" />
+                  Servidor de Impresión (Red Local)
+                </CardTitle>
+                <CardDescription>
+                  Configura la IP de la computadora que tiene las impresoras físicamente conectadas (para permitir imprimir desde celulares).
+                </CardDescription>
+              </CardHeader>
+              <CardContent className="p-6 space-y-4">
+                <div className="space-y-2">
+                  <Label htmlFor="ip-servidor" className="font-bold text-xs uppercase tracking-wider text-muted-foreground">
+                    IP de la Computadora Principal
+                  </Label>
+                  <div className="flex gap-2">
+                    <Input
+                      id="ip-servidor"
+                      type="text"
+                      placeholder="e.g. 192.168.1.30 o localhost"
+                      value={serverIp}
+                      onChange={(e) => setServerIp(e.target.value)}
+                      className="bg-background/50 h-11"
+                    />
+                    <Button 
+                      onClick={handleSaveIp}
+                      className="h-11 rounded-lg px-4 bg-primary font-bold transition-all hover:bg-primary/90"
+                    >
+                      Guardar IP
+                    </Button>
+                  </div>
+                  <p className="text-[11px] text-muted-foreground leading-normal">
+                    Nota: Los celulares de los meseros se conectarán a esta IP para mandar las comandas de forma remota.
+                  </p>
+                </div>
+              </CardContent>
+            </Card>
+
             <Card className="bg-card border-border shadow-lg rounded-[2rem]">
               <CardHeader>
                 <CardTitle className="text-lg font-headline flex items-center gap-2">
