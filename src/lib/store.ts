@@ -34,6 +34,9 @@ interface POSState {
   // Actions
   fetchInitialData: () => Promise<void>;
   setupRealtime: () => void;
+  refreshOrdenesYMesas: () => Promise<void>;
+  refreshMenuItems: () => Promise<void>;
+  decrementMenuItemStock: (menuItemId: string, cantidad: number) => Promise<void>;
   setUser: (user: Usuario | null) => void;
   login: (pin: string) => Promise<Usuario | null>;
   logout: () => void;
@@ -57,7 +60,7 @@ interface POSState {
   addMenuItem: (item: MenuItem) => Promise<void>;
   updateMenuItem: (id: string, updates: Partial<MenuItem>) => Promise<void>;
   deleteMenuItem: (id: string) => Promise<void>;
-  closeOrden: (ordenId: string, mesaId: number, metodoPago: MetodoPago) => Promise<void>;
+  closeOrden: (ordenId: string, mesaId: number, metodoPago: MetodoPago, incluyePropina?: boolean) => Promise<void>;
   togglePermiso: (rol: Rol, menuLabel: string) => Promise<void>;
   setCajaCerrada: (cerrada: boolean) => void;
   setFechaOperativa: (fecha: string) => void;
@@ -69,7 +72,21 @@ interface POSState {
 }
 
 export const usePOSStore = create<POSState>((set, get) => ({
-  user: null,
+  user: typeof window !== 'undefined' && (() => {
+    const savedUser = sessionStorage.getItem('user_session');
+    const timestampStr = sessionStorage.getItem('session_timestamp');
+    if (savedUser && timestampStr) {
+      const timestamp = parseInt(timestampStr, 10);
+      const twoHours = 2 * 60 * 60 * 1000;
+      if (Date.now() - timestamp < twoHours) {
+        try {
+          sessionStorage.setItem('session_timestamp', Date.now().toString());
+          return JSON.parse(savedUser);
+        } catch (e) {}
+      }
+    }
+    return null;
+  })() || null,
   usuarios: [],
   permisos: {
     ADMINISTRADOR: ["Dashboard", "Mesas", "Asado", "Parrilla", "Cocina", "Bar", "Caja", "Menú Carta", "Inventario", "Personal", "Reportes & AI", "Impresoras", "Historial Meseros"],
@@ -120,13 +137,20 @@ export const usePOSStore = create<POSState>((set, get) => ({
     const permisosParsed: Record<string, string[]> = {
       ADMINISTRADOR: ["Dashboard", "Mesas", "Asado", "Parrilla", "Cocina", "Bar", "Caja", "Menú Carta", "Inventario", "Personal", "Reportes & AI", "Impresoras", "Historial Meseros"],
       MESERO: ["Mesas", "Asado", "Parrilla", "Cocina", "Bar"],
-      CAJERO: ["Caja"],
+      CAJERO: ["Dashboard", "Mesas", "Caja"],
     };
     if (permisosRes.data) {
       permisosRes.data.forEach(p => {
         permisosParsed[p.rol] = p.labels;
       });
     }
+    // Force specific permissions for CAJERO based on recent requirements
+    if (!permisosParsed.CAJERO.includes("Cierre Diario")) permisosParsed.CAJERO.push("Cierre Diario");
+    if (!permisosParsed.CAJERO.includes("Mesas")) permisosParsed.CAJERO.push("Mesas");
+    if (!permisosParsed.CAJERO.includes("Caja")) permisosParsed.CAJERO.push("Caja");
+    
+    // Remove Dashboard from CAJERO to enforce the new independent route
+    permisosParsed.CAJERO = permisosParsed.CAJERO.filter(p => p !== "Dashboard");
 
     const productosMapped = (productosRes.data || []).map((p: any) => ({
       id: p.id,
@@ -145,36 +169,60 @@ export const usePOSStore = create<POSState>((set, get) => ({
       ubicacion: p.ubicacion
     }));
 
-    const menuMapped = (menuRes.data || []).map((m: any) => ({
-      id: m.id,
-      nombre: m.nombre,
-      descripcion: m.descripcion,
-      precio: m.precio,
-      categoria: m.categoria,
-      estacion: m.estacion,
-      imagen: m.imagen,
-      disponible: m.disponible,
-    }));
+    const menuMapped = (menuRes.data || []).map((m: any) => {
+      let stock: number | undefined;
+      let cleanedDescripcion = m.descripcion || "";
+      const stockMatch = cleanedDescripcion.match(/^\[STOCK:(\d+)\]\s*/);
+      if (stockMatch) {
+        stock = parseInt(stockMatch[1], 10);
+        cleanedDescripcion = cleanedDescripcion.replace(/^\[STOCK:\d+\]\s*/, "");
+      }
+      return {
+        id: m.id,
+        nombre: m.nombre,
+        descripcion: cleanedDescripcion,
+        precio: m.precio,
+        categoria: m.categoria,
+        estacion: m.estacion,
+        imagen: m.imagen,
+        disponible: m.disponible,
+        stock
+      };
+    });
 
-    const usuariosMapped = (usuariosRes.data || []).map((u: any) => ({
-      id: u.id,
-      nombre: u.nombre,
-      cedula: u.cedula,
-      rol: u.rol,
-      pin: u.pin,
-      telefono: u.telefono,
-      estado: u.estado,
-      fechaIngreso: u.fecha_ingreso,
-      fotoDocumento: u.foto_documento,
-    }));
+    const usuariosMapped = (usuariosRes.data || []).map((u: any) => {
+      let rawPhone = u.telefono || "";
+      let phone = rawPhone;
+      let sueldo: number | undefined;
+      if (rawPhone.includes("|")) {
+        const parts = rawPhone.split("|");
+        phone = parts[0];
+        sueldo = parts[1] ? Number(parts[1]) : undefined;
+      }
+      return {
+        id: u.id,
+        nombre: u.nombre,
+        cedula: u.cedula,
+        rol: u.rol,
+        pin: u.pin,
+        telefono: phone || undefined,
+        sueldo: sueldo,
+        estado: u.estado,
+        fechaIngreso: u.fecha_ingreso,
+        fotoDocumento: u.foto_documento,
+      };
+    });
 
     const mapOrden = (o: any): Orden => ({
       id: o.id,
+      consecutivo: o.consecutivo,
       mesaId: o.mesa_id,
       meseroId: o.mesero_id,
       estado: o.estado,
       metodoPago: o.metodo_pago,
       facturaElectronicaId: o.factura_electronica_id,
+      clienteNombre: o.cliente_nombre,
+      rating: o.cliente_documento ? parseInt(o.cliente_documento, 10) : undefined,
       createdAt: o.created_at,
       updatedAt: o.updated_at,
       items: (o.items || []).map((i: any) => ({
@@ -260,6 +308,105 @@ export const usePOSStore = create<POSState>((set, get) => ({
     get().checkQzConnection().catch(e => console.warn("QZ Tray auto-connect skipped:", e));
   },
 
+  refreshOrdenesYMesas: async () => {
+    const [mesasRes, ordenesRes] = await Promise.all([
+      supabase.from('mesas').select('*'),
+      supabase.from('ordenes').select('*, items:items_orden(*)')
+    ]);
+
+    if (mesasRes.error) console.error("Error al refrescar mesas:", mesasRes.error);
+    if (ordenesRes.error) console.error("Error al refrescar órdenes:", ordenesRes.error);
+
+    if (mesasRes.data && ordenesRes.data) {
+      const mapOrden = (o: any): Orden => ({
+        id: o.id,
+        consecutivo: o.consecutivo,
+        mesaId: o.mesa_id,
+        meseroId: o.mesero_id,
+        estado: o.estado,
+        metodoPago: o.metodo_pago,
+        facturaElectronicaId: o.factura_electronica_id,
+        clienteNombre: o.cliente_nombre,
+        rating: o.cliente_documento ? parseInt(o.cliente_documento, 10) : undefined,
+        createdAt: o.created_at,
+        updatedAt: o.updated_at,
+        items: (o.items || []).map((i: any) => ({
+          id: i.id,
+          menuItemId: i.menu_item_id || i.producto_id,
+          nombre: i.nombre,
+          cantidad: i.cantidad,
+          precioUnitario: i.precio_unitario,
+          notas: i.notas,
+          estacion: i.estacion,
+          estado: i.estado,
+          createdAt: i.created_at
+        }))
+      });
+
+      const ordenesMapped = ordenesRes.data.map(mapOrden);
+      
+      const mesasMapped = mesasRes.data.map((m: any) => ({
+        id: m.id,
+        numero: m.numero,
+        zona: m.zona,
+        capacidad: m.capacidad,
+        estado: m.estado,
+        meseroId: m.mesero_id || undefined,
+        ordenActivaId: m.orden_activa_id || undefined,
+        tiempoAbierta: m.tiempo_abierta || undefined,
+      }));
+
+      set({
+        mesas: mesasMapped.sort((a, b) => a.id - b.id),
+        ordenes: ordenesMapped
+      });
+    }
+  },
+
+  refreshMenuItems: async () => {
+    const { data, error } = await supabase.from('menu_items').select('*');
+    if (error) {
+      console.error("Error al refrescar menú:", error);
+      return;
+    }
+    const menuMapped = (data || []).map((m: any) => {
+      let stock: number | undefined;
+      let cleanedDescripcion = m.descripcion || "";
+      const stockMatch = cleanedDescripcion.match(/^\[STOCK:(\d+)\]\s*/);
+      if (stockMatch) {
+        stock = parseInt(stockMatch[1], 10);
+        cleanedDescripcion = cleanedDescripcion.replace(/^\[STOCK:\d+\]\s*/, "");
+      }
+      return {
+        id: m.id,
+        nombre: m.nombre,
+        descripcion: cleanedDescripcion,
+        precio: m.precio,
+        categoria: m.categoria,
+        estacion: m.estacion,
+        imagen: m.imagen,
+        disponible: m.disponible,
+        stock
+      };
+    });
+    set({ menuItems: menuMapped });
+  },
+
+  decrementMenuItemStock: async (menuItemId: string, cantidad: number) => {
+    const m = get().menuItems.find(item => item.id === menuItemId);
+    if (!m || m.stock === undefined) return;
+    const newStock = Math.max(0, m.stock - cantidad);
+    
+    // Optimistic update
+    set((state) => ({
+      menuItems: state.menuItems.map(item => item.id === menuItemId ? { ...item, stock: newStock } : item)
+    }));
+
+    const dbDesc = `[STOCK:${newStock}] ${m.descripcion || ''}`;
+    const { error } = await supabase.from('menu_items').update({ descripcion: dbDesc }).eq('id', menuItemId);
+    if (error) console.error("Error al actualizar stock de plato:", error);
+  },
+
   setupRealtime: () => {
     supabase.removeAllChannels();
     supabase
@@ -268,128 +415,32 @@ export const usePOSStore = create<POSState>((set, get) => ({
         'postgres_changes',
         { event: '*', schema: 'public', table: 'mesas' },
         (payload) => {
-          const { eventType, new: newRecord, old: oldRecord } = payload;
-          if (eventType === 'INSERT') {
-            set((state) => {
-              if (state.mesas.find(m => m.id === newRecord.id)) return state;
-              const mappedMesa: Mesa = {
-                id: newRecord.id,
-                numero: newRecord.numero,
-                zona: newRecord.zona,
-                capacidad: newRecord.capacidad,
-                estado: newRecord.estado,
-                meseroId: newRecord.mesero_id || undefined,
-                ordenActivaId: newRecord.orden_activa_id || undefined,
-                tiempoAbierta: newRecord.tiempo_abierta || undefined,
-              };
-              return { mesas: [...state.mesas, mappedMesa].sort((a, b) => a.id - b.id) };
-            });
-          } else if (eventType === 'UPDATE') {
-            set((state) => ({
-              mesas: state.mesas.map(m => m.id === newRecord.id ? { 
-                ...m, 
-                estado: newRecord.estado,
-                zona: newRecord.zona,
-                capacidad: newRecord.capacidad,
-                meseroId: newRecord.mesero_id || undefined,
-                ordenActivaId: newRecord.orden_activa_id || undefined,
-                tiempoAbierta: newRecord.tiempo_abierta || undefined,
-              } : m)
-            }));
-          } else if (eventType === 'DELETE') {
-            set((state) => ({
-              mesas: state.mesas.filter(m => m.id !== oldRecord.id)
-            }));
-          }
+          console.log("Realtime: mesas change detected", payload.eventType);
+          get().refreshOrdenesYMesas();
         }
       )
       .on(
         'postgres_changes',
         { event: '*', schema: 'public', table: 'ordenes' },
         (payload) => {
-          const { eventType, new: newRecord, old: oldRecord } = payload;
-          if (eventType === 'INSERT') {
-            // Fetch the full order with items to have complete data
-            supabase.from('ordenes').select('*, items:items_orden(*)').eq('id', newRecord.id).maybeSingle()
-              .then(({ data }) => {
-                if (data) {
-                  const mappedOrder: Orden = {
-                    id: data.id,
-                    mesaId: data.mesa_id,
-                    meseroId: data.mesero_id,
-                    estado: data.estado,
-                    metodoPago: data.metodo_pago,
-                    facturaElectronicaId: data.factura_electronica_id,
-                    createdAt: data.created_at,
-                    updatedAt: data.updated_at,
-                    items: (data.items || []).map((i: any) => ({
-                      id: i.id,
-                      menuItemId: i.menu_item_id || i.producto_id,
-                      nombre: i.nombre,
-                      cantidad: i.cantidad,
-                      precioUnitario: i.precio_unitario,
-                      notas: i.notas,
-                      estacion: i.estacion,
-                      estado: i.estado,
-                      createdAt: i.created_at
-                    }))
-                  };
-                  set((state) => {
-                    if (state.ordenes.find(o => o.id === mappedOrder.id)) return state;
-                    return { ordenes: [...state.ordenes, mappedOrder] };
-                  });
-                }
-              });
-          } else if (eventType === 'UPDATE') {
-            set((state) => ({
-              ordenes: state.ordenes.map(o => o.id === newRecord.id ? { ...o, estado: newRecord.estado, metodoPago: newRecord.metodo_pago, updatedAt: newRecord.updated_at } : o)
-            }));
-          } else if (eventType === 'DELETE') {
-            set((state) => ({
-              ordenes: state.ordenes.filter(o => o.id !== oldRecord.id)
-            }));
-          }
+          console.log("Realtime: ordenes change detected", payload.eventType);
+          get().refreshOrdenesYMesas();
         }
       )
       .on(
         'postgres_changes',
         { event: '*', schema: 'public', table: 'items_orden' },
         (payload) => {
-          const { eventType, new: newRecord } = payload;
-          if (eventType === 'INSERT') {
-            set((state) => ({
-              ordenes: state.ordenes.map(o => {
-                if (o.id === newRecord.orden_id) {
-                  const newItem = {
-                    id: newRecord.id,
-                    menuItemId: newRecord.menu_item_id,
-                    nombre: newRecord.nombre,
-                    cantidad: newRecord.cantidad,
-                    precioUnitario: newRecord.precio_unitario,
-                    notas: newRecord.notas,
-                    estacion: newRecord.estacion,
-                    estado: newRecord.estado,
-                    createdAt: newRecord.created_at
-                  };
-                  if (o.items?.find(i => i.id === newItem.id)) return o;
-                  return { ...o, items: [...(o.items || []), newItem] };
-                }
-                return o;
-              })
-            }));
-          } else if (eventType === 'UPDATE') {
-            set((state) => ({
-              ordenes: state.ordenes.map(o => {
-                if (o.id === newRecord.orden_id) {
-                  return {
-                    ...o,
-                    items: o.items.map(i => i.id === newRecord.id ? { ...i, estado: newRecord.estado } : i)
-                  };
-                }
-                return o;
-              })
-            }));
-          }
+          console.log("Realtime: items_orden change detected", payload.eventType);
+          get().refreshOrdenesYMesas();
+        }
+      )
+      .on(
+        'postgres_changes',
+        { event: '*', schema: 'public', table: 'menu_items' },
+        (payload) => {
+          console.log("Realtime: menu_items change detected", payload.eventType);
+          get().refreshMenuItems();
         }
       )
       .on(
@@ -414,7 +465,18 @@ export const usePOSStore = create<POSState>((set, get) => ({
       .subscribe();
   },
 
-  setUser: (user) => set({ user }),
+  setUser: (user) => {
+    if (typeof window !== 'undefined') {
+      if (user) {
+        sessionStorage.setItem('user_session', JSON.stringify(user));
+        sessionStorage.setItem('session_timestamp', Date.now().toString());
+      } else {
+        sessionStorage.removeItem('user_session');
+        sessionStorage.removeItem('session_timestamp');
+      }
+    }
+    set({ user });
+  },
   login: async (pin) => {
     // Optimistic check first if already loaded, else query
     let foundUser = get().usuarios.find(u => u.pin === pin && u.estado === 'ACTIVO');
@@ -433,6 +495,10 @@ export const usePOSStore = create<POSState>((set, get) => ({
     }
     
     if (foundUser) {
+      if (typeof window !== 'undefined') {
+        sessionStorage.setItem('user_session', JSON.stringify(foundUser));
+        sessionStorage.setItem('session_timestamp', Date.now().toString());
+      }
       set({ user: foundUser });
       return foundUser;
     }
@@ -440,6 +506,10 @@ export const usePOSStore = create<POSState>((set, get) => ({
   },
   logout: () => {
     supabase.removeAllChannels();
+    if (typeof window !== 'undefined') {
+      sessionStorage.removeItem('user_session');
+      sessionStorage.removeItem('session_timestamp');
+    }
     set({ 
       user: null, 
       isInitialized: false,
@@ -456,40 +526,47 @@ export const usePOSStore = create<POSState>((set, get) => ({
     const id = uuidv4();
     const newUser = { ...usuario, id };
     
+    const serializedTelefono = `${newUser.telefono || ""}|${newUser.sueldo !== undefined ? newUser.sueldo : ""}`;
+
     const { error } = await supabase.from('usuarios').insert({
       id,
       nombre: newUser.nombre,
       cedula: newUser.cedula,
       rol: newUser.rol,
       pin: newUser.pin,
-      telefono: newUser.telefono,
+      telefono: serializedTelefono,
       estado: newUser.estado,
       fecha_ingreso: newUser.fechaIngreso,
       foto_documento: newUser.fotoDocumento || null
     });
     
     if (error) {
-      console.error("Error al insertar usuario en Supabase:", error);
+      console.error("Error al insertar usuario en Supabase:", error.message, "Detalles:", error.details, "Código:", error.code, error);
       throw new Error(error.message);
     }
 
     set((state) => ({ usuarios: [...state.usuarios, newUser] }));
   },
   updateUsuario: async (id, updates) => {
-    const dbUpdates: any = { ...updates };
-    if (dbUpdates.fechaIngreso !== undefined) {
-      dbUpdates.fecha_ingreso = dbUpdates.fechaIngreso;
-      delete dbUpdates.fechaIngreso;
+    const dbUpdates: any = {};
+    if (updates.nombre !== undefined) dbUpdates.nombre = updates.nombre;
+    if (updates.cedula !== undefined) dbUpdates.cedula = updates.cedula;
+    if (updates.rol !== undefined) dbUpdates.rol = updates.rol;
+    if (updates.pin !== undefined) dbUpdates.pin = updates.pin;
+    if (updates.estado !== undefined) dbUpdates.estado = updates.estado;
+    if (updates.fechaIngreso !== undefined) dbUpdates.fecha_ingreso = updates.fechaIngreso;
+    if (updates.fotoDocumento !== undefined) dbUpdates.foto_documento = updates.fotoDocumento;
+
+    if (updates.telefono !== undefined || updates.sueldo !== undefined) {
+      const current = get().usuarios.find(u => u.id === id);
+      const newPhone = updates.telefono !== undefined ? updates.telefono : (current?.telefono || "");
+      const newSueldo = updates.sueldo !== undefined ? updates.sueldo : (current?.sueldo);
+      dbUpdates.telefono = `${newPhone}|${newSueldo !== undefined ? newSueldo : ""}`;
     }
-    if (dbUpdates.fotoDocumento !== undefined) {
-      dbUpdates.foto_documento = dbUpdates.fotoDocumento;
-      delete dbUpdates.fotoDocumento;
-    }
-    delete dbUpdates.id;
 
     const { error } = await supabase.from('usuarios').update(dbUpdates).eq('id', id);
     if (error) {
-      console.error("Error al actualizar usuario en Supabase:", error);
+      console.error("Error al actualizar usuario en Supabase:", error.message, "Detalles:", error.details, "Código:", error.code, error);
       throw new Error(error.message);
     }
 
@@ -507,22 +584,50 @@ export const usePOSStore = create<POSState>((set, get) => ({
   deleteUsuario: async (id) => {
     set((state) => ({ usuarios: state.usuarios.filter(u => u.id !== id) }));
     const { error } = await supabase.from('usuarios').delete().eq('id', id);
-    if (error) console.error("Error al eliminar usuario de Supabase:", error);
+    if (error) {
+      console.error("Error al eliminar usuario de Supabase:", error.message, "Detalles:", error.details, "Código:", error.code, error);
+    }
   },
   updateMesaEstado: async (mesaId, estado, meseroId) => {
     set((state) => ({ mesas: state.mesas.map(m => m.id === mesaId ? { ...m, estado, meseroId } : m) }));
     const { error } = await supabase.from('mesas').update({ estado, mesero_id: meseroId }).eq('id', mesaId);
-    if (error) console.error("Error al actualizar estado de mesa en Supabase:", error);
+    if (error) {
+      console.error("Error al actualizar estado de mesa en Supabase:", error.message, "Detalles:", error.details, "Código:", error.code, error);
+    }
   },
   updateMesa: async (mesaId, updates) => {
     set((state) => ({ mesas: state.mesas.map(m => m.id === mesaId ? { ...m, ...updates } : m) }));
-    const { error } = await supabase.from('mesas').update(updates).eq('id', mesaId);
-    if (error) console.error("Error al actualizar mesa en Supabase:", error);
+    const dbUpdates: any = {};
+    if (updates.id !== undefined) dbUpdates.id = updates.id;
+    if (updates.numero !== undefined) dbUpdates.numero = updates.numero;
+    if (updates.zona !== undefined) dbUpdates.zona = updates.zona;
+    if (updates.capacidad !== undefined) dbUpdates.capacidad = updates.capacidad;
+    if (updates.estado !== undefined) dbUpdates.estado = updates.estado;
+    if (updates.meseroId !== undefined) dbUpdates.mesero_id = updates.meseroId;
+    if (updates.ordenActivaId !== undefined) dbUpdates.orden_activa_id = updates.ordenActivaId;
+    if (updates.tiempoAbierta !== undefined) dbUpdates.tiempo_abierta = updates.tiempoAbierta;
+
+    const { error } = await supabase.from('mesas').update(dbUpdates).eq('id', mesaId);
+    if (error) {
+      console.error("Error al actualizar mesa en Supabase:", error.message, "Detalles:", error.details, "Código:", error.code, error);
+    }
   },
   addMesa: async (mesa) => {
     set((state) => ({ mesas: [...state.mesas, mesa].sort((a, b) => a.id - b.id) }));
-    const { error } = await supabase.from('mesas').insert(mesa);
-    if (error) console.error("Error al añadir mesa en Supabase:", error);
+    const dbMesa = {
+      id: mesa.id,
+      numero: mesa.numero,
+      zona: mesa.zona,
+      capacidad: mesa.capacidad,
+      estado: mesa.estado,
+      mesero_id: mesa.meseroId || null,
+      orden_activa_id: mesa.ordenActivaId || null,
+      tiempo_abierta: mesa.tiempoAbierta || null
+    };
+    const { error } = await supabase.from('mesas').insert(dbMesa);
+    if (error) {
+      console.error("Error al añadir mesa en Supabase:", error.message, "Detalles:", error.details, "Código:", error.code, error);
+    }
   },
   deleteMesa: async (mesaId) => {
     set((state) => ({ mesas: state.mesas.filter(m => m.id !== mesaId) }));
@@ -530,8 +635,22 @@ export const usePOSStore = create<POSState>((set, get) => ({
     if (error) console.error("Error al eliminar mesa de Supabase:", error);
   },
   addOrden: async (orden) => {
-    set((state) => ({ ordenes: [...state.ordenes, orden] }));
+    const lastConsecutivo = get().ordenes.reduce((max, o) => (o.consecutivo && o.consecutivo > max ? o.consecutivo : max), 0);
+    const optimisticConsecutivo = lastConsecutivo + 1;
+    const ordenWithConsecutivo = { 
+      consecutivo: optimisticConsecutivo,
+      ...orden 
+    };
+
+    set((state) => ({ ordenes: [...state.ordenes, ordenWithConsecutivo] }));
     const { items, ...ordenData } = orden as any;
+
+    if (items && items.length > 0) {
+      for (const item of items) {
+        await get().decrementMenuItemStock(item.menuItemId, item.cantidad);
+      }
+    }
+
     const { error: orderError } = await supabase.from('ordenes').insert({
       id: ordenData.id,
       mesa_id: ordenData.mesaId,
@@ -563,13 +682,25 @@ export const usePOSStore = create<POSState>((set, get) => ({
   },
   updateOrden: async (ordenId, updates) => {
     set((state) => ({ ordenes: state.ordenes.map(o => o.id === ordenId ? { ...o, ...updates } : o) }));
-    const { error } = await supabase.from('ordenes').update(updates).eq('id', ordenId);
+    const dbUpdates: any = { ...updates };
+    if (dbUpdates.rating !== undefined) {
+      dbUpdates.cliente_documento = dbUpdates.rating ? dbUpdates.rating.toString() : null;
+      delete dbUpdates.rating;
+    }
+    const { error } = await supabase.from('ordenes').update(dbUpdates).eq('id', ordenId);
     if (error) console.error("Error al actualizar orden en Supabase:", error);
   },
   addItemsToOrden: async (ordenId, newItems) => {
     set((state) => ({
       ordenes: state.ordenes.map(o => o.id === ordenId ? { ...o, items: [...(o.items || []), ...newItems] } : o)
     }));
+
+    if (newItems && newItems.length > 0) {
+      for (const item of newItems) {
+        await get().decrementMenuItemStock(item.menuItemId, item.cantidad);
+      }
+    }
+
     const { error } = await supabase.from('items_orden').insert(newItems.map((i: any) => ({
       id: i.id,
       orden_id: ordenId,
@@ -676,10 +807,13 @@ export const usePOSStore = create<POSState>((set, get) => ({
     const id = uuidv4();
     const newItem = { ...item, id };
     set((state) => ({ menuItems: [...state.menuItems, newItem] }));
+
+    const dbDesc = newItem.stock !== undefined ? `[STOCK:${newItem.stock}] ${newItem.descripcion || ''}` : newItem.descripcion;
+
     const { error } = await supabase.from('menu_items').insert({
       id,
       nombre: newItem.nombre,
-      descripcion: newItem.descripcion,
+      descripcion: dbDesc,
       precio: newItem.precio,
       categoria: newItem.categoria,
       estacion: newItem.estacion,
@@ -689,10 +823,21 @@ export const usePOSStore = create<POSState>((set, get) => ({
     if (error) console.error("Error al insertar menu item:", error);
   },
   updateMenuItem: async (id, updates) => {
+    const current = get().menuItems.find(m => m.id === id);
+    const newStock = updates.stock !== undefined ? updates.stock : (current ? current.stock : undefined);
+    const newDesc = updates.descripcion !== undefined ? updates.descripcion : (current ? current.descripcion : '');
+
+    const dbDesc = newStock !== undefined ? `[STOCK:${newStock}] ${newDesc}` : newDesc;
+
     set((state) => ({
-      menuItems: state.menuItems.map(m => m.id === id ? { ...m, ...updates } : m)
+      menuItems: state.menuItems.map(m => m.id === id ? { ...m, ...updates, stock: newStock, descripcion: newDesc } : m)
     }));
-    const { error } = await supabase.from('menu_items').update(updates).eq('id', id);
+
+    const dbUpdates: any = { ...updates };
+    dbUpdates.descripcion = dbDesc;
+    delete dbUpdates.stock;
+
+    const { error } = await supabase.from('menu_items').update(dbUpdates).eq('id', id);
     if (error) console.error("Error al actualizar menu item en Supabase:", error);
   },
   deleteMenuItem: async (id) => {
@@ -700,7 +845,7 @@ export const usePOSStore = create<POSState>((set, get) => ({
     const { error } = await supabase.from('menu_items').delete().eq('id', id);
     if (error) console.error("Error al eliminar menu item de Supabase:", error);
   },
-  closeOrden: async (ordenId, mesaId, metodoPago) => {
+  closeOrden: async (ordenId, mesaId, metodoPago, incluyePropina) => {
     const activeFecha = get().fechaOperativa;
     
     // Construct local timestamp matching the active operational date
@@ -718,14 +863,17 @@ export const usePOSStore = create<POSState>((set, get) => ({
       ? `${activeFecha}T${timePart}.${ms}${timezoneOffsetStr}`
       : new Date().toISOString();
 
+    const tipMeta = incluyePropina === false ? 'SIN_PROPINA' : 'CON_PROPINA';
+
     set((state) => ({
-      ordenes: state.ordenes.map(o => o.id === ordenId ? { ...o, estado: 'CERRADA', metodoPago, updatedAt: operationalTimestamp } : o),
+      ordenes: state.ordenes.map(o => o.id === ordenId ? { ...o, estado: 'CERRADA', metodoPago, clienteNombre: tipMeta, updatedAt: operationalTimestamp } : o),
       mesas: state.mesas.map(m => m.id === mesaId ? { ...m, estado: 'LIBRE', meseroId: undefined, ordenActivaId: undefined } : m)
     }));
     const [orderRes, mesaRes] = await Promise.all([
       supabase.from('ordenes').update({ 
         estado: 'CERRADA', 
         metodo_pago: metodoPago, 
+        cliente_nombre: tipMeta,
         updated_at: operationalTimestamp 
       }).eq('id', ordenId),
       supabase.from('mesas').update({ estado: 'LIBRE', mesero_id: null, orden_activa_id: null }).eq('id', mesaId)

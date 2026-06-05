@@ -51,6 +51,21 @@ export default function MenuPage() {
   const { toast } = useToast();
 
   const [itemToEdit, setItemToEdit] = useState<Partial<MenuItem>>({});
+  const [editingStockId, setEditingStockId] = useState<string | null>(null);
+  const [editStockValue, setEditStockValue] = useState<string>("");
+
+  const handleUpdateStockInline = (id: string) => {
+    const val = parseInt(editStockValue);
+    if (isNaN(val)) return;
+    const item = menuItems.find(m => m.id === id);
+    if (!item) return;
+    updateMenuItem(id, { stock: val });
+    setEditingStockId(null);
+    toast({
+      title: "Stock Actualizado",
+      description: `El stock de "${item.nombre}" ahora es ${val}.`
+    });
+  };
 
   const [newItem, setNewItem] = useState<Partial<MenuItem>>({
     nombre: "",
@@ -159,17 +174,41 @@ export default function MenuPage() {
                   </div>
                   <div className="space-y-2">
                     <Label>Categoría</Label>
-                    <Input 
-                      placeholder="Ej: Cortes"
+                    <Select 
                       value={newItem.categoria} 
-                      onChange={(e) => setNewItem({...newItem, categoria: e.target.value})} 
-                      className="bg-background/50"
-                    />
+                      onValueChange={(val) => {
+                        const mapping: Record<string, Estacion> = {
+                          asado: 'ASADO',
+                          parrilla: 'PARRILLA',
+                          cocina: 'COCINA',
+                          bar: 'BAR'
+                        };
+                        const mappedEstacion = mapping[val];
+                        setNewItem({
+                          ...newItem,
+                          categoria: val,
+                          estacion: mappedEstacion || newItem.estacion
+                        });
+                      }}
+                    >
+                      <SelectTrigger className="bg-background/50">
+                        <SelectValue placeholder="Seleccionar Categoría" />
+                      </SelectTrigger>
+                      <SelectContent className="bg-card border-border">
+                        <SelectItem value="asado">asado</SelectItem>
+                        <SelectItem value="parrilla">parrilla</SelectItem>
+                        <SelectItem value="cocina">cocina</SelectItem>
+                        <SelectItem value="bar">bar</SelectItem>
+                        {newItem.categoria && !['asado', 'parrilla', 'cocina', 'bar'].includes(newItem.categoria) && (
+                          <SelectItem value={newItem.categoria}>{newItem.categoria}</SelectItem>
+                        )}
+                      </SelectContent>
+                    </Select>
                   </div>
                 </div>
                 <div className="space-y-2">
                   <Label>Impresora / Área de Destino</Label>
-                  <Select onValueChange={(val) => setNewItem({...newItem, estacion: val as Estacion})} defaultValue="COCINA">
+                  <Select onValueChange={(val) => setNewItem({...newItem, estacion: val as Estacion})} value={newItem.estacion}>
                     <SelectTrigger className="bg-background/50">
                       <SelectValue placeholder="Seleccionar Impresora" />
                     </SelectTrigger>
@@ -195,6 +234,29 @@ export default function MenuPage() {
                     />
                   </div>
                 </div>
+                <div className="flex items-center justify-between p-4 bg-accent/20 rounded-xl border border-border/50">
+                  <div className="space-y-0.5">
+                    <Label className="text-base font-bold">Controlar Inventario / Stock</Label>
+                    <p className="text-[10px] text-muted-foreground">Establece un límite de unidades disponibles para este plato.</p>
+                  </div>
+                  <Switch 
+                    checked={newItem.stock !== undefined} 
+                    onCheckedChange={(checked) => setNewItem({...newItem, stock: checked ? 0 : undefined})}
+                    className="data-[state=checked]:bg-primary"
+                  />
+                </div>
+                {newItem.stock !== undefined && (
+                  <div className="space-y-2 animate-in slide-in-from-top-2 duration-200">
+                    <Label>Cantidad en Stock</Label>
+                    <Input 
+                      type="number" 
+                      placeholder="Cantidad"
+                      value={newItem.stock} 
+                      onChange={(e) => setNewItem({...newItem, stock: parseInt(e.target.value) || 0})} 
+                      className="bg-background/50"
+                    />
+                  </div>
+                )}
                 <div className="flex items-center justify-between p-4 bg-accent/20 rounded-xl border border-border/50">
                   <div className="space-y-0.5">
                     <Label className="text-base font-bold">Disponible para Venta</Label>
@@ -232,12 +294,36 @@ export default function MenuPage() {
                   </div>
                   <div className="space-y-2">
                     <Label>Categoría</Label>
-                    <Input 
-                      placeholder="Ej: Cortes"
+                    <Select 
                       value={itemToEdit.categoria || ""} 
-                      onChange={(e) => setItemToEdit({...itemToEdit, categoria: e.target.value})} 
-                      className="bg-background/50"
-                    />
+                      onValueChange={(val) => {
+                        const mapping: Record<string, Estacion> = {
+                          asado: 'ASADO',
+                          parrilla: 'PARRILLA',
+                          cocina: 'COCINA',
+                          bar: 'BAR'
+                        };
+                        const mappedEstacion = mapping[val];
+                        setItemToEdit({
+                          ...itemToEdit,
+                          categoria: val,
+                          estacion: mappedEstacion || itemToEdit.estacion
+                        });
+                      }}
+                    >
+                      <SelectTrigger className="bg-background/50">
+                        <SelectValue placeholder="Seleccionar Categoría" />
+                      </SelectTrigger>
+                      <SelectContent className="bg-card border-border">
+                        <SelectItem value="asado">asado</SelectItem>
+                        <SelectItem value="parrilla">parrilla</SelectItem>
+                        <SelectItem value="cocina">cocina</SelectItem>
+                        <SelectItem value="bar">bar</SelectItem>
+                        {itemToEdit.categoria && !['asado', 'parrilla', 'cocina', 'bar'].includes(itemToEdit.categoria) && (
+                          <SelectItem value={itemToEdit.categoria}>{itemToEdit.categoria}</SelectItem>
+                        )}
+                      </SelectContent>
+                    </Select>
                   </div>
                 </div>
                 <div className="space-y-2">
@@ -268,6 +354,29 @@ export default function MenuPage() {
                     />
                   </div>
                 </div>
+                <div className="flex items-center justify-between p-4 bg-accent/20 rounded-xl border border-border/50">
+                  <div className="space-y-0.5">
+                    <Label className="text-base font-bold">Controlar Inventario / Stock</Label>
+                    <p className="text-[10px] text-muted-foreground">Establece un límite de unidades disponibles para este plato.</p>
+                  </div>
+                  <Switch 
+                    checked={itemToEdit.stock !== undefined} 
+                    onCheckedChange={(checked) => setItemToEdit({...itemToEdit, stock: checked ? 0 : undefined})}
+                    className="data-[state=checked]:bg-primary"
+                  />
+                </div>
+                {itemToEdit.stock !== undefined && (
+                  <div className="space-y-2 animate-in slide-in-from-top-2 duration-200">
+                    <Label>Cantidad en Stock</Label>
+                    <Input 
+                      type="number" 
+                      placeholder="Cantidad"
+                      value={itemToEdit.stock} 
+                      onChange={(e) => setItemToEdit({...itemToEdit, stock: parseInt(e.target.value) || 0})} 
+                      className="bg-background/50"
+                    />
+                  </div>
+                )}
               </div>
               <DialogFooter className="gap-2">
                 <Button variant="ghost" onClick={() => setIsEditDialogOpen(false)} className="rounded-xl">Cancelar</Button>
@@ -299,6 +408,7 @@ export default function MenuPage() {
                 <TableHead className="font-bold uppercase text-[10px] tracking-widest">Categoría</TableHead>
                 <TableHead className="font-bold uppercase text-[10px] tracking-widest">Se prepara en</TableHead>
                 <TableHead className="text-right font-bold uppercase text-[10px] tracking-widest">Precio Venta (COP)</TableHead>
+                <TableHead className="text-center font-bold uppercase text-[10px] tracking-widest">Stock</TableHead>
                 <TableHead className="text-center font-bold uppercase text-[10px] tracking-widest pr-6">Disponibilidad</TableHead>
               </TableRow>
             </TableHeader>
@@ -312,6 +422,48 @@ export default function MenuPage() {
                   </TableCell>
                   <TableCell className="text-right font-black text-secondary">
                     ${m.precio.toLocaleString('es-CO')}
+                  </TableCell>
+                  <TableCell className="text-center">
+                    {editingStockId === m.id ? (
+                      <div className="flex items-center justify-center gap-1.5 animate-in fade-in zoom-in-95 duration-150">
+                        <Input 
+                          type="number" 
+                          className="w-16 h-8 text-center bg-background font-bold text-xs" 
+                          value={editStockValue} 
+                          onChange={(e) => setEditStockValue(e.target.value)} 
+                          onKeyDown={(e) => {
+                            if (e.key === 'Enter') handleUpdateStockInline(m.id);
+                            if (e.key === 'Escape') setEditingStockId(null);
+                          }}
+                          autoFocus 
+                        />
+                        <Button 
+                          size="sm" 
+                          className="h-8 px-2 bg-primary font-bold text-xs hover:glow-orange" 
+                          onClick={() => handleUpdateStockInline(m.id)}
+                        >
+                          OK
+                        </Button>
+                      </div>
+                    ) : (
+                      <div 
+                        className="inline-flex items-center justify-center gap-1 group/stock cursor-pointer hover:bg-accent/40 py-1 px-2 rounded-lg transition-all duration-200"
+                        onClick={() => {
+                          setEditingStockId(m.id);
+                          setEditStockValue(m.stock !== undefined ? m.stock.toString() : "0");
+                        }}
+                        title="Haga clic para editar stock"
+                      >
+                        {m.stock !== undefined ? (
+                          <Badge className={cn("font-bold text-[10px]", m.stock <= 0 ? "bg-destructive text-white animate-pulse" : "bg-green-500/10 text-green-500 border border-green-500/20")}>
+                            {m.stock <= 0 ? "Agotado" : `${m.stock} und`}
+                          </Badge>
+                        ) : (
+                          <span className="text-[11px] text-muted-foreground italic">Ilimitado</span>
+                        )}
+                        <Pencil className="w-3 h-3 opacity-0 group-hover/stock:opacity-75 transition-opacity ml-1 text-muted-foreground" />
+                      </div>
+                    )}
                   </TableCell>
                   <TableCell className="text-center pr-6">
                     <div className="flex items-center justify-center gap-2">

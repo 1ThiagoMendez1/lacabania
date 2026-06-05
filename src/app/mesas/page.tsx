@@ -4,7 +4,7 @@
 import { usePOSStore } from "@/lib/store";
 import { Badge } from "@/components/ui/badge";
 import { cn } from "@/lib/utils";
-import { Clock, Users, UtensilsCrossed, PlusCircle, Edit, Ban, CheckCircle, Layers, AlertCircle, MapPin, Activity, Info, Map, Trash2 } from "lucide-react";
+import { Clock, Users, UtensilsCrossed, PlusCircle, Edit, Ban, CheckCircle, Layers, AlertCircle, MapPin, Activity, Info, Map, Trash2, ShoppingBag, Star, Lock } from "lucide-react";
 import { 
   Dialog, 
   DialogContent, 
@@ -43,11 +43,27 @@ export default function MesasPage() {
       document.body.style.pointerEvents = 'auto';
       document.body.style.overflow = 'auto';
     }
+
+    const refresh = usePOSStore.getState().refreshOrdenesYMesas;
+    const setupRealtime = usePOSStore.getState().setupRealtime;
+    
+    // Forzar actualización inicial
+    refresh().catch(err => console.error("Error al refrescar mesas al montar vista de mesas:", err));
+    setupRealtime();
+
+    // Sondeo de respaldo cada 5 segundos
+    const interval = setInterval(() => {
+      refresh().catch(err => console.error("Error en sondeo de respaldo de mesas:", err));
+    }, 5000);
+
+    return () => {
+      clearInterval(interval);
+    };
   }, []);
 
   const [newMesa, setNewMesa] = useState({
     id: "",
-    zona: "Primer Piso" as const,
+    zona: "Primer Piso" as Mesa['zona'],
     capacidad: 4
   });
 
@@ -135,6 +151,73 @@ export default function MesasPage() {
     updateMesaEstado(mesa.id, nuevoEstado);
   };
 
+  const handleNuevoPedidoParaLlevar = async () => {
+    if (isCajaCerrada) {
+      toast({
+        variant: "destructive",
+        title: "Ventas Bloqueadas",
+        description: "No se pueden realizar pedidos porque la caja ya está cerrada. 🤠"
+      });
+      return;
+    }
+
+    // Primero, verificar si hay alguna mesa 'Para Llevar' que esté 'LIBRE' para reutilizarla.
+    const availableMesa = mesas.find(m => m.zona === 'Para Llevar' && m.estado === 'LIBRE');
+    if (availableMesa) {
+      try {
+        await updateMesaEstado(availableMesa.id, 'OCUPADA', user?.id);
+        toast({
+          title: "Pedido Para Llevar Reutilizado",
+          description: `Reabriendo canal para llevar ORD-${availableMesa.id >= 101 ? availableMesa.id - 100 : availableMesa.id}.`
+        });
+        router.push(`/pedidos/${availableMesa.id}`);
+        return;
+      } catch (err) {
+        console.error("Error al reutilizar mesa de llevar libre:", err);
+      }
+    }
+    
+    // Buscar el siguiente ID disponible para pedidos "Para Llevar".
+    // Empezamos en 101 para diferenciarlos de las mesas físicas de los salones.
+    const takeAwayMesas = mesas.filter(m => m.zona === 'Para Llevar');
+    let nextId = 101;
+    if (takeAwayMesas.length > 0) {
+      nextId = Math.max(...takeAwayMesas.map(m => m.id)) + 1;
+    } else {
+      const allIds = mesas.map(m => m.id);
+      while (allIds.includes(nextId)) {
+        nextId++;
+      }
+    }
+
+    const mesa: Mesa = {
+      id: nextId,
+      numero: nextId,
+      zona: 'Para Llevar',
+      capacidad: 1,
+      estado: 'OCUPADA',
+      meseroId: user?.id
+    };
+
+    console.log("Iniciando creación de pedido para llevar:", mesa);
+    try {
+      await addMesa(mesa);
+      console.log("Pedido para llevar creado exitosamente en Supabase. Redirigiendo a pedidos de mesa ID:", nextId);
+      toast({
+        title: "Pedido Para Llevar Creado",
+        description: `Abriendo comanda para llevar ORD-${nextId - 100}.`
+      });
+      router.push(`/pedidos/${nextId}`);
+    } catch (err: any) {
+      console.error("Error al crear pedido para llevar:", err);
+      toast({
+        variant: "destructive",
+        title: "Error",
+        description: "No se pudo iniciar el pedido para llevar en la base de datos."
+      });
+    }
+  };
+
   const handleDeleteMesa = (mesaId: number) => {
     deleteMesa(mesaId);
     toast({
@@ -146,6 +229,7 @@ export default function MesasPage() {
 
   const mesasPlanta1 = mesas.filter(m => m.zona === 'Primer Piso');
   const mesasPlanta2 = mesas.filter(m => m.zona === 'Segundo Piso');
+  const mesasParaLlevar = mesas.filter(m => m.zona === 'Para Llevar' && m.estado !== 'LIBRE');
 
   return (
     <main className="p-4 md:p-8">
@@ -186,6 +270,7 @@ export default function MesasPage() {
                     <SelectContent className="bg-card border-border">
                       <SelectItem value="Primer Piso">Primer Piso</SelectItem>
                       <SelectItem value="Segundo Piso">Segundo Piso</SelectItem>
+                      <SelectItem value="Para Llevar">Para Llevar</SelectItem>
                     </SelectContent>
                   </Select>
                 </div>
@@ -213,40 +298,88 @@ export default function MesasPage() {
         </div>
       )}
 
-      <Tabs defaultValue="piso1" className="w-full">
+      <Tabs defaultValue={user?.rol === 'CAJERO' ? "paraLlevar" : "piso1"} className="w-full">
         <TabsList className="bg-accent/30 border border-border p-1 h-12 mb-6 w-full sm:w-auto overflow-x-auto overflow-y-hidden">
-          <TabsTrigger value="piso1" className="flex-1 sm:flex-none data-[state=active]:bg-primary data-[state=active]:text-white gap-2 px-6">
+          {user?.rol !== 'CAJERO' && (
+            <>
+              <TabsTrigger value="piso1" className="flex-1 sm:flex-none data-[state=active]:bg-primary data-[state=active]:text-white gap-2 px-6">
+                <Layers className="w-4 h-4" />
+                1er Piso
+              </TabsTrigger>
+              <TabsTrigger value="piso2" className="flex-1 sm:flex-none data-[state=active]:bg-secondary data-[state=active]:text-secondary-foreground gap-2 px-6">
+                <Layers className="w-4 h-4" />
+                2do Piso
+              </TabsTrigger>
+            </>
+          )}
+          <TabsTrigger value="paraLlevar" className="flex-1 sm:flex-none data-[state=active]:bg-amber-600 data-[state=active]:text-white gap-2 px-6">
             <Layers className="w-4 h-4" />
-            1er Piso
-          </TabsTrigger>
-          <TabsTrigger value="piso2" className="flex-1 sm:flex-none data-[state=active]:bg-secondary data-[state=active]:text-secondary-foreground gap-2 px-6">
-            <Layers className="w-4 h-4" />
-            2do Piso
+            Para Llevar
           </TabsTrigger>
         </TabsList>
 
-        <TabsContent value="piso1">
-          <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-5 gap-4 md:gap-6">
-            {mesasPlanta1.map((mesa) => (
-              <MesaCard 
-                key={mesa.id} 
-                mesa={mesa} 
-                user={user}
-                onOpenMesa={handleOpenMesa} 
-                onVerPedido={handleVerPedido} 
-                onStartEdit={handleStartEdit} 
-                onToggleFueraServicio={toggleFueraServicio} 
-                onDeleteMesa={handleDeleteMesa}
-                getStatusColor={getStatusColor}
-                ordenes={ordenes}
-              />
-            ))}
-          </div>
-        </TabsContent>
+        {user?.rol !== 'CAJERO' && (
+          <>
+            <TabsContent value="piso1">
+              <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-5 gap-4 md:gap-6">
+                {mesasPlanta1.map((mesa) => (
+                  <MesaCard 
+                    key={mesa.id} 
+                    mesa={mesa} 
+                    user={user}
+                    onOpenMesa={handleOpenMesa} 
+                    onVerPedido={handleVerPedido} 
+                    onStartEdit={handleStartEdit} 
+                    onToggleFueraServicio={toggleFueraServicio} 
+                    onDeleteMesa={handleDeleteMesa}
+                    getStatusColor={getStatusColor}
+                    ordenes={ordenes}
+                  />
+                ))}
+              </div>
+            </TabsContent>
 
-        <TabsContent value="piso2">
+            <TabsContent value="piso2">
+              <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-5 gap-4 md:gap-6">
+                {mesasPlanta2.map((mesa) => (
+                  <MesaCard 
+                    key={mesa.id} 
+                    mesa={mesa} 
+                    user={user}
+                    onOpenMesa={handleOpenMesa} 
+                    onVerPedido={handleVerPedido} 
+                    onStartEdit={handleStartEdit} 
+                    onToggleFueraServicio={toggleFueraServicio} 
+                    onDeleteMesa={handleDeleteMesa}
+                    getStatusColor={getStatusColor}
+                    ordenes={ordenes}
+                  />
+                ))}
+              </div>
+            </TabsContent>
+          </>
+        )}
+
+        <TabsContent value="paraLlevar">
           <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-5 gap-4 md:gap-6">
-            {mesasPlanta2.map((mesa) => (
+            <button
+              onClick={handleNuevoPedidoParaLlevar}
+              disabled={isCajaCerrada}
+              className={cn(
+                "relative group h-32 md:h-40 rounded-3xl border-2 border-dashed border-amber-500/40 bg-amber-500/5 hover:bg-amber-500/10 hover:border-amber-500 text-amber-500 transition-all duration-300 p-4 md:p-5 flex flex-col items-center justify-center gap-2 active:scale-95 shadow-md hover:shadow-xl hover:shadow-amber-500/10",
+                isCajaCerrada && "opacity-50 cursor-not-allowed"
+              )}
+            >
+              <div className="p-2.5 bg-amber-500/10 rounded-2xl group-hover:scale-110 transition-transform duration-300">
+                <ShoppingBag className="w-7 h-7 md:w-9 md:h-9 text-amber-500" />
+              </div>
+              <div className="text-center">
+                <span className="text-[11px] md:text-xs font-black uppercase tracking-wider block">Nuevo Pedido</span>
+                <span className="text-[8px] opacity-75 font-bold uppercase tracking-widest">Para Llevar</span>
+              </div>
+            </button>
+
+            {mesasParaLlevar.map((mesa) => (
               <MesaCard 
                 key={mesa.id} 
                 mesa={mesa} 
@@ -277,6 +410,7 @@ export default function MesasPage() {
                       <SelectContent className="bg-card border-border">
                         <SelectItem value="Primer Piso">Primer Piso</SelectItem>
                         <SelectItem value="Segundo Piso">Segundo Piso</SelectItem>
+                        <SelectItem value="Para Llevar">Para Llevar</SelectItem>
                       </SelectContent>
                     </Select>
                   </div>
@@ -296,10 +430,15 @@ export default function MesasPage() {
 }
 
 function MesaCard({ mesa, user, onOpenMesa, onVerPedido, onStartEdit, onToggleFueraServicio, onDeleteMesa, getStatusColor, ordenes }: any) {
-    const { isCajaCerrada } = usePOSStore();
+    const { isCajaCerrada, updateOrden, usuarios } = usePOSStore();
+    const router = useRouter();
     const activeOrder = ordenes.find((o: Orden) => o.mesaId === mesa.id && o.estado === 'ABIERTA');
+    const isMesaOwnedByOther = user?.rol === 'MESERO' && mesa.meseroId && mesa.meseroId !== user.id;
+    const ownerMeseroNombre = (mesa.meseroId && usuarios.find((u: any) => u.id === mesa.meseroId)?.nombre) || "otro mesero";
     const [delayLevel, setDelayLevel] = useState<'none' | 'warning' | 'critical'>('none');
     const [isOpen, setIsOpen] = useState(false);
+    const [isRatingOpen, setIsRatingOpen] = useState(false);
+    const [isRatingSuccess, setIsRatingSuccess] = useState(false);
 
     useEffect(() => {
       if (!activeOrder) {
@@ -322,54 +461,134 @@ function MesaCard({ mesa, user, onOpenMesa, onVerPedido, onStartEdit, onToggleFu
       return () => clearInterval(interval);
     }, [activeOrder]);
 
+    const isLlevar = mesa.zona === 'Para Llevar';
+    const orderNum = mesa.id >= 101 ? mesa.id - 100 : mesa.id;
+
     return (
+      <>
         <Dialog open={isOpen} onOpenChange={setIsOpen}>
           <DialogTrigger asChild>
-            <button
-              className={cn(
-                "relative group h-32 md:h-40 rounded-3xl border-2 transition-all duration-500 p-4 md:p-5 flex flex-col items-center justify-between wood-texture overflow-hidden active:scale-95",
-                getStatusColor(mesa.estado),
-                delayLevel === 'critical' ? "ring-2 ring-red-500 ring-offset-2 ring-offset-background animate-pulse shadow-[0_0_15px_rgba(239,68,68,0.4)]" : 
-                delayLevel === 'warning' ? "ring-2 ring-yellow-500/50 ring-offset-1 ring-offset-background" : 
-                "hover:scale-[1.02] shadow-lg"
-              )}
-            >
-              <div className="absolute top-0 right-0 p-3 opacity-10">
-                {mesa.estado === 'FUERA SERVICIO' ? <Ban className="w-10 h-10 md:w-14 md:h-14" /> : <UtensilsCrossed className="w-10 h-10 md:w-14 md:h-14" />}
-              </div>
-              
-              <div className="w-full flex justify-between items-start z-10">
-                <span className="text-[8px] md:text-[9px] font-mono font-black px-2 py-0.5 md:px-2.5 md:py-1 rounded-lg bg-background/40 backdrop-blur-sm border border-current/20">
-                  {mesa.zona === 'Primer Piso' ? '1er' : '2do'}
-                </span>
-                {delayLevel !== 'none' && (
-                  <div className="flex items-center">
-                    <div className={cn(
-                      "w-2 md:w-2.5 h-2 md:h-2.5 rounded-full animate-ping absolute",
-                      delayLevel === 'critical' ? "bg-red-500" : "bg-yellow-500"
-                    )} />
-                    <div className={cn(
-                      "w-2 md:w-2.5 h-2 md:h-2.5 rounded-full relative",
-                      delayLevel === 'critical' ? "bg-red-500" : "bg-yellow-500"
-                    )} />
-                  </div>
+            {isLlevar ? (
+              <button
+                className={cn(
+                  "relative group h-32 md:h-40 rounded-3xl border transition-all duration-500 p-4 md:p-5 flex flex-col items-center justify-between overflow-hidden active:scale-95 w-full",
+                  mesa.estado === 'LIBRE' 
+                    ? "bg-slate-900/40 border-slate-700/50 text-slate-400 hover:border-amber-500/50 hover:bg-slate-900/60 hover:shadow-[0_0_20px_rgba(245,158,11,0.05)]" 
+                    : mesa.estado === 'EN PEDIDO'
+                    ? "bg-gradient-to-br from-amber-600/10 via-amber-700/5 to-transparent border-amber-500/40 text-amber-300 shadow-[0_4px_20px_rgba(245,158,11,0.15)] hover:border-amber-500/60"
+                    : "bg-gradient-to-br from-emerald-600/10 via-emerald-700/5 to-transparent border-emerald-500/40 text-emerald-300 shadow-[0_4px_20px_rgba(16,185,129,0.15)] hover:border-emerald-500/60",
+                  delayLevel === 'critical' ? "ring-2 ring-red-500 ring-offset-2 ring-offset-background animate-pulse shadow-[0_0_15px_rgba(239,68,68,0.4)]" : 
+                  delayLevel === 'warning' ? "ring-2 ring-yellow-500/50 ring-offset-1 ring-offset-background" : 
+                  "hover:scale-[1.02] shadow-lg"
                 )}
-              </div>
-
-              <div className="flex flex-col items-center gap-0 md:gap-1 z-10">
-                <span className="text-4xl md:text-6xl font-headline font-black tracking-tighter">{mesa.id}</span>
-                <div className="flex items-center gap-1 opacity-60">
-                  <Users className="w-3 h-3 md:w-3.5 md:h-3.5" />
-                  <span className="text-[9px] md:text-[10px] font-bold uppercase tracking-widest">{mesa.capacidad} P</span>
+              >
+                <div className="absolute -bottom-4 -right-4 p-3 opacity-[0.06] group-hover:scale-110 group-hover:opacity-10 transition-all duration-500 pointer-events-none">
+                  <ShoppingBag className="w-20 h-20 md:w-28 md:h-28 text-current" />
                 </div>
-              </div>
+                
+                <div className="w-full flex justify-between items-start z-10">
+                  <span className="text-[7px] md:text-[8px] font-mono font-black px-2 py-0.5 rounded-lg bg-amber-500/15 border border-amber-500/20 text-amber-500 uppercase tracking-widest">
+                    LLEVAR
+                  </span>
+                  {delayLevel !== 'none' && (
+                    <div className="flex items-center">
+                      <div className={cn(
+                        "w-2 md:w-2.5 h-2 md:h-2.5 rounded-full animate-ping absolute",
+                        delayLevel === 'critical' ? "bg-red-500" : "bg-yellow-500"
+                      )} />
+                      <div className={cn(
+                        "w-2 md:w-2.5 h-2 md:h-2.5 rounded-full relative",
+                        delayLevel === 'critical' ? "bg-red-500" : "bg-yellow-500"
+                      )} />
+                    </div>
+                  )}
+                </div>
 
-              <div className="w-full flex justify-center z-10">
-                 <Badge variant="outline" className="text-[7px] md:text-[8px] font-black uppercase tracking-[0.1em] md:tracking-[0.2em] bg-background/20 py-0 px-2 border-current/20">
-                   {mesa.estado}
-                 </Badge>
-              </div>
-            </button>
+                <div className="flex flex-col items-center gap-0.5 md:gap-1 z-10">
+                  <span className="text-[9px] md:text-[10px] font-mono font-black uppercase tracking-[0.2em] text-muted-foreground/60 group-hover:text-muted-foreground transition-colors">
+                    Pedido
+                  </span>
+                  <span className="text-3xl md:text-4xl font-headline font-black tracking-tighter bg-gradient-to-r from-amber-200 via-amber-100 to-yellow-400 bg-clip-text text-transparent group-hover:scale-105 transition-transform duration-300">
+                    {activeOrder && activeOrder.consecutivo ? `PLL-${activeOrder.consecutivo}` : `#${orderNum}`}
+                  </span>
+                </div>
+
+                <div className="w-full flex justify-center z-10">
+                   <Badge variant="outline" className={cn(
+                     "text-[7px] md:text-[8px] font-black uppercase tracking-[0.15em] bg-background/20 py-0.5 px-2.5 border-current/20",
+                     mesa.estado === 'LIBRE' ? "text-slate-400 border-slate-700/50" : mesa.estado === 'EN PEDIDO' ? "text-amber-400 border-amber-500/30" : "text-emerald-400 border-emerald-500/30"
+                   )}>
+                     {mesa.estado === 'LIBRE' ? 'Disponible' : mesa.estado}
+                   </Badge>
+                </div>
+              </button>
+            ) : (
+              <button
+                className={cn(
+                  "relative group h-32 md:h-40 rounded-3xl border-2 transition-all duration-500 p-4 md:p-5 flex flex-col items-center justify-between wood-texture overflow-hidden active:scale-95",
+                  getStatusColor(mesa.estado),
+                  delayLevel === 'critical' ? "ring-2 ring-red-500 ring-offset-2 ring-offset-background animate-pulse shadow-[0_0_15px_rgba(239,68,68,0.4)]" : 
+                  delayLevel === 'warning' ? "ring-2 ring-yellow-500/50 ring-offset-1 ring-offset-background" : 
+                  "hover:scale-[1.02] shadow-lg"
+                )}
+              >
+                <div className="absolute top-0 right-0 p-3 opacity-10">
+                  {isMesaOwnedByOther ? (
+                    <Lock className="w-10 h-10 md:w-14 md:h-14 text-destructive" />
+                  ) : mesa.estado === 'FUERA SERVICIO' ? (
+                    <Ban className="w-10 h-10 md:w-14 md:h-14" />
+                  ) : (
+                    <UtensilsCrossed className="w-10 h-10 md:w-14 md:h-14" />
+                  )}
+                </div>
+                
+                <div className="w-full flex justify-between items-start z-10">
+                  <div className="flex items-center gap-1">
+                    <span className="text-[8px] md:text-[9px] font-mono font-black px-2 py-0.5 md:px-2.5 md:py-1 rounded-lg bg-background/40 backdrop-blur-sm border border-current/20">
+                      {mesa.zona === 'Primer Piso' ? '1er' : '2do'}
+                    </span>
+                    {isMesaOwnedByOther && (
+                      <span className="text-[8px] md:text-[9px] font-mono font-black px-1.5 py-0.5 md:px-2 md:py-0.5 rounded-lg bg-red-500/20 border border-red-500/30 text-red-500 flex items-center gap-1 shadow-sm">
+                        <Lock className="w-2.5 h-2.5" /> <span>BLOQ</span>
+                      </span>
+                    )}
+                  </div>
+                  <div className="flex items-center gap-1.5">
+                    {activeOrder && activeOrder.consecutivo && (
+                      <span className="text-[8px] md:text-[9px] font-mono font-black px-1.5 py-0.5 rounded bg-primary/20 border border-primary/30 text-primary">
+                        MESA-{activeOrder.consecutivo}
+                      </span>
+                    )}
+                    {delayLevel !== 'none' && (
+                      <div className="flex items-center relative">
+                        <div className={cn(
+                          "w-2 md:w-2.5 h-2 md:h-2.5 rounded-full animate-ping absolute",
+                          delayLevel === 'critical' ? "bg-red-500" : "bg-yellow-500"
+                        )} />
+                        <div className={cn(
+                          "w-2 md:w-2.5 h-2 md:h-2.5 rounded-full relative",
+                          delayLevel === 'critical' ? "bg-red-500" : "bg-yellow-500"
+                        )} />
+                      </div>
+                    )}
+                  </div>
+                </div>
+
+                <div className="flex flex-col items-center gap-0 md:gap-1 z-10">
+                  <span className="text-4xl md:text-6xl font-headline font-black tracking-tighter">{mesa.id}</span>
+                  <div className="flex items-center gap-1 opacity-60">
+                    <Users className="w-3 h-3 md:w-3.5 md:h-3.5" />
+                    <span className="text-[9px] md:text-[10px] font-bold uppercase tracking-widest">{mesa.capacidad} P</span>
+                  </div>
+                </div>
+
+                <div className="w-full flex justify-center z-10">
+                   <Badge variant="outline" className="text-[7px] md:text-[8px] font-black uppercase tracking-[0.1em] md:tracking-[0.2em] bg-background/20 py-0 px-2 border-current/20">
+                     {mesa.estado}
+                   </Badge>
+                </div>
+              </button>
+            )}
           </DialogTrigger>
           <DialogContent className="bg-card border-border text-foreground paper-texture max-w-[95vw] sm:max-w-[450px] rounded-[2.5rem] overflow-hidden p-0">
             <div className="relative p-6 sm:p-8 space-y-6">
@@ -383,7 +602,12 @@ function MesaCard({ mesa, user, onOpenMesa, onVerPedido, onStartEdit, onToggleFu
                     🤠
                   </div>
                   <div>
-                    <DialogTitle className="text-3xl font-headline tracking-tighter">Mesa {mesa.id}</DialogTitle>
+                    <DialogTitle className="text-3xl font-headline tracking-tighter">
+                      {mesa.zona === 'Para Llevar' 
+                        ? `Pedido ORD-${mesa.id >= 101 ? mesa.id - 100 : mesa.id}` 
+                        : `Mesa ${mesa.id}`}
+                      {activeOrder && activeOrder.consecutivo && ` (${mesa.zona === 'Para Llevar' ? 'PLL' : 'MESA'}-${activeOrder.consecutivo})`}
+                    </DialogTitle>
                     <p className="text-[10px] uppercase font-bold tracking-widest text-muted-foreground">Detalle de Gestión</p>
                   </div>
                 </div>
@@ -434,7 +658,16 @@ function MesaCard({ mesa, user, onOpenMesa, onVerPedido, onStartEdit, onToggleFu
               )}
 
               <div className="space-y-4 pt-2 relative z-10">
-                {mesa.estado === 'LIBRE' ? (
+                {isMesaOwnedByOther ? (
+                  <div className="bg-destructive/10 border border-destructive/20 p-6 rounded-3xl text-center space-y-2">
+                     <Lock className="w-8 h-8 text-destructive mx-auto animate-pulse" />
+                     <h4 className="text-sm font-black text-destructive uppercase tracking-widest">Mesa Bloqueada</h4>
+                     <p className="text-xs text-muted-foreground leading-tight">
+                       Esta mesa está siendo atendida por el mesero <br />
+                       <strong className="text-foreground">{ownerMeseroNombre}</strong>.
+                     </p>
+                  </div>
+                ) : mesa.estado === 'LIBRE' ? (
                   <Button 
                     className="w-full h-16 text-xl bg-primary hover:glow-orange font-bold rounded-[1.25rem] transition-all hover:scale-[1.02] shadow-xl group" 
                     onClick={() => {
@@ -455,19 +688,33 @@ function MesaCard({ mesa, user, onOpenMesa, onVerPedido, onStartEdit, onToggleFu
                      <p className="text-[10px] text-muted-foreground">Esta mesa no puede recibir pedidos actualmente.</p>
                   </div>
                 ) : (
-                  <Button 
-                    className="w-full h-16 bg-secondary text-secondary-foreground hover:glow-gold font-bold text-xl rounded-[1.25rem] transition-all hover:scale-[1.02] shadow-xl group" 
-                    onClick={() => {
-                      setIsOpen(false);
-                      setTimeout(() => {
-                        onVerPedido(mesa.id);
-                      }, 100);
-                    }}
-                    disabled={isCajaCerrada}
-                  >
-                    <UtensilsCrossed className="w-6 h-6 mr-2 transition-transform group-hover:scale-110" />
-                    {isCajaCerrada ? "CAJA CERRADA" : "GESTIONAR PEDIDO"}
-                  </Button>
+                  <div className="space-y-3 w-full">
+                    <Button 
+                      className="w-full h-16 bg-secondary text-secondary-foreground hover:glow-gold font-bold text-xl rounded-[1.25rem] transition-all hover:scale-[1.02] shadow-xl group" 
+                      onClick={() => {
+                        setIsOpen(false);
+                        setTimeout(() => {
+                          onVerPedido(mesa.id);
+                        }, 100);
+                      }}
+                      disabled={isCajaCerrada}
+                    >
+                      <UtensilsCrossed className="w-6 h-6 mr-2 transition-transform group-hover:scale-110" />
+                      {isCajaCerrada ? "CAJA CERRADA" : "GESTIONAR PEDIDO"}
+                    </Button>
+
+                    {activeOrder && (
+                      <Button 
+                        className="w-full h-16 bg-yellow-500 hover:bg-yellow-600 text-black font-bold text-xl rounded-[1.25rem] transition-all hover:scale-[1.02] shadow-xl group gap-2" 
+                        onClick={() => {
+                          setIsOpen(false);
+                          setIsRatingOpen(true);
+                        }}
+                      >
+                        ⭐ CALIFICAR ATENCIÓN
+                      </Button>
+                    )}
+                  </div>
                 )}
                 
                 <div className={cn("grid gap-3", user?.rol === 'ADMINISTRADOR' ? "grid-cols-3" : "grid-cols-1")}>
@@ -522,5 +769,106 @@ function MesaCard({ mesa, user, onOpenMesa, onVerPedido, onStartEdit, onToggleFu
             </div>
           </DialogContent>
         </Dialog>
+
+        <Dialog open={isRatingOpen} onOpenChange={(open) => {
+          setIsRatingOpen(open);
+          if (!open) {
+            setIsRatingSuccess(false);
+          }
+        }}>
+          <DialogContent className="bg-card border-border text-foreground paper-texture max-w-[95vw] sm:max-w-[450px] rounded-[2.5rem] p-8 text-center overflow-hidden">
+            <div className="absolute inset-0 wood-texture opacity-5 pointer-events-none rounded-[2.5rem]" />
+            
+            {activeOrder ? (
+              isRatingSuccess ? (
+                <div className="space-y-6 relative z-10 w-full animate-in fade-in zoom-in-95 duration-300">
+                  <div className="flex flex-col items-center gap-2">
+                    <div className="p-4 bg-green-500/10 rounded-full text-green-500 shadow-inner mb-2 border border-green-500/20">
+                      <Star className="w-8 h-8 fill-green-500 text-green-500 animate-pulse" />
+                    </div>
+                    <h3 className="text-xl font-headline font-black tracking-tight text-foreground">
+                      ¡Calificación Recibida!
+                    </h3>
+                    <p className="text-xs text-muted-foreground max-w-xs mx-auto">
+                      Agradecemos mucho que te hayas tomado el tiempo para valorar nuestra atención hoy. 🤠
+                    </p>
+                  </div>
+
+                  {(() => {
+                    const mesero = usuarios.find((u: any) => u.id === activeOrder.meseroId);
+                    return mesero && (
+                      <div className="bg-accent/20 border border-border/40 p-4 rounded-2xl flex flex-col items-center gap-2 shadow-inner">
+                        <span className="text-[10px] text-muted-foreground uppercase font-black tracking-wider">Te atendió hoy:</span>
+                        <span className="text-base font-black text-secondary flex items-center gap-1.5">
+                          🤵 {mesero.nombre}
+                        </span>
+                      </div>
+                    );
+                  })()}
+
+                  <div className="bg-green-500/10 border border-green-500/20 p-3 rounded-2xl">
+                    <p className="text-xs text-green-400 font-bold text-center">
+                      Tu opinión ha sido registrada de forma segura.
+                    </p>
+                  </div>
+                </div>
+              ) : (
+                <div className="space-y-6 relative z-10 w-full">
+                  <div className="flex flex-col items-center gap-2">
+                    <div className="p-4 bg-primary/10 rounded-full text-primary shadow-inner mb-2 border border-primary/20">
+                      <Star className="w-8 h-8 fill-primary text-primary animate-pulse" />
+                    </div>
+                    <h3 className="text-xl font-headline font-black tracking-tight text-foreground">
+                      Califica nuestra atención
+                    </h3>
+                    <p className="text-xs text-muted-foreground max-w-xs">
+                      Tu opinión es muy importante para ayudarnos a mejorar cada día 🤠
+                    </p>
+                  </div>
+
+                  {(() => {
+                    const mesero = usuarios.find((u: any) => u.id === activeOrder.meseroId);
+                    return mesero && (
+                      <div className="bg-accent/20 border border-border/40 p-4 rounded-2xl flex flex-col items-center gap-2 shadow-inner">
+                        <span className="text-[10px] text-muted-foreground uppercase font-black tracking-wider">Te atendió hoy:</span>
+                        <span className="text-base font-black text-secondary flex items-center gap-1.5">
+                          🤵 {mesero.nombre}
+                        </span>
+                      </div>
+                    );
+                  })()}
+
+                  <div className="flex justify-center items-center gap-2 py-4">
+                    {[1, 2, 3, 4, 5].map((star) => (
+                      <button
+                        key={star}
+                        onClick={async () => {
+                          await updateOrden(activeOrder.id, { rating: star });
+                          setIsRatingSuccess(true);
+                          setTimeout(() => {
+                            setIsRatingOpen(false);
+                          }, 1500);
+                        }}
+                        className="p-1 hover:scale-125 transition-transform duration-200 focus:outline-none"
+                      >
+                        <Star className="w-10 h-10 text-muted-foreground/40 hover:text-yellow-500/70" />
+                      </button>
+                    ))}
+                  </div>
+
+                  <p className="text-[10px] text-muted-foreground italic">
+                    Toca las estrellas para calificar
+                  </p>
+                </div>
+              )
+            ) : (
+              <div className="py-10 opacity-70">
+                <span className="text-3xl">🍽️</span>
+                <h3 className="text-base font-black uppercase tracking-wider text-muted-foreground/80 mt-4">No hay orden activa</h3>
+              </div>
+            )}
+          </DialogContent>
+        </Dialog>
+      </>
     )
 }

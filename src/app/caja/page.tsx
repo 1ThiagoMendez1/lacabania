@@ -26,7 +26,7 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { ScrollArea } from "@/components/ui/scroll-area";
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { cn } from "@/lib/utils";
 import { useToast } from "@/hooks/use-toast";
 import { Separator } from "@/components/ui/separator";
@@ -50,12 +50,46 @@ import {
 } from "@/components/ui/select";
 
 export default function CajaPage() {
-  const { ordenes, mesas, closeOrden, isCajaCerrada } = usePOSStore();
+  const { ordenes, mesas, closeOrden, isCajaCerrada, usuarios } = usePOSStore();
   const { toast } = useToast();
   const [selectedMesaId, setSelectedMesaId] = useState<number | null>(null);
   const [metodoPago, setMetodoPago] = useState<MetodoPago | null>(null);
   const [showReceipt, setShowReceipt] = useState(false);
   const [lastClosedOrden, setLastClosedOrden] = useState<Orden | null>(null);
+  const [incluirPropina, setIncluirPropina] = useState(true);
+  
+  useEffect(() => {
+    if (typeof window !== 'undefined') {
+      const params = new URLSearchParams(window.location.search);
+      const mId = params.get('mesaId');
+      if (mId) {
+        setSelectedMesaId(Number(mId));
+      }
+    }
+  }, []);
+
+  // Sincronización en tiempo real y fallback de sondeo para Caja
+  useEffect(() => {
+    const refresh = usePOSStore.getState().refreshOrdenesYMesas;
+    const setupRealtime = usePOSStore.getState().setupRealtime;
+    
+    // Forzar actualización inicial
+    refresh().catch(err => console.error("Error al refrescar mesas al montar caja:", err));
+    setupRealtime();
+
+    // Sondeo de respaldo cada 5 segundos para entornos inestables o pestañas en suspensión
+    const interval = setInterval(() => {
+      refresh().catch(err => console.error("Error en sondeo de respaldo de caja:", err));
+    }, 5000);
+
+    return () => {
+      clearInterval(interval);
+    };
+  }, []);
+
+  useEffect(() => {
+    setIncluirPropina(true);
+  }, [selectedMesaId]);
   
   // Facturación Electrónica State
   const [requireFE, setRequireFE] = useState(false);
@@ -75,8 +109,12 @@ export default function CajaPage() {
   const activeOrden = ordenes.find(o => String(o.mesaId) === String(selectedMesaId) && o.estado === 'ABIERTA');
 
   const subtotal = (activeOrden?.items || []).reduce((acc, item) => acc + (item.precioUnitario * item.cantidad), 0);
-  const propinaSugerida = subtotal * 0.10;
+  const propinaSugerida = incluirPropina ? subtotal * 0.10 : 0;
   const total = subtotal + propinaSugerida;
+
+  const selectedMesa = mesas.find(m => m.id === selectedMesaId);
+  const isParaLlevar = selectedMesa?.zona === 'Para Llevar';
+  const ratingPendiente = !isParaLlevar && activeOrden && (!activeOrden.rating || activeOrden.rating <= 0);
 
   const handleCerrarCuenta = async () => {
     if (isCajaCerrada) {
@@ -88,6 +126,15 @@ export default function CajaPage() {
       return;
     }
     if (!activeOrden || !selectedMesaId || !metodoPago) return;
+    
+    if (ratingPendiente) {
+      toast({
+        variant: "destructive",
+        title: "Calificación Pendiente",
+        description: "El cliente debe calificar la atención del mesero antes de pagar. 🤠"
+      });
+      return;
+    }
     
     if (requireFE && (!clienteFE.numeroDocumento || !clienteFE.nombre || !clienteFE.email)) {
       toast({
@@ -102,11 +149,17 @@ export default function CajaPage() {
       ...activeOrden, 
       metodoPago, 
       estado: 'CERRADA' as const,
-      clienteFE: requireFE ? clienteFE : undefined
+      clienteFE: requireFE ? clienteFE : undefined,
+      clienteNombre: incluirPropina ? 'CON_PROPINA' : 'SIN_PROPINA'
     };
     
+    const selectedMesa = mesas.find(m => m.id === selectedMesaId);
+    const mesaLabel = selectedMesa?.zona === 'Para Llevar'
+      ? `Pedido ORD-${selectedMesaId && selectedMesaId >= 101 ? selectedMesaId - 100 : selectedMesaId}`
+      : `Mesa ${selectedMesaId}`;
+
     setLastClosedOrden(ordenToClose);
-    closeOrden(activeOrden.id, selectedMesaId, metodoPago);
+    closeOrden(activeOrden.id, selectedMesaId, metodoPago, incluirPropina);
     
     setSelectedMesaId(null);
     setMetodoPago(null);
@@ -115,7 +168,7 @@ export default function CajaPage() {
     
     toast({ 
       title: requireFE ? "Venta y Factura Exitosa" : "Pago Confirmado", 
-      description: `Mesa ${selectedMesaId} pagada con éxito.` 
+      description: `${mesaLabel} procesado con éxito.` 
     });
   };
 
@@ -159,19 +212,33 @@ export default function CajaPage() {
                   <p className="font-headline">Sin cuentas</p>
                 </div>
               ) : (
-                mesasConOrden.map((mesa) => (
-                  <button
-                    key={mesa.id}
-                    onClick={() => {setSelectedMesaId(mesa.id); setMetodoPago(null); setRequireFE(false);}}
-                    className={cn(
-                      "w-full text-left p-4 rounded-xl border transition-all wood-texture group",
-                      selectedMesaId === mesa.id ? "bg-secondary/20 border-secondary ring-1 ring-secondary" : "bg-card border-border hover:border-secondary/50"
-                    )}
-                  >
-                    <div className="flex justify-between mb-2"><span className="text-xl font-black">MESA {mesa.id}</span></div>
-                    <div className="flex items-center gap-2 text-xs text-muted-foreground"><Clock className="w-3 h-3" /><span>Cuenta Activa</span></div>
-                  </button>
-                ))
+                mesasConOrden.map((mesa) => {
+                  const activeOrder = ordenes.find(o => String(o.mesaId) === String(mesa.id) && o.estado === 'ABIERTA');
+                  return (
+                    <button
+                      key={mesa.id}
+                      onClick={() => {setSelectedMesaId(mesa.id); setMetodoPago(null); setRequireFE(false);}}
+                      className={cn(
+                        "w-full text-left p-4 rounded-xl border transition-all wood-texture group",
+                        selectedMesaId === mesa.id ? "bg-secondary/20 border-secondary ring-1 ring-secondary" : "bg-card border-border hover:border-secondary/50"
+                      )}
+                    >
+                      <div className="flex justify-between mb-2">
+                        <span className="text-xl font-black">
+                          {mesa.zona === 'Para Llevar' 
+                            ? `ORD-${mesa.id >= 101 ? mesa.id - 100 : mesa.id}` 
+                            : `MESA ${mesa.id}`}
+                        </span>
+                        {activeOrder && activeOrder.consecutivo && (
+                          <span className="text-xs font-mono font-black px-1.5 py-0.5 rounded bg-primary/20 text-primary border border-primary/30">
+                            {mesa.zona === 'Para Llevar' ? 'PLL' : 'MESA'}-{activeOrder.consecutivo}
+                          </span>
+                        )}
+                      </div>
+                      <div className="flex items-center gap-2 text-xs text-muted-foreground"><Clock className="w-3 h-3" /><span>Cuenta Activa</span></div>
+                    </button>
+                  );
+                })
               )}
             </div>
           </ScrollArea>
@@ -184,7 +251,17 @@ export default function CajaPage() {
                 <div className="flex items-center gap-4">
                   <Receipt className="w-6 h-6 text-primary" />
                   <div>
-                    <CardTitle className="font-headline text-xl text-foreground">Mesa {selectedMesaId}</CardTitle>
+                    <CardTitle className="font-headline text-xl text-foreground">
+                      {(() => {
+                        const selectedMesa = mesas.find(m => m.id === selectedMesaId);
+                        const label = selectedMesa?.zona === 'Para Llevar'
+                          ? `Pedido ORD-${selectedMesaId && selectedMesaId >= 101 ? selectedMesaId - 100 : selectedMesaId}`
+                          : `Mesa ${selectedMesaId}`;
+                        return activeOrden?.consecutivo 
+                          ? `${label} (${selectedMesa?.zona === 'Para Llevar' ? 'PLL' : 'MESA'}-${activeOrden.consecutivo})` 
+                          : label;
+                      })()}
+                    </CardTitle>
                     <p className="text-[10px] uppercase text-muted-foreground font-mono">Orden: {activeOrden.id}</p>
                   </div>
                 </div>
@@ -340,12 +417,35 @@ export default function CajaPage() {
                     </div>
 
                     <div className="space-y-3">
+                      {activeOrden?.meseroId && (
+                        <div className="flex justify-between text-sm text-muted-foreground border-b border-border/30 pb-2 mb-2">
+                          <span>Mesero:</span>
+                          <span className="font-bold text-foreground flex items-center gap-1.5">
+                            🤵 {usuarios.find(u => u.id === activeOrden.meseroId)?.nombre || 'N/A'}
+                            {activeOrden.rating && activeOrden.rating > 0 ? (
+                              <span className="text-yellow-500 font-bold flex items-center gap-0.5 ml-1">
+                                ⭐ {activeOrden.rating}
+                              </span>
+                            ) : (
+                              <span className="text-[10px] text-muted-foreground font-normal italic ml-1">(Sin calificar)</span>
+                            )}
+                          </span>
+                        </div>
+                      )}
                       <div className="flex justify-between text-sm text-muted-foreground">
                         <span>Subtotal:</span>
                         <span className="font-bold text-foreground">${subtotal.toLocaleString('es-CO')}</span>
                       </div>
-                      <div className="flex justify-between text-sm text-muted-foreground">
-                        <span>Servicio (10%):</span>
+                      <div className="flex justify-between items-center text-sm text-muted-foreground">
+                        <div className="flex items-center gap-2">
+                          <span>Servicio (10%):</span>
+                          <Switch 
+                            id="propina-toggle" 
+                            checked={incluirPropina} 
+                            onCheckedChange={setIncluirPropina}
+                            className="scale-75"
+                          />
+                        </div>
                         <span className="font-bold text-foreground">${propinaSugerida.toLocaleString('es-CO')}</span>
                       </div>
                       <Separator className="bg-border/50" />
@@ -353,12 +453,19 @@ export default function CajaPage() {
                         <span className="text-lg font-headline text-foreground">TOTAL:</span>
                         <span className="text-4xl font-black text-secondary glow-gold-text">${total.toLocaleString('es-CO')}</span>
                       </div>
+                      
+                      {ratingPendiente && (
+                        <div className="bg-yellow-500/10 border border-yellow-500/30 text-yellow-500 text-xs p-3 rounded-xl text-center font-bold animate-pulse">
+                          ⚠️ Requiere calificación del mesero antes de pagar.
+                        </div>
+                      )}
+
                       <Button 
                         className="w-full h-14 text-lg font-bold rounded-xl mt-4 shadow-lg hover:glow-orange transition-all" 
-                        disabled={!metodoPago || isCajaCerrada} 
+                        disabled={!metodoPago || isCajaCerrada || ratingPendiente} 
                         onClick={handleCerrarCuenta}
                       >
-                        {isCajaCerrada ? "CAJA CERRADA" : (metodoPago ? (requireFE ? 'EMITIR FACTURA DIAN' : `CONFIRMAR PAGO EN ${metodoPago}`) : 'SELECCIONA PAGO')}
+                        {isCajaCerrada ? "CAJA CERRADA" : (ratingPendiente ? "PENDIENTE CALIFICAR" : (metodoPago ? (requireFE ? 'EMITIR FACTURA DIAN' : `CONFIRMAR PAGO EN ${metodoPago}`) : 'SELECCIONA PAGO'))}
                       </Button>
                     </div>
                   </div>
@@ -397,10 +504,21 @@ export default function CajaPage() {
           <div className="p-8 space-y-4">
             <div className="text-center space-y-1">
               <div className="text-3xl mb-2">🤠</div>
-              <h1 className="text-xl font-black uppercase tracking-tighter">La Cabaña</h1>
-              <p className="text-[10px] font-bold">CARNE AL BARRIL & PARRILLA</p>
-              <p className="text-[9px]">NIT: 900.123.456-7</p>
-              <p className="text-[9px]">Calle 123 # 45 - 67, Bogotá</p>
+              <h1 className="text-xl font-black uppercase tracking-tighter">Asadero y Restaurante <br /> La Cabaña</h1>
+              {lastClosedOrden?.consecutivo && (
+                <div className="my-2 border border-black py-1">
+                  <p className="text-sm font-bold uppercase tracking-widest">
+                    {(() => {
+                      const closedMesa = mesas.find(m => m.id === lastClosedOrden?.mesaId);
+                      return closedMesa?.zona === 'Para Llevar' 
+                        ? `Pedido PLL-${lastClosedOrden.consecutivo}` 
+                        : `Pedido MESA-${lastClosedOrden.consecutivo}`;
+                    })()}
+                  </p>
+                </div>
+              )}
+              <p className="text-[9px]">NIT: 1070386281</p>
+              <p className="text-[9px]">Calle 6 #4-71</p>
               
               {lastClosedOrden?.clienteFE && (
                 <div className="mt-4 border-y border-black/10 py-2">
@@ -412,8 +530,27 @@ export default function CajaPage() {
             <div className="border-t border-dashed border-black/30 pt-4 space-y-1 text-[10px]">
               <div className="flex justify-between">
                 <span>FECHA: {new Date().toLocaleDateString()}</span>
-                <span>MESA: {lastClosedOrden?.mesaId}</span>
+                <span>
+                  MESA: {
+                    (() => {
+                      const closedMesa = mesas.find(m => m.id === lastClosedOrden?.mesaId);
+                      const isTakeAway = closedMesa?.zona === 'Para Llevar' || (lastClosedOrden?.mesaId && lastClosedOrden.mesaId >= 101);
+                      const label = isTakeAway && lastClosedOrden?.mesaId 
+                        ? `ORD-${lastClosedOrden.mesaId >= 101 ? lastClosedOrden.mesaId - 100 : lastClosedOrden.mesaId}`
+                        : lastClosedOrden?.mesaId;
+                      return lastClosedOrden?.consecutivo 
+                        ? `${label} (${closedMesa?.zona === 'Para Llevar' ? 'PLL' : 'MESA'}-${lastClosedOrden.consecutivo})` 
+                        : label;
+                    })()
+                  }
+                </span>
               </div>
+              {lastClosedOrden?.meseroId && (
+                <div className="flex justify-between">
+                  <span>MESERO:</span>
+                  <span className="font-bold">{usuarios.find(u => u.id === lastClosedOrden.meseroId)?.nombre || 'N/A'}</span>
+                </div>
+              )}
               {lastClosedOrden?.clienteFE && (
                 <div className="mt-2 pt-2 border-t border-black/5">
                   <p className="font-bold">CLIENTE: {lastClosedOrden.clienteFE.nombre}</p>
@@ -444,9 +581,35 @@ export default function CajaPage() {
             </div>
 
             <div className="border-t border-dashed border-black/30 pt-4 space-y-1 text-xs">
+              <div className="flex justify-between text-[10px]">
+                <span>SUBTOTAL:</span>
+                <span>
+                  ${(() => {
+                    const sub = lastClosedOrden?.items.reduce((acc, i) => acc + (i.precioUnitario * i.cantidad), 0) || 0;
+                    return sub.toLocaleString('es-CO');
+                  })()}
+                </span>
+              </div>
+              {lastClosedOrden?.clienteNombre !== 'SIN_PROPINA' && (
+                <div className="flex justify-between text-[10px]">
+                  <span>SERVICIO (10%):</span>
+                  <span>
+                    ${(() => {
+                      const sub = lastClosedOrden?.items.reduce((acc, i) => acc + (i.precioUnitario * i.cantidad), 0) || 0;
+                      return (sub * 0.10).toLocaleString('es-CO');
+                    })()}
+                  </span>
+                </div>
+              )}
               <div className="flex justify-between font-black text-sm pt-2 border-t border-black/10">
                 <span>TOTAL:</span>
-                <span>${((lastClosedOrden?.items.reduce((acc, i) => acc + (i.precioUnitario * i.cantidad), 0) || 0) * 1.1).toLocaleString('es-CO')}</span>
+                <span>
+                  ${(() => {
+                    const sub = lastClosedOrden?.items.reduce((acc, i) => acc + (i.precioUnitario * i.cantidad), 0) || 0;
+                    const tienePropina = lastClosedOrden?.clienteNombre !== 'SIN_PROPINA';
+                    return (sub * (tienePropina ? 1.10 : 1.00)).toLocaleString('es-CO');
+                  })()}
+                </span>
               </div>
             </div>
 

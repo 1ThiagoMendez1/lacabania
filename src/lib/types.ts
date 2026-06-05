@@ -26,6 +26,7 @@ export interface Usuario {
   rol: Rol;
   pin: string; // Últimos 4 dígitos de la cédula
   telefono?: string;
+  sueldo?: number;
   estado: 'ACTIVO' | 'INACTIVO';
   fechaIngreso: string;
   fotoDocumento?: string; // Data URI de la foto del documento
@@ -57,6 +58,7 @@ export interface MenuItem {
   estacion: Estacion;
   imagen?: string;
   disponible: boolean;
+  stock?: number;
 }
 
 export interface ItemOrden {
@@ -73,6 +75,7 @@ export interface ItemOrden {
 
 export interface Orden {
   id: string;
+  consecutivo?: number;
   mesaId: number;
   meseroId: string;
   items: ItemOrden[];
@@ -80,6 +83,8 @@ export interface Orden {
   metodoPago?: MetodoPago;
   clienteFE?: ClienteFE;
   facturaElectronicaId?: string;
+  clienteNombre?: string;
+  rating?: number;
   createdAt: string;
   updatedAt: string;
 }
@@ -87,7 +92,7 @@ export interface Orden {
 export interface Mesa {
   id: number;
   numero: number;
-  zona: 'Primer Piso' | 'Segundo Piso';
+  zona: 'Primer Piso' | 'Segundo Piso' | 'Para Llevar';
   capacidad: number;
   estado: EstadoMesa;
   meseroId?: string;

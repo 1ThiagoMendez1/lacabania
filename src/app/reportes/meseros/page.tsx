@@ -9,6 +9,7 @@ import {
   TrendingUp, 
   Calendar, 
   ChevronRight,
+  ChevronDown,
   ClipboardList,
   CircleDollarSign,
   Users,
@@ -25,14 +26,34 @@ import {
 } from "@/components/ui/table";
 import { Badge } from "@/components/ui/badge";
 import { Input } from "@/components/ui/input";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
 import { useState, useMemo } from "react";
 import { cn } from "@/lib/utils";
 import { format } from "date-fns";
 import { es } from "date-fns/locale";
 
+const MONTHS = [
+  "Enero", "Febrero", "Marzo", "Abril", "Mayo", "Junio",
+  "Julio", "Agosto", "Septiembre", "Octubre", "Noviembre", "Diciembre"
+];
+
 export default function HistorialMeserosPage() {
-  const { ordenes, usuarios } = usePOSStore();
+  const { ordenes, usuarios, fechaOperativa } = usePOSStore();
   const [searchTerm, setSearchTerm] = useState("");
+  const [expandedMeseroId, setExpandedMeseroId] = useState<string | null>(null);
+
+  // Filtro de período (Día / Mes / Año)
+  const [filterPeriod, setFilterPeriod] = useState<'dia' | 'mes' | 'ano'>('ano');
+
+  const toggleMesero = (id: string) => {
+    setExpandedMeseroId(prev => prev === id ? null : id);
+  };
 
   // Solo incluimos a los meseros para los reportes de desempeño
   const meseros = usuarios.filter(u => u.rol === 'MESERO');
@@ -43,42 +64,119 @@ export default function HistorialMeserosPage() {
     );
   }, [ordenes]);
 
+  // Aplicar filtros de fecha a las órdenes
+  const filteredClosedOrders = useMemo(() => {
+    // Usar la fecha operativa como referencia de "hoy" (o la fecha actual si no existe)
+    const refDate = fechaOperativa ? new Date(fechaOperativa + "T12:00:00") : new Date();
+    const currentYear = refDate.getFullYear();
+    const currentMonth = refDate.getMonth();
+    const currentDay = refDate.getDate();
+
+    return closedOrders.filter(o => {
+      const orderDate = new Date(o.updatedAt);
+      
+      if (filterPeriod === 'dia') {
+        return (
+          orderDate.getFullYear() === currentYear &&
+          orderDate.getMonth() === currentMonth &&
+          orderDate.getDate() === currentDay
+        );
+      } else if (filterPeriod === 'mes') {
+        return (
+          orderDate.getFullYear() === currentYear &&
+          orderDate.getMonth() === currentMonth
+        );
+      } else {
+        // 'ano'
+        return orderDate.getFullYear() === currentYear;
+      }
+    });
+  }, [closedOrders, filterPeriod, fechaOperativa]);
+
   const performanceStats = useMemo(() => {
     return meseros.map(m => {
-      const orders = closedOrders.filter(o => o.meseroId === m.id);
+      const orders = filteredClosedOrders.filter(o => o.meseroId === m.id);
       const totalSales = orders.reduce((acc, o) => 
         acc + o.items.reduce((sum, i) => sum + (i.precioUnitario * i.cantidad), 0), 0
       );
+      const ratedOrders = orders.filter(o => o.rating && o.rating > 0);
+      const avgRating = ratedOrders.length > 0 
+        ? (ratedOrders.reduce((sum, o) => sum + (o.rating || 0), 0) / ratedOrders.length).toFixed(1)
+        : null;
       return {
         ...m,
+        orders,
         orderCount: orders.length,
-        totalSales
+        totalSales,
+        avgRating
       };
     }).sort((a, b) => b.totalSales - a.totalSales);
-  }, [meseros, closedOrders]);
+  }, [meseros, filteredClosedOrders]);
 
-  const filteredOrders = useMemo(() => {
-    return closedOrders.filter(o => {
-      const meseroName = usuarios.find(u => u.id === o.meseroId)?.nombre.toLowerCase() || "";
-      const orderId = o.id.toLowerCase();
+  const filteredStats = useMemo(() => {
+    return performanceStats.filter(m => {
+      const meseroName = m.nombre.toLowerCase();
       const search = searchTerm.toLowerCase();
-      return meseroName.includes(search) || orderId.includes(search);
+      // Match by waiter name or if any of their orders match the search (by ID)
+      return meseroName.includes(search) || m.orders.some(o => o.id.toLowerCase().includes(search));
     });
-  }, [closedOrders, searchTerm, usuarios]);
+  }, [performanceStats, searchTerm]);
 
   return (
     <main className="p-4 md:p-8 space-y-8">
-      <header className="flex flex-col md:flex-row justify-between items-start md:items-end gap-4">
-        <div>
-          <div className="flex items-center gap-3 mb-2">
-            <div className="p-2 bg-primary/10 rounded-lg">
-              <History className="w-8 h-8 text-primary" />
-            </div>
-            <h2 className="text-3xl font-headline text-foreground">Historial de Meseros</h2>
+      {/* Cabecera general de operación con Filtro */}
+      <div className="bg-primary text-primary-foreground p-6 rounded-3xl flex flex-col md:flex-row justify-between items-start md:items-center gap-4 shadow-xl wood-texture relative overflow-hidden">
+        <div className="absolute inset-0 bg-gradient-to-r from-primary via-primary/95 to-primary/80 opacity-90 pointer-events-none" />
+        
+        <div className="relative z-10 flex items-center gap-4">
+          <div className="p-3 bg-white/10 rounded-2xl border border-white/10 shadow-inner">
+            <History className="w-8 h-8 text-white animate-pulse" />
           </div>
-          <p className="text-muted-foreground">Control de desempeño y mesas atendidas 🤠</p>
+          <div>
+            <h2 className="text-2xl font-black font-headline tracking-tight text-white">Historial de Meseros</h2>
+            <p className="text-sm opacity-90 font-medium mt-1 text-primary-foreground/90">
+              Control de desempeño y mesas atendidas 🤠
+            </p>
+          </div>
         </div>
-      </header>
+
+        {/* Filtro Período (Día / Mes / Año) */}
+        <div className="relative z-10 bg-black/15 border border-white/15 p-1 rounded-full flex items-center gap-1 w-fit shrink-0 shadow-inner">
+          <button
+            onClick={() => setFilterPeriod('dia')}
+            className={cn(
+              "px-5 py-2 text-xs font-bold rounded-full transition-all duration-200",
+              filterPeriod === 'dia' 
+                ? "bg-white text-primary shadow-sm" 
+                : "text-white hover:bg-black/15"
+            )}
+          >
+            Día
+          </button>
+          <button
+            onClick={() => setFilterPeriod('mes')}
+            className={cn(
+              "px-5 py-2 text-xs font-bold rounded-full transition-all duration-200",
+              filterPeriod === 'mes' 
+                ? "bg-white text-primary shadow-sm" 
+                : "text-white hover:bg-black/15"
+            )}
+          >
+            Mes
+          </button>
+          <button
+            onClick={() => setFilterPeriod('ano')}
+            className={cn(
+              "px-5 py-2 text-xs font-bold rounded-full transition-all duration-200",
+              filterPeriod === 'ano' 
+                ? "bg-white text-primary shadow-sm" 
+                : "text-white hover:bg-black/15"
+            )}
+          >
+            Año
+          </button>
+        </div>
+      </div>
 
       {/* Stats Cards */}
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
@@ -100,7 +198,7 @@ export default function HistorialMeserosPage() {
             </div>
             <p className="text-xs text-muted-foreground uppercase font-black tracking-widest mb-1">Total Facturado</p>
             <h3 className="text-2xl font-black text-green-500">
-              ${closedOrders.reduce((acc, o) => acc + o.items.reduce((sum, i) => sum + (i.precioUnitario * i.cantidad), 0), 0).toLocaleString('es-CO')}
+              ${filteredClosedOrders.reduce((acc, o) => acc + o.items.reduce((sum, i) => sum + (i.precioUnitario * i.cantidad), 0), 0).toLocaleString('es-CO')}
             </h3>
           </CardContent>
         </Card>
@@ -111,7 +209,7 @@ export default function HistorialMeserosPage() {
               <ClipboardList className="w-5 h-5 text-primary" />
             </div>
             <p className="text-xs text-muted-foreground uppercase font-black tracking-widest mb-1">Mesas Cerradas</p>
-            <h3 className="text-2xl font-black">{closedOrders.length}</h3>
+            <h3 className="text-2xl font-black">{filteredClosedOrders.length}</h3>
           </CardContent>
         </Card>
 
@@ -122,8 +220,8 @@ export default function HistorialMeserosPage() {
             </div>
             <p className="text-xs text-muted-foreground uppercase font-black tracking-widest mb-1">Promedio por Mesa</p>
             <h3 className="text-2xl font-black">
-              ${closedOrders.length > 0 
-                ? Math.round(closedOrders.reduce((acc, o) => acc + o.items.reduce((sum, i) => sum + (i.precioUnitario * i.cantidad), 0), 0) / closedOrders.length).toLocaleString('es-CO')
+              ${filteredClosedOrders.length > 0 
+                ? Math.round(filteredClosedOrders.reduce((acc, o) => acc + o.items.reduce((sum, i) => sum + (i.precioUnitario * i.cantidad), 0), 0) / filteredClosedOrders.length).toLocaleString('es-CO')
                 : 0
               }
             </h3>
@@ -152,7 +250,7 @@ export default function HistorialMeserosPage() {
                     </div>
                     <div>
                       <p className="font-bold text-sm">{m.nombre}</p>
-                      <p className="text-[10px] text-muted-foreground uppercase font-black">{m.orderCount} mesas</p>
+                      <p className="text-[10px] text-muted-foreground uppercase font-black">{m.orderCount} mesas{m.avgRating && ` • ⭐ ${m.avgRating}`}</p>
                     </div>
                   </div>
                   <div className="text-right">
@@ -166,91 +264,130 @@ export default function HistorialMeserosPage() {
 
         {/* Detailed History */}
         <Card className="lg:col-span-3 bg-card border-border shadow-2xl rounded-[2rem] overflow-hidden">
-          <CardHeader className="flex flex-row items-center justify-between bg-accent/20 border-b border-border/50 p-6">
+          <CardHeader className="flex flex-col md:flex-row md:items-center justify-between bg-accent/20 border-b border-border/50 p-6 gap-4">
             <CardTitle className="text-lg font-headline flex items-center gap-2">
               <ClipboardList className="w-5 h-5 text-primary" />
               Historial Detallado
             </CardTitle>
-            <div className="relative w-64">
-              <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
-              <Input 
-                placeholder="Buscar mesero u orden..." 
-                className="pl-10 h-10 bg-background/50 rounded-xl"
-                value={searchTerm}
-                onChange={(e) => setSearchTerm(e.target.value)}
-              />
+            <div className="flex items-center gap-3 w-full md:w-auto">
+              <div className="relative w-full md:w-56">
+                <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
+                <Input 
+                  placeholder="Buscar mesero..." 
+                  className="pl-10 h-10 bg-background/50 rounded-xl"
+                  value={searchTerm}
+                  onChange={(e) => setSearchTerm(e.target.value)}
+                />
+              </div>
             </div>
           </CardHeader>
-          <CardContent className="p-0">
-            <Table>
-              <TableHeader className="bg-accent/30">
-                <TableRow className="border-border">
-                  <TableHead className="text-[10px] font-black uppercase tracking-widest">Mesero</TableHead>
-                  <TableHead className="text-[10px] font-black uppercase tracking-widest">Mesa</TableHead>
-                  <TableHead className="text-[10px] font-black uppercase tracking-widest">Consumo</TableHead>
-                  <TableHead className="text-[10px] font-black uppercase tracking-widest">Fecha / Hora</TableHead>
-                  <TableHead className="text-right text-[10px] font-black uppercase tracking-widest">Total</TableHead>
-                  <TableHead className="text-center text-[10px] font-black uppercase tracking-widest">Pago</TableHead>
-                </TableRow>
-              </TableHeader>
-              <TableBody>
-                {filteredOrders.length === 0 ? (
-                  <TableRow>
-                    <TableCell colSpan={6} className="text-center py-20 text-muted-foreground italic">
-                      No se encontraron registros en el historial.
-                    </TableCell>
-                  </TableRow>
-                ) : (
-                  filteredOrders.map((o) => {
-                    const mesero = usuarios.find(u => u.id === o.meseroId);
-                    const subtotal = o.items.reduce((sum, i) => sum + (i.precioUnitario * i.cantidad), 0);
-                    const total = subtotal * 1.1; // Total con propina
-                    
-                    return (
-                      <TableRow key={o.id} className="border-border hover:bg-accent/10 transition-colors">
-                        <TableCell>
-                          <div className="flex items-center gap-2">
-                            <UserCircle className="w-4 h-4 text-muted-foreground" />
-                            <span className="font-bold text-sm">{mesero?.nombre || "Sistema"}</span>
-                          </div>
-                        </TableCell>
-                        <TableCell>
-                          <Badge variant="secondary" className="bg-primary/10 text-primary border-primary/20">
-                            Mesa {o.mesaId}
-                          </Badge>
-                        </TableCell>
-                        <TableCell className="max-w-[250px]">
-                          <div className="flex flex-col gap-1 py-1">
-                            {o.items.map((item) => (
-                              <div key={item.id} className="flex items-center gap-1.5 text-[9px] bg-accent/20 px-2 py-0.5 rounded-lg border border-border/30">
-                                <span className="font-black text-primary">{item.cantidad}x</span>
-                                <span className="font-medium truncate">{item.nombre}</span>
-                              </div>
-                            ))}
-                          </div>
-                        </TableCell>
-                        <TableCell>
-                          <div className="flex flex-col text-[10px]">
-                            <span className="font-bold">{format(new Date(o.updatedAt), "dd MMM yyyy", { locale: es })}</span>
-                            <span className="text-muted-foreground flex items-center gap-1">
-                              <Calendar className="w-2.5 h-2.5" /> {format(new Date(o.updatedAt), "HH:mm a")}
-                            </span>
-                          </div>
-                        </TableCell>
-                        <TableCell className="text-right">
-                          <span className="font-black text-secondary">${total.toLocaleString('es-CO')}</span>
-                        </TableCell>
-                        <TableCell className="text-center">
-                          <Badge className="bg-accent text-accent-foreground text-[8px] font-black tracking-widest">
-                            {o.metodoPago}
-                          </Badge>
-                        </TableCell>
-                      </TableRow>
-                    );
-                  })
-                )}
-              </TableBody>
-            </Table>
+          <CardContent className="p-4 space-y-4 bg-background/50">
+            {filteredStats.length === 0 ? (
+              <p className="text-center py-20 text-muted-foreground italic">
+                No se encontraron meseros o registros.
+              </p>
+            ) : (
+              filteredStats.map(m => {
+                const isExpanded = expandedMeseroId === m.id;
+                return (
+                  <div key={m.id} className="bg-card border border-border/50 rounded-2xl shadow-sm overflow-hidden transition-all duration-300">
+                    <div 
+                      className="p-4 flex items-center justify-between cursor-pointer hover:bg-accent/10 transition-colors"
+                      onClick={() => toggleMesero(m.id)}
+                    >
+                      <div className="flex items-center gap-4">
+                        <div className="w-12 h-12 rounded-full bg-primary/20 flex items-center justify-center text-primary">
+                          <UserCircle className="w-7 h-7" />
+                        </div>
+                        <div>
+                          <h4 className="font-bold text-lg text-foreground">{m.nombre}</h4>
+                          <p className="text-[11px] font-black uppercase tracking-widest text-muted-foreground">{m.orderCount} mesas atendidas{m.avgRating && ` • Promedio: ⭐ ${m.avgRating}`}</p>
+                        </div>
+                      </div>
+                      <div className="flex items-center gap-6">
+                        <span className="font-black text-secondary text-xl">${m.totalSales.toLocaleString('es-CO')}</span>
+                        <div className="w-8 h-8 rounded-full bg-accent/20 flex items-center justify-center text-muted-foreground">
+                          {isExpanded ? <ChevronDown className="w-5 h-5" /> : <ChevronRight className="w-5 h-5" />}
+                        </div>
+                      </div>
+                    </div>
+
+                    {isExpanded && (
+                      <div className="border-t border-border/50 bg-accent/5 p-4 animate-in slide-in-from-top-2 fade-in duration-200">
+                        <Table>
+                          <TableHeader className="bg-accent/30">
+                            <TableRow className="border-border/50">
+                              <TableHead className="text-[10px] font-black uppercase tracking-widest">Mesa</TableHead>
+                              <TableHead className="text-[10px] font-black uppercase tracking-widest">Fecha / Hora</TableHead>
+                              <TableHead className="text-right text-[10px] font-black uppercase tracking-widest">Total</TableHead>
+                              <TableHead className="text-center text-[10px] font-black uppercase tracking-widest">Calificación</TableHead>
+                              <TableHead className="text-center text-[10px] font-black uppercase tracking-widest">Pago</TableHead>
+                            </TableRow>
+                          </TableHeader>
+                          <TableBody>
+                            {m.orders.length === 0 ? (
+                              <TableRow>
+                                <TableCell colSpan={5} className="text-center py-8 text-muted-foreground italic text-sm">
+                                  Sin mesas registradas.
+                                </TableCell>
+                              </TableRow>
+                            ) : (
+                              m.orders.map((o) => {
+                                const subtotal = o.items.reduce((sum, i) => sum + (i.precioUnitario * i.cantidad), 0);
+                                const tienePropina = o.clienteNombre !== 'SIN_PROPINA';
+                                const total = subtotal * (tienePropina ? 1.1 : 1.0);
+                                
+                                return (
+                                  <TableRow key={o.id} className="border-border/50 hover:bg-background/80 transition-colors">
+                                    <TableCell>
+                                      <div className="flex flex-col gap-1">
+                                        <Badge variant="secondary" className="bg-primary/10 text-primary border-primary/20 shadow-sm w-fit">
+                                          {o.mesaId >= 101 ? `Pedido PLL-${o.mesaId - 100}` : `Mesa ${o.mesaId}`}
+                                        </Badge>
+                                        {o.consecutivo && (
+                                          <span className="text-[9px] font-mono text-muted-foreground font-bold">
+                                            ORD-{o.consecutivo}
+                                          </span>
+                                        )}
+                                      </div>
+                                    </TableCell>
+                                    <TableCell>
+                                      <div className="flex flex-col text-[10px]">
+                                        <span className="font-bold text-foreground">{format(new Date(o.updatedAt), "dd MMM yyyy", { locale: es })}</span>
+                                        <span className="text-muted-foreground flex items-center gap-1 mt-0.5">
+                                          <Calendar className="w-3 h-3" /> {format(new Date(o.updatedAt), "HH:mm a")}
+                                        </span>
+                                      </div>
+                                    </TableCell>
+                                    <TableCell className="text-right">
+                                      <span className="font-black text-secondary">${total.toLocaleString('es-CO')}</span>
+                                    </TableCell>
+                                    <TableCell className="text-center">
+                                      {o.rating && o.rating > 0 ? (
+                                        <span className="text-yellow-500 font-bold flex items-center justify-center gap-0.5">
+                                          ⭐ {o.rating}
+                                        </span>
+                                      ) : (
+                                        <span className="text-xs text-muted-foreground italic">N/A</span>
+                                      )}
+                                    </TableCell>
+                                    <TableCell className="text-center">
+                                      <Badge className="bg-muted text-muted-foreground text-[9px] font-black tracking-widest border border-border/50">
+                                        {o.metodoPago}
+                                      </Badge>
+                                    </TableCell>
+                                  </TableRow>
+                                );
+                              })
+                            )}
+                          </TableBody>
+                        </Table>
+                      </div>
+                    )}
+                  </div>
+                );
+              })
+            )}
           </CardContent>
         </Card>
       </div>

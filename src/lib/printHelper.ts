@@ -42,8 +42,28 @@ export async function printKitchenTickets(
       // Comandos ESC/POS estándar para impresión térmica
       const data: any[] = [];
 
+      const mesa = store.mesas.find(m => m.id === mesaNumero || m.numero === mesaNumero);
+      const isParaLlevar = mesa?.zona === 'Para Llevar' || mesaNumero >= 100;
+      const activeOrder = store.ordenes.find(o => o.mesaId === mesaNumero && o.estado === 'ABIERTA');
+      const consecutivo = activeOrder?.consecutivo;
+
       data.push('\x1B\x40'); // Inicializar impresora
       data.push('\x1B\x61\x01'); // Centrar texto
+      
+      if (isParaLlevar) {
+        data.push('\x1B\x21\x38'); // Doble ancho + Doble alto + Negrita
+        data.push('*** PARA LLEVAR ***\n\n');
+        data.push('\x1B\x21\x00'); // Volver a tamaño normal
+        data.push('\x1B\x61\x01'); // Centrar
+      }
+
+      if (consecutivo) {
+        data.push('\x1B\x21\x18'); // Doble altura + Negrita
+        data.push(`PEDIDO ${isParaLlevar ? 'PLL' : 'MESA'}-${consecutivo}\n`);
+        data.push('\x1B\x21\x00'); // Normal
+        data.push('\x1B\x61\x01'); // Centrar
+      }
+
       data.push('\x1B\x45\x01'); // Negrita ON
       data.push(`LA CABANA - COMANDA ${station}\n`);
       data.push('--------------------------------\n');
@@ -51,7 +71,11 @@ export async function printKitchenTickets(
 
       data.push('\x1B\x61\x00'); // Alinear a la izquierda
       data.push('\x1B\x21\x18'); // Doble altura + Negrita
-      data.push(`MESA: ${mesaNumero}\n`);
+      if (isParaLlevar) {
+        data.push(`PEDIDO: ORD-${mesaNumero >= 101 ? mesaNumero - 100 : mesaNumero}${consecutivo ? ` (${isParaLlevar ? 'PLL' : 'MESA'}-${consecutivo})` : ''}\n`);
+      } else {
+        data.push(`MESA: ${mesaNumero}${consecutivo ? ` (${isParaLlevar ? 'PLL' : 'MESA'}-${consecutivo})` : ''}\n`);
+      }
       data.push(`MESERO: ${meseroNombre}\n`);
       data.push('\x1B\x21\x00'); // Volver a tamaño normal
       data.push(`FECHA: ${dateStr} ${timeStr}\n`);

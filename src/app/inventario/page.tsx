@@ -212,7 +212,6 @@ export default function InventarioPage() {
                       </SelectTrigger>
                       <SelectContent className="bg-card border-border">
                         <SelectItem value="Verduras">Verduras</SelectItem>
-                        <SelectItem value="Proteinas">Proteínas</SelectItem>
                         <SelectItem value="Lacteos">Lácteos</SelectItem>
                         <SelectItem value="Bebidas">Bebidas</SelectItem>
                         <SelectItem value="Abarrotes">Abarrotes</SelectItem>
@@ -347,7 +346,6 @@ export default function InventarioPage() {
                       </SelectTrigger>
                       <SelectContent className="bg-card border-border">
                         <SelectItem value="Verduras">Verduras</SelectItem>
-                        <SelectItem value="Proteinas">Proteínas</SelectItem>
                         <SelectItem value="Lacteos">Lácteos</SelectItem>
                         <SelectItem value="Bebidas">Bebidas</SelectItem>
                         <SelectItem value="Abarrotes">Abarrotes</SelectItem>

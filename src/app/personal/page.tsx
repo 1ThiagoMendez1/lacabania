@@ -33,8 +33,8 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
-import { useState } from "react";
-import { cn } from "@/lib/utils";
+import { useState, useMemo } from "react";
+import { cn, formatCurrencyInput, parseCurrencyInput } from "@/lib/utils";
 import { useToast } from "@/hooks/use-toast";
 import {
   Dialog,
@@ -67,7 +67,7 @@ import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 const ROLES: Rol[] = ["ADMINISTRADOR", "MESERO", "CAJERO"];
 
 export default function PersonalPage() {
-  const { usuarios, addUsuario, updateUsuario, deleteUsuario, permisos, togglePermiso, user } = usePOSStore();
+  const { usuarios, addUsuario, updateUsuario, deleteUsuario, permisos, togglePermiso, user, ordenes } = usePOSStore();
   const [searchTerm, setSearchTerm] = useState("");
   const [isDialogOpen, setIsDialogOpen] = useState(false);
   const [isEditDialogOpen, setIsEditDialogOpen] = useState(false);
@@ -90,6 +90,28 @@ export default function PersonalPage() {
     u.cedula.includes(searchTerm)
   );
 
+  // Calcular ranking de meseros según calificación promedio
+  const meserosRanking = useMemo(() => {
+    const closedOrders = ordenes.filter(o => o.estado === 'CERRADA');
+    return usuarios
+      .filter(u => u.rol === 'MESERO' && u.estado === 'ACTIVO')
+      .map(m => {
+        const waiterOrders = closedOrders.filter(o => o.meseroId === m.id);
+        const ratedOrders = waiterOrders.filter(o => o.rating && o.rating > 0);
+        const avgRating = ratedOrders.length > 0 
+          ? ratedOrders.reduce((sum, o) => sum + (o.rating || 0), 0) / ratedOrders.length
+          : 0;
+        return {
+          nombre: m.nombre,
+          avgRating,
+          ratedCount: ratedOrders.length
+        };
+      })
+      .filter(m => m.avgRating > 0)
+      .sort((a, b) => b.avgRating - a.avgRating)
+      .slice(0, 3);
+  }, [usuarios, ordenes]);
+
   const stats = {
     total: usuarios.length,
     activos: usuarios.filter(u => u.estado === 'ACTIVO').length,
@@ -97,12 +119,45 @@ export default function PersonalPage() {
     caja: usuarios.filter(u => u.rol === 'CAJERO').length,
   };
 
-  const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+  const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>, isEdit: boolean = false) => {
     const file = e.target.files?.[0];
     if (file) {
       const reader = new FileReader();
       reader.onloadend = () => {
-        setNewStaff({ ...newStaff, fotoDocumento: reader.result as string });
+        const img = new Image();
+        img.onload = () => {
+          const canvas = document.createElement('canvas');
+          const MAX_WIDTH = 600;
+          const MAX_HEIGHT = 600;
+          let width = img.width;
+          let height = img.height;
+
+          if (width > height) {
+            if (width > MAX_WIDTH) {
+              height *= MAX_WIDTH / width;
+              width = MAX_WIDTH;
+            }
+          } else {
+            if (height > MAX_HEIGHT) {
+              width *= MAX_HEIGHT / height;
+              height = MAX_HEIGHT;
+            }
+          }
+          
+          canvas.width = width;
+          canvas.height = height;
+          const ctx = canvas.getContext('2d');
+          ctx?.drawImage(img, 0, 0, width, height);
+          
+          const dataUrl = canvas.toDataURL('image/jpeg', 0.7);
+          
+          if (isEdit) {
+            setStaffToEdit(prev => ({ ...prev, fotoDocumento: dataUrl }));
+          } else {
+            setNewStaff(prev => ({ ...prev, fotoDocumento: dataUrl }));
+          }
+        };
+        img.src = reader.result as string;
       };
       reader.readAsDataURL(file);
     }
@@ -124,6 +179,7 @@ export default function PersonalPage() {
       rol: (newStaff.rol as Rol) || "MESERO",
       pin: pin,
       telefono: newStaff.telefono || "",
+      sueldo: newStaff.sueldo,
       estado: "ACTIVO",
       fechaIngreso: new Date().toISOString().split('T')[0],
       fotoDocumento: newStaff.fotoDocumento || undefined
@@ -132,7 +188,7 @@ export default function PersonalPage() {
     try {
       await addUsuario(staff);
       setIsDialogOpen(false);
-      setNewStaff({ nombre: "", cedula: "", rol: "MESERO", telefono: "", estado: "ACTIVO", fotoDocumento: "" });
+      setNewStaff({ nombre: "", cedula: "", rol: "MESERO", telefono: "", sueldo: undefined, estado: "ACTIVO", fotoDocumento: "" });
       toast({ title: "Personal Registrado", description: `${staff.nombre} ha sido agregado al equipo.` });
     } catch (error: any) {
       console.error("Error creating staff:", error);
@@ -160,6 +216,7 @@ export default function PersonalPage() {
         rol: staffToEdit.rol,
         pin: pin,
         telefono: staffToEdit.telefono,
+        sueldo: staffToEdit.sueldo,
         estado: staffToEdit.estado,
         fotoDocumento: staffToEdit.fotoDocumento || undefined
       });
@@ -224,17 +281,47 @@ export default function PersonalPage() {
       </header>
 
       <div className="space-y-8">
-        <div className="grid grid-cols-1 md:grid-cols-4 gap-6">
-          <Card className="bg-card border-border shadow-md">
+        <div className="grid grid-cols-1 lg:grid-cols-4 gap-6">
+          <div className="lg:col-span-3 grid grid-cols-1 md:grid-cols-3 gap-6">
+            <Card className="bg-card border-border shadow-md">
+              <CardContent className="pt-6">
+                <p className="text-xs text-muted-foreground uppercase mb-1">Total Equipo</p>
+                <h3 className="text-2xl font-bold">{stats.total}</h3>
+              </CardContent>
+            </Card>
+            <Card className="bg-card border-border shadow-md">
+              <CardContent className="pt-6">
+                <p className="text-xs text-muted-foreground uppercase mb-1">Activos</p>
+                <h3 className="text-2xl font-bold text-green-500">{stats.activos}</h3>
+              </CardContent>
+            </Card>
+            <Card className="bg-card border-border shadow-md">
+              <CardContent className="pt-6">
+                <p className="text-xs text-muted-foreground uppercase mb-1">Meseros</p>
+                <h3 className="text-2xl font-bold text-primary">{stats.meseros}</h3>
+              </CardContent>
+            </Card>
+          </div>
+
+          <Card className="bg-gradient-to-br from-amber-500/10 to-yellow-600/5 border-amber-500/30 shadow-md">
             <CardContent className="pt-6">
-              <p className="text-xs text-muted-foreground uppercase mb-1">Total Equipo</p>
-              <h3 className="text-2xl font-bold">{stats.total}</h3>
-            </CardContent>
-          </Card>
-          <Card className="bg-card border-border shadow-md">
-            <CardContent className="pt-6">
-              <p className="text-xs text-muted-foreground uppercase mb-1">Activos</p>
-              <h3 className="text-2xl font-bold text-green-500">{stats.activos}</h3>
+              <p className="text-xs text-amber-500 uppercase font-black tracking-wider mb-2">🏆 TOP MESEROS</p>
+              {meserosRanking.length === 0 ? (
+                <p className="text-xs text-muted-foreground italic">Sin calificaciones</p>
+              ) : (
+                <div className="space-y-2">
+                  {meserosRanking.map((m, idx) => (
+                    <div key={m.nombre} className="flex justify-between items-center text-xs">
+                      <span className="font-bold truncate max-w-[120px]">
+                        {idx + 1}. {m.nombre}
+                      </span>
+                      <span className="text-yellow-500 font-bold flex items-center gap-0.5 shrink-0">
+                        ⭐ {m.avgRating.toFixed(1)} <span className="text-[9px] text-muted-foreground font-normal">({m.ratedCount})</span>
+                      </span>
+                    </div>
+                  ))}
+                </div>
+              )}
             </CardContent>
           </Card>
         </div>
@@ -277,6 +364,22 @@ export default function PersonalPage() {
                             </SelectContent>
                           </Select>
                         </div>
+                        <div className="space-y-2">
+                          <Label>Teléfono / Celular</Label>
+                          <Input value={newStaff.telefono || ""} onChange={(e) => setNewStaff({...newStaff, telefono: e.target.value})} placeholder="Ej: 3001234567" />
+                        </div>
+                        <div className="space-y-2">
+                          <Label>Sueldo Mensual</Label>
+                          <div className="relative">
+                            <span className="absolute left-3 top-1/2 -translate-y-1/2 text-sm text-muted-foreground">$</span>
+                            <Input 
+                              className="pl-7 bg-background"
+                              value={formatCurrencyInput(newStaff.sueldo)} 
+                              onChange={(e) => setNewStaff({...newStaff, sueldo: parseCurrencyInput(e.target.value) || undefined})} 
+                              placeholder="Ej: 1.300.000" 
+                            />
+                          </div>
+                        </div>
                       </div>
 
                       <div className="space-y-4">
@@ -295,7 +398,7 @@ export default function PersonalPage() {
                               <span className="text-sm text-muted-foreground font-medium">Toca para subir foto</span>
                             </>
                           )}
-                          <input type="file" accept="image/*" className="hidden" onChange={handleFileChange} />
+                          <input type="file" accept="image/*" className="hidden" onChange={(e) => handleFileChange(e, false)} />
                         </label>
                       </div>
                     </div>
@@ -332,6 +435,22 @@ export default function PersonalPage() {
                             </SelectContent>
                           </Select>
                         </div>
+                        <div className="space-y-2">
+                          <Label>Teléfono / Celular</Label>
+                          <Input value={staffToEdit.telefono || ""} onChange={(e) => setStaffToEdit({...staffToEdit, telefono: e.target.value})} placeholder="Ej: 3001234567" />
+                        </div>
+                        <div className="space-y-2">
+                          <Label>Sueldo Mensual</Label>
+                          <div className="relative">
+                            <span className="absolute left-3 top-1/2 -translate-y-1/2 text-sm text-muted-foreground">$</span>
+                            <Input 
+                              className="pl-7 bg-background"
+                              value={formatCurrencyInput(staffToEdit.sueldo)} 
+                              onChange={(e) => setStaffToEdit({...staffToEdit, sueldo: parseCurrencyInput(e.target.value) || undefined})} 
+                              placeholder="Ej: 1.300.000" 
+                            />
+                          </div>
+                        </div>
                       </div>
 
                       <div className="space-y-4">
@@ -350,14 +469,7 @@ export default function PersonalPage() {
                               <span className="text-sm text-muted-foreground font-medium">Toca para subir foto</span>
                             </>
                           )}
-                          <input type="file" accept="image/*" className="hidden" onChange={(e) => {
-                            const file = e.target.files?.[0];
-                            if (file) {
-                              const reader = new FileReader();
-                              reader.onloadend = () => setStaffToEdit({ ...staffToEdit, fotoDocumento: reader.result as string });
-                              reader.readAsDataURL(file);
-                            }
-                          }} />
+                          <input type="file" accept="image/*" className="hidden" onChange={(e) => handleFileChange(e, true)} />
                         </label>
                       </div>
                     </div>
@@ -377,6 +489,7 @@ export default function PersonalPage() {
                   <TableHead>Integrante</TableHead>
                   <TableHead>Documento</TableHead>
                   <TableHead>Cargo</TableHead>
+                  <TableHead>Sueldo</TableHead>
                   <TableHead>Ingreso</TableHead>
                   <TableHead className="text-center">Estado</TableHead>
                   <TableHead className="text-right">Acciones</TableHead>
@@ -411,7 +524,26 @@ export default function PersonalPage() {
                         )}
                       </div>
                     </TableCell>
-                    <TableCell>{getRoleBadge(u.rol)}</TableCell>
+                    <TableCell>
+                      <div className="flex items-center gap-2">
+                        {getRoleBadge(u.rol)}
+                        {u.rol === 'MESERO' && (() => {
+                          const closedOrders = ordenes.filter(o => o.estado === 'CERRADA' && o.meseroId === u.id);
+                          const ratedOrders = closedOrders.filter(o => o.rating && o.rating > 0);
+                          const avgRating = ratedOrders.length > 0 
+                            ? ratedOrders.reduce((sum, o) => sum + (o.rating || 0), 0) / ratedOrders.length
+                            : 0;
+                          return avgRating > 0 ? (
+                            <span className="text-yellow-500 text-xs font-bold flex items-center gap-0.5" title={`${ratedOrders.length} calificaciones`}>
+                              ⭐ {avgRating.toFixed(1)}
+                            </span>
+                          ) : null;
+                        })()}
+                      </div>
+                    </TableCell>
+                    <TableCell className="font-mono text-xs font-bold">
+                      {u.sueldo !== undefined && u.sueldo > 0 ? `$${u.sueldo.toLocaleString('es-CO')}` : '-'}
+                    </TableCell>
                     <TableCell>
                       <div className="flex items-center gap-2 text-xs text-muted-foreground">
                         <Calendar className="w-3 h-3" /> {u.fechaIngreso}

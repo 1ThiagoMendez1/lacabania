@@ -14,7 +14,8 @@ import {
   Printer,
   History,
   Utensils,
-  ClipboardList
+  ClipboardList,
+  Lock
 } from "lucide-react";
 import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
@@ -36,6 +37,7 @@ import {
 
 export const ALL_MENU_ITEMS = [
   { icon: LayoutDashboard, label: "Dashboard", href: "/dashboard" },
+  { icon: Lock, label: "Cierre Diario", href: "/cierre" },
   { icon: Map, label: "Mesas", href: "/mesas" },
   { icon: Flame, label: "Asado", href: "/estaciones/asado" },
   { icon: Utensils, label: "Parrilla", href: "/estaciones/parrilla" },

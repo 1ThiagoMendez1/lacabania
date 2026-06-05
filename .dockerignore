@@ -1,0 +1,11 @@
+node_modules
+.next
+.git
+.gitignore
+.dockerignore
+Dockerfile
+README.md
+.agents
+.idx
+.vscode
+C:\Users\Usuario\.gemini\antigravity

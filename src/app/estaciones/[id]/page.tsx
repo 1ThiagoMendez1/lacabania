@@ -26,44 +26,7 @@ import { cn } from "@/lib/utils";
 import { Estacion } from "@/lib/types";
 import { useState, useEffect } from "react";
 
-function TimeElapsed({ createdAt, onCriticalChange }: { createdAt: string, onCriticalChange?: (isCritical: boolean) => void }) {
-  const [elapsed, setElapsed] = useState<number>(0);
 
-  useEffect(() => {
-    const calculate = () => {
-      const start = new Date(createdAt).getTime();
-      const now = new Date().getTime();
-      const mins = Math.floor((now - start) / 1000 / 60);
-      setElapsed(mins);
-      if (onCriticalChange) {
-        onCriticalChange(mins >= 60);
-      }
-    };
-    
-    calculate();
-    const interval = setInterval(calculate, 30000);
-    return () => clearInterval(interval);
-  }, [createdAt, onCriticalChange]);
-
-  const isCritical = elapsed >= 60;
-  const isOverdue = elapsed >= 30 && elapsed < 60;
-  const isWarning = elapsed >= 15 && elapsed < 30;
-
-  return (
-    <div className="flex flex-col items-end gap-1">
-      <div className={cn(
-        "flex items-center gap-1.5 px-3 py-1 rounded-full font-mono text-[10px] md:text-xs font-bold transition-all border",
-        isCritical ? "bg-black text-red-500 border-red-500 animate-bounce" : 
-        isOverdue ? "bg-destructive text-destructive-foreground border-transparent animate-pulse" : 
-        isWarning ? "bg-yellow-500 text-black border-transparent" : 
-        "bg-green-500/20 text-green-500 border-green-500/30"
-      )}>
-        <Timer className={cn("w-3 h-3 md:w-3.5 md:h-3.5", isCritical && "animate-spin")} />
-        <span>{elapsed} MIN</span>
-      </div>
-    </div>
-  );
-}
 
 export default function StationPage() {
   const { id } = useParams();
@@ -101,6 +64,25 @@ export default function StationPage() {
     return () => clearInterval(interval);
   }, [ordersWithItems]);
 
+  // Sincronización en tiempo real y fallback de sondeo para Estaciones
+  useEffect(() => {
+    const refresh = usePOSStore.getState().refreshOrdenesYMesas;
+    const setupRealtime = usePOSStore.getState().setupRealtime;
+    
+    // Forzar actualización inicial al montar
+    refresh().catch(err => console.error("Error al refrescar órdenes en estación:", err));
+    setupRealtime();
+
+    // Sondeo de respaldo cada 5 segundos
+    const interval = setInterval(() => {
+      refresh().catch(err => console.error("Error en sondeo de respaldo de estación:", err));
+    }, 5000);
+
+    return () => {
+      clearInterval(interval);
+    };
+  }, []);
+
   const getStationIcon = () => {
     switch (stationId) {
       case 'ASADO': return <Flame className="w-6 h-6 md:w-8 md:h-8 text-primary" />;
@@ -113,35 +95,27 @@ export default function StationPage() {
 
   return (
     <main className="p-4 md:p-8 max-w-[1600px] mx-auto min-h-full">
-      {hasCriticalOrders && (
-        <div className="mb-6 animate-in slide-in-from-top-4 duration-500">
-          <div className="bg-red-600 text-white p-3 md:p-4 rounded-2xl flex items-center justify-between shadow-xl border-2 border-red-400 animate-pulse">
-            <div className="flex items-center gap-3 md:gap-4">
-              <BellRing className="w-6 h-6 animate-bounce" />
-              <div>
-                <h4 className="text-sm md:text-lg font-black uppercase tracking-tighter">Retraso Crítico</h4>
-                <p className="text-[10px] md:text-sm font-medium opacity-90">Pedidos con espera excesiva.</p>
-              </div>
-            </div>
-          </div>
-        </div>
-      )}
-
       <header className={cn(
         "flex flex-col md:flex-row justify-between items-start md:items-center mb-8 bg-card p-4 md:p-8 rounded-[2rem] border border-border/50 shadow-2xl relative overflow-hidden transition-all duration-500 gap-6",
-        hasCriticalOrders ? "border-red-500/50" : ""
+        hasCriticalOrders ? "border-red-500/30" : ""
       )}>
         <div className="absolute inset-0 wood-texture opacity-20 pointer-events-none" />
         <div className="flex items-center gap-4 md:gap-6 relative z-10">
           <div className={cn(
             "p-3 md:p-4 rounded-2xl border transition-all duration-500",
-            hasCriticalOrders ? "bg-red-500/20" : "bg-primary/10 border-primary/20"
+            hasCriticalOrders ? "bg-red-500/10 border-red-500/20" : "bg-primary/10 border-primary/20"
           )}>
             {getStationIcon()}
           </div>
           <div>
-            <h2 className="text-2xl md:text-4xl font-headline tracking-tighter">
+            <h2 className="text-2xl md:text-4xl font-headline tracking-tighter flex items-center gap-3">
               Estación <span className={cn(hasCriticalOrders ? "text-red-500" : "text-secondary")}>{stationId}</span>
+              {hasCriticalOrders && (
+                <span className="relative flex h-2.5 w-2.5" title="Pedidos con demora crítica">
+                  <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-red-400 opacity-75"></span>
+                  <span className="relative inline-flex rounded-full h-2.5 w-2.5 bg-red-500"></span>
+                </span>
+              )}
             </h2>
             <p className="text-[10px] md:text-sm text-muted-foreground flex items-center gap-2 mt-0.5 md:mt-1">
               <Clock className="w-3 h-3 md:w-4 md:h-4" /> Monitor Agregado
@@ -170,22 +144,33 @@ export default function StationPage() {
               <Card 
                 key={order.id} 
                 className={cn(
-                  "bg-card border-none paper-texture overflow-hidden flex flex-col shadow-2xl rounded-[1.5rem] md:rounded-[2rem] transition-all duration-500",
-                  isOrderCritical ? "ring-2 md:ring-4 ring-red-600 animate-pulse" : ""
+                  "bg-card border border-border/50 paper-texture overflow-hidden flex flex-col shadow-2xl rounded-[1.5rem] md:rounded-[2rem] transition-all duration-500",
+                  isOrderCritical ? "border-red-500/40 shadow-red-500/5" : ""
                 )}
               >
                 <CardHeader className={cn(
                   "border-b p-4 md:p-6 space-y-3 md:space-y-4",
-                  isOrderCritical ? "bg-red-600/20 border-red-600/30" : "bg-accent/30 border-border/50"
+                  isOrderCritical ? "bg-red-500/5 border-red-500/10" : "bg-accent/30 border-border/50"
                 )}>
-                  <div className="flex justify-between items-start">
-                    <div className={cn(
-                      "px-3 py-1 rounded-xl shadow-lg",
-                      isOrderCritical ? "bg-red-600 text-white" : "bg-primary text-white"
-                    )}>
-                      <span className="text-xl md:text-3xl font-black font-headline">MESA {order.mesaId}</span>
+                  <div className="flex justify-between items-center gap-2">
+                    <div className="flex items-center gap-2 flex-wrap">
+                      <div className={cn(
+                        "px-3 py-1 rounded-xl shadow-lg",
+                        isOrderCritical ? "bg-red-600 text-white" : "bg-primary text-white"
+                      )}>
+                        <span className="text-xl md:text-3xl font-black font-headline">MESA {order.mesaId}</span>
+                      </div>
+                      {order.consecutivo && (
+                        <Badge variant="outline" className="text-[10px] font-mono font-black border-current/20 text-muted-foreground uppercase tracking-widest bg-background/55 py-1 px-2.5 rounded-lg shadow-sm">
+                          ORD-{order.consecutivo}
+                        </Badge>
+                      )}
+                      {isOrderCritical && (
+                        <Badge variant="destructive" className="animate-pulse text-[9px] uppercase font-black tracking-wider px-2 py-0.5 rounded-md">
+                          Demorado
+                        </Badge>
+                      )}
                     </div>
-                    <TimeElapsed createdAt={order.createdAt} />
                   </div>
                 </CardHeader>
                 

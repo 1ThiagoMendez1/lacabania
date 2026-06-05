@@ -3,7 +3,7 @@
 
 import { usePOSStore } from "@/lib/store";
 import { usePathname, useRouter } from "next/navigation";
-import { useEffect } from "react";
+import { useEffect, useState } from "react";
 import { SidebarInset, SidebarTrigger } from "@/components/ui/sidebar"
 import { AppSidebar, ALL_MENU_ITEMS } from "@/components/layout/AppSidebar"
 import { Separator } from "@/components/ui/separator"
@@ -13,6 +13,11 @@ export default function AuthWrapper({ children }: { children: React.ReactNode })
   const { user, permisos, isInitialized, fetchInitialData } = usePOSStore();
   const pathname = usePathname();
   const router = useRouter();
+  const [mounted, setMounted] = useState(false);
+
+  useEffect(() => {
+    setMounted(true);
+  }, []);
 
   useEffect(() => {
     if (user && !isInitialized) {
@@ -46,8 +51,39 @@ export default function AuthWrapper({ children }: { children: React.ReactNode })
     }
   }, [user, pathname, router, permisos]);
 
+  useEffect(() => {
+    if (typeof window !== 'undefined' && user) {
+      const timestampStr = localStorage.getItem('session_timestamp');
+      if (timestampStr) {
+        const timestamp = parseInt(timestampStr, 10);
+        const twoHours = 2 * 60 * 60 * 1000;
+        if (Date.now() - timestamp >= twoHours) {
+          // Log out
+          const logout = usePOSStore.getState().logout;
+          logout();
+          router.push("/login");
+        } else {
+          // Slide expiration
+          localStorage.setItem('session_timestamp', Date.now().toString());
+        }
+      } else {
+        localStorage.setItem('session_timestamp', Date.now().toString());
+      }
+    }
+  }, [pathname, user, router]);
+
   if (pathname === "/login") {
     return <>{children}</>;
+  }
+
+  if (!mounted) {
+    return (
+      <div className="h-svh w-full bg-background flex items-center justify-center">
+        <div className="animate-pulse text-secondary font-headline text-xl">
+          🤠 Validando acceso...
+        </div>
+      </div>
+    );
   }
 
   if (!user) {

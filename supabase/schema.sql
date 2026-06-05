@@ -83,7 +83,7 @@ CREATE TABLE public.menu_items (
 CREATE TABLE public.mesas (
     id INTEGER PRIMARY KEY,
     numero INTEGER NOT NULL UNIQUE,
-    zona TEXT NOT NULL CHECK (zona IN ('Primer Piso', 'Segundo Piso')),
+    zona TEXT NOT NULL CHECK (zona IN ('Primer Piso', 'Segundo Piso', 'Para Llevar')),
     capacidad INTEGER NOT NULL CHECK (capacidad > 0),
     estado public.table_status NOT NULL DEFAULT 'LIBRE',
     mesero_id UUID REFERENCES public.usuarios(id) ON DELETE SET NULL,
@@ -101,6 +101,7 @@ CREATE TABLE public.ordenes (
     factura_electronica_id TEXT,
     cliente_nombre TEXT,
     cliente_documento TEXT,
+    consecutivo SERIAL,
     created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
     updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
 );
@@ -130,11 +131,7 @@ INSERT INTO public.permisos (rol, labels) VALUES
     ('MESERO', '{"Mesas", "Asado", "Parrilla", "Cocina", "Bar"}'),
     ('CAJERO', '{"Caja"}');
 
-ALTER PUBLICATION supabase_realtime ADD TABLE public.mesas;
-ALTER PUBLICATION supabase_realtime ADD TABLE public.ordenes;
-ALTER PUBLICATION supabase_realtime ADD TABLE public.items_orden;
-ALTER PUBLICATION supabase_realtime ADD TABLE public.productos;
-ALTER PUBLICATION supabase_realtime ADD TABLE public.menu_items;
+
 
 CREATE TABLE public.cierres_diarios (
     id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
@@ -166,6 +163,32 @@ INSERT INTO public.configuracion_impresoras (id, ip_servidor, mappings)
 VALUES ('default', 'localhost', '{}'::jsonb)
 ON CONFLICT (id) DO NOTHING;
 
-ALTER PUBLICATION supabase_realtime ADD TABLE public.configuracion_impresoras;
+-- Añadir las tablas a la publicación de tiempo real de forma segura y libre de errores
+DO $$
+DECLARE
+    tabla_name TEXT;
+    tablas_realtime TEXT[] := ARRAY['mesas', 'ordenes', 'items_orden', 'productos', 'menu_items', 'configuracion_impresoras'];
+BEGIN
+    FOREACH tabla_name IN ARRAY tablas_realtime LOOP
+        IF NOT EXISTS (
+            SELECT 1 
+            FROM pg_publication_tables 
+            WHERE pubname = 'supabase_realtime' 
+              AND schemaname = 'public' 
+              AND tablename = tabla_name
+        ) THEN
+            EXECUTE format('ALTER PUBLICATION supabase_realtime ADD TABLE public.%I', tabla_name);
+        END IF;
+    END LOOP;
+END
+$$;
 
 ALTER TABLE public.configuracion_impresoras DISABLE ROW LEVEL SECURITY;
+ALTER TABLE public.usuarios DISABLE ROW LEVEL SECURITY;
+ALTER TABLE public.productos DISABLE ROW LEVEL SECURITY;
+ALTER TABLE public.menu_items DISABLE ROW LEVEL SECURITY;
+ALTER TABLE public.mesas DISABLE ROW LEVEL SECURITY;
+ALTER TABLE public.ordenes DISABLE ROW LEVEL SECURITY;
+ALTER TABLE public.items_orden DISABLE ROW LEVEL SECURITY;
+ALTER TABLE public.permisos DISABLE ROW LEVEL SECURITY;
+

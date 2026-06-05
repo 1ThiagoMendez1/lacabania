@@ -26,9 +26,11 @@ import {
   ChefHat,
   BellRing,
   PackageCheck,
-  Ban
+  Ban,
+  Star,
+  Lock
 } from "lucide-react";
-import { useState, useMemo } from "react";
+import { useState, useMemo, useEffect } from "react";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
 import { cn, uuidv4 } from "@/lib/utils";
@@ -72,16 +74,31 @@ type CartItem = {
 export default function OrderPage() {
   const { mesaId } = useParams();
   const router = useRouter();
-  const { menuItems, mesas, ordenes, addOrden, updateMesaEstado, updateItemEstado, user, isCajaCerrada, fechaOperativa } = usePOSStore();
+  const { menuItems, mesas, ordenes, addOrden, updateMesaEstado, updateItemEstado, user, isCajaCerrada, fechaOperativa, usuarios, updateOrden } = usePOSStore();
   const { toast } = useToast();
   
   const mesa = mesas.find(m => m.id === Number(mesaId));
   const activeOrder = useMemo(() => ordenes.find(o => o.mesaId === Number(mesaId) && o.estado === 'ABIERTA'), [ordenes, mesaId]);
+  const mesero = useMemo(() => {
+    if (!activeOrder || !usuarios) return null;
+    return usuarios.find(u => u.id === activeOrder.meseroId) || null;
+  }, [activeOrder, usuarios]);
+  const currentRating = activeOrder?.rating || 0;
+
+  const handleRateMesero = async (ratingVal: number) => {
+    if (!activeOrder) return;
+    await updateOrden(activeOrder.id, { rating: ratingVal });
+    setTimeout(() => {
+      setActiveTab("menu");
+    }, 1500);
+  };
   
   const [searchTerm, setSearchTerm] = useState("");
+  const [activeTab, setActiveTab] = useState("menu");
   const [selectedCategory, setSelectedCategory] = useState("TODOS");
   const [cart, setCart] = useState<CartItem[]>([]);
   const [showConfirmDialog, setShowConfirmDialog] = useState(false);
+  const [payImmediately, setPayImmediately] = useState(false);
   
   const [noteEditingItem, setNoteEditingItem] = useState<CartItem | null>(null);
   const [tempNote, setTempNote] = useState("");
@@ -90,6 +107,36 @@ export default function OrderPage() {
     return (
       <div className="flex h-screen items-center justify-center bg-background">
         <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary"></div>
+      </div>
+    );
+  }
+
+  // Restricción de acceso para otros meseros
+  const isMesaOwnedByOther = user?.rol === 'MESERO' && mesa.meseroId && mesa.meseroId !== user.id;
+  const ownerMeseroNombre = (mesa.meseroId && usuarios.find(u => u.id === mesa.meseroId)?.nombre) || "otro mesero";
+
+  useEffect(() => {
+    if (isMesaOwnedByOther) {
+      toast({
+        variant: "destructive",
+        title: "Acceso Denegado",
+        description: `Esta mesa está siendo atendida por el mesero ${ownerMeseroNombre}. 🤠`
+      });
+      router.push("/mesas");
+    }
+  }, [isMesaOwnedByOther, ownerMeseroNombre, router, toast]);
+
+  if (isMesaOwnedByOther) {
+    return (
+      <div className="flex flex-col h-screen items-center justify-center bg-background text-foreground p-8 text-center">
+        <Lock className="w-16 h-16 text-destructive mb-4 animate-bounce" />
+        <h2 className="text-2xl font-black font-headline text-destructive mb-2 uppercase">Mesa No Disponible</h2>
+        <p className="text-muted-foreground max-w-md mb-6">
+          Esta mesa está asignada a <strong>{ownerMeseroNombre}</strong>. Solo el mesero que la abrió o un administrador pueden interactuar con ella.
+        </p>
+        <Button onClick={() => router.push("/mesas")} className="bg-primary hover:glow-orange font-bold px-6 py-3 rounded-xl">
+          VOLVER AL MAPA DE MESAS
+        </Button>
       </div>
     );
   }
@@ -109,6 +156,18 @@ export default function OrderPage() {
 
   const addToCart = (item: MenuItem) => {
     if (isCajaCerrada) return;
+    if (item.stock !== undefined) {
+      const existing = cart.find(i => i.menuItem.id === item.id);
+      const currentQty = existing ? existing.cantidad : 0;
+      if (currentQty >= item.stock) {
+        toast({
+          variant: "destructive",
+          title: "Sin Stock Disponible",
+          description: `Solo hay ${item.stock} unidades de "${item.nombre}" disponibles.`
+        });
+        return;
+      }
+    }
     setCart(prev => {
       const existing = prev.find(i => i.menuItem.id === item.id);
       if (existing) return prev.map(i => i.menuItem.id === item.id ? { ...i, cantidad: i.cantidad + 1 } : i);
@@ -230,7 +289,9 @@ export default function OrderPage() {
     });
     
     setTimeout(() => {
-      if (user?.rol === 'MESERO' || user?.rol === 'ADMINISTRADOR') {
+      if (payImmediately) {
+        router.push(`/caja?mesaId=${mesaId}`);
+      } else if (user?.rol === 'MESERO' || user?.rol === 'ADMINISTRADOR') {
         router.push('/mesas');
       } else {
         router.back();
@@ -295,21 +356,40 @@ export default function OrderPage() {
           </div>
         )}
       </ScrollArea>
-      <div className="mt-2 pt-4 pb-2 border-t bg-background/90 backdrop-blur-xl w-full">
-        <div className="flex justify-between items-center mb-4 px-1">
+      <div className="mt-4 p-4 border border-border/40 rounded-3xl bg-gradient-to-b from-accent/20 to-accent/5 backdrop-blur-xl w-full shadow-inner space-y-4">
+        <div className="flex justify-between items-center px-1">
           <div className="flex flex-col">
-            <span className="text-muted-foreground font-black uppercase tracking-[0.2em] text-[10px]">Total</span>
-            <span className="text-[10px] text-primary font-mono mt-0.5">{cartItemsCount} items</span>
+            <span className="text-[9px] font-black uppercase tracking-[0.25em] text-muted-foreground">Monto Total</span>
+            <div className="flex items-center gap-2 mt-1">
+              <span className="px-2 py-0.5 text-[9px] font-mono font-black rounded-lg bg-secondary/15 text-secondary border border-secondary/20">
+                {cartItemsCount} {cartItemsCount === 1 ? 'item' : 'items'}
+              </span>
+            </div>
           </div>
-          <span className="text-2xl sm:text-3xl font-black text-secondary glow-gold-text tracking-tighter">${cartTotal.toLocaleString()}</span>
+          <span className="text-3xl font-black text-secondary glow-gold-text tracking-tighter font-mono">
+            ${cartTotal.toLocaleString('es-CO')}
+          </span>
         </div>
-        <Button 
-          disabled={cart.length === 0 || isCajaCerrada} 
-          onClick={() => setShowConfirmDialog(true)} 
-          className="w-full h-14 text-base sm:text-lg font-black rounded-xl shadow-xl bg-primary hover:bg-primary/90 hover:glow-orange transition-all active:scale-95"
-        >
-          {isCajaCerrada ? "CAJA CERRADA 🤠" : "MARCHAR ORDEN 🤠"}
-        </Button>
+        {isCajaCerrada ? (
+          <Button 
+            disabled 
+            className="w-full h-14 text-base font-black rounded-2xl bg-red-600/20 text-red-500 border border-red-500/30"
+          >
+            CAJA CERRADA 🤠
+          </Button>
+        ) : (
+          <Button 
+            disabled={cart.length === 0} 
+            onClick={() => { 
+              setPayImmediately(user?.rol === 'CAJERO'); 
+              setShowConfirmDialog(true); 
+            }} 
+            className="w-full h-14 text-sm font-black uppercase tracking-wider rounded-2xl bg-gradient-to-r from-primary to-orange-600 hover:from-primary hover:to-orange-500 text-white shadow-[0_4px_20px_rgba(239,108,0,0.3)] hover:shadow-[0_4px_25px_rgba(239,108,0,0.5)] transition-all duration-300 transform active:scale-[0.98] border border-orange-500/20 hover:glow-orange gap-2"
+          >
+            <Flame className="w-5 h-5 text-white animate-pulse" />
+            {user?.rol === 'CAJERO' ? 'MARCHAR Y COBRAR 🤠' : 'ENVIAR PEDIDO A COCINA 🤠'}
+          </Button>
+        )}
       </div>
     </div>
   );
@@ -328,7 +408,10 @@ export default function OrderPage() {
             <ChevronLeft className="w-6 h-6" />
           </Button>
           <div>
-            <h2 className="text-lg md:text-xl font-headline leading-tight">Mesa {mesa.id}</h2>
+            <h2 className="text-lg md:text-xl font-headline leading-tight font-black">
+              {mesa.zona === 'Para Llevar' ? `Pedido ORD-${mesa.id >= 101 ? mesa.id - 100 : mesa.id}` : `Mesa ${mesa.id}`}
+              {activeOrder && activeOrder.consecutivo && ` (${mesa.zona === 'Para Llevar' ? 'PLL' : 'MESA'}-${activeOrder.consecutivo})`}
+            </h2>
             <p className="text-[7px] text-muted-foreground uppercase tracking-widest">{mesa.zona}</p>
           </div>
         </div>
@@ -362,9 +445,9 @@ export default function OrderPage() {
         </div>
       </header>
 
-      <Tabs defaultValue="menu" className="flex-1 flex flex-col overflow-hidden">
+      <Tabs value={activeTab} onValueChange={setActiveTab} className="flex-1 flex flex-col overflow-hidden">
         <div className="px-3 md:px-8 bg-accent/10 border-b">
-          <TabsList className="grid w-full grid-cols-2 max-w-md mx-auto h-10 bg-accent/20 rounded-xl p-1">
+          <TabsList className="grid w-full grid-cols-2 max-w-lg mx-auto h-10 bg-accent/20 rounded-xl p-1">
             <TabsTrigger value="menu" className="rounded-lg data-[state=active]:bg-primary data-[state=active]:text-white font-bold gap-2 text-xs">
               <ListTodo className="w-3.5 h-3.5" /> Carta
             </TabsTrigger>
@@ -379,7 +462,7 @@ export default function OrderPage() {
           </TabsList>
         </div>
 
-        <TabsContent value="menu" className="flex-1 flex flex-col lg:flex-row gap-0 lg:gap-3 p-0 lg:p-3 overflow-hidden mt-0">
+        <TabsContent value="menu" className="flex-1 flex flex-col lg:flex-row gap-0 lg:gap-3 p-0 lg:p-3 overflow-hidden mt-0 data-[state=inactive]:hidden">
           <div className="flex-1 flex flex-col gap-2 p-2 lg:p-0 overflow-hidden">
             <div className="space-y-1.5">
               <div className="relative group">
@@ -414,32 +497,49 @@ export default function OrderPage() {
 
             <ScrollArea className="flex-1 -mx-2 px-2">
               <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-3 md:gap-4 pt-2 pb-28 max-w-7xl mx-auto w-full px-1">
-                {filteredItems.map(m => (
-                  <Card 
-                    key={m.id} 
-                    className="bg-card/60 border-border/60 hover:border-primary/50 hover:shadow-lg active:scale-95 transition-all flex flex-col group overflow-hidden w-full mx-auto max-w-sm sm:max-w-none"
-                    onClick={() => addToCart(m)}
-                  >
-                    <CardContent className="p-4 flex items-center justify-between h-full gap-3">
-                      <div className="flex-1 text-left">
-                        <Badge variant="outline" className="text-[9px] mb-1.5 uppercase opacity-80 border-primary/30 font-bold">
-                          {m.categoria}
-                        </Badge>
-                        <h4 className="font-bold text-sm md:text-base leading-tight">
-                          {m.nombre}
-                        </h4>
-                      </div>
-                      <div className="flex flex-col items-end gap-2 shrink-0">
-                        <span className="text-base md:text-lg font-black text-secondary">
-                          ${m.precio.toLocaleString()}
-                        </span>
-                        <div className="p-2 bg-primary/10 rounded-xl group-hover:bg-primary/20 transition-all">
-                          <Plus className="w-4 h-4 text-primary" />
+                {filteredItems.map(m => {
+                  const isOutOfStock = m.stock !== undefined && m.stock <= 0;
+                  const isUnavailable = !m.disponible || isOutOfStock;
+
+                  return (
+                    <Card 
+                      key={m.id} 
+                      className={cn(
+                        "bg-card/60 border-border/60 transition-all flex flex-col group overflow-hidden w-full mx-auto max-w-sm sm:max-w-none",
+                        isUnavailable ? "opacity-40 grayscale cursor-not-allowed border-red-500/10" : "hover:border-primary/50 hover:shadow-lg active:scale-95 cursor-pointer"
+                      )}
+                      onClick={() => !isUnavailable && addToCart(m)}
+                    >
+                      <CardContent className="p-4 flex items-center justify-between h-full gap-3">
+                        <div className="flex-1 text-left">
+                          <div className="flex flex-wrap items-center gap-1.5 mb-1.5">
+                            <Badge variant="outline" className="text-[9px] mb-1.5 uppercase opacity-80 border-primary/30 font-bold">
+                              {m.categoria}
+                            </Badge>
+                            {m.stock !== undefined && (
+                              <Badge variant="secondary" className={cn("text-[9px] font-mono font-bold border", isOutOfStock ? "bg-red-500/20 text-red-400 border-red-500/30" : "bg-green-500/10 text-green-400 border-green-500/20")}>
+                                {isOutOfStock ? "SIN STOCK" : `${m.stock} DISP`}
+                              </Badge>
+                            )}
+                          </div>
+                          <h4 className="font-bold text-sm md:text-base leading-tight">
+                            {m.nombre}
+                          </h4>
                         </div>
-                      </div>
-                    </CardContent>
-                  </Card>
-                ))}
+                        <div className="flex flex-col items-end gap-2 shrink-0">
+                          <span className="text-base md:text-lg font-black text-secondary">
+                            ${m.precio.toLocaleString()}
+                          </span>
+                          {!isUnavailable && (
+                            <div className="p-2 bg-primary/10 rounded-xl group-hover:bg-primary/20 transition-all">
+                              <Plus className="w-4 h-4 text-primary" />
+                            </div>
+                          )}
+                        </div>
+                      </CardContent>
+                    </Card>
+                  );
+                })}
               </div>
             </ScrollArea>
           </div>
@@ -457,7 +557,7 @@ export default function OrderPage() {
           </Card>
         </TabsContent>
 
-        <TabsContent value="status" className="flex-1 p-1 md:p-2 overflow-hidden mt-0">
+        <TabsContent value="status" className="flex-1 p-1 md:p-2 overflow-hidden mt-0 data-[state=inactive]:hidden">
           <div className="max-w-6xl mx-auto h-full flex flex-col gap-2">
             {pendingItems.length > 0 && (
               <div className="grid grid-cols-1 sm:grid-cols-3 gap-2 animate-in fade-in slide-in-from-top-4 duration-500">
@@ -632,7 +732,7 @@ export default function OrderPage() {
               onClick={handleSendOrder}
               className="rounded-xl bg-primary hover:glow-orange font-bold px-8 h-12"
             >
-              MARCHAR 🤠
+              {payImmediately ? 'COBRAR 🤠' : 'MARCHAR 🤠'}
             </AlertDialogAction>
           </AlertDialogFooter>
         </AlertDialogContent>
