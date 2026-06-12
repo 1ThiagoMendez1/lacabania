@@ -53,7 +53,7 @@ export default function AuthWrapper({ children }: { children: React.ReactNode })
 
   useEffect(() => {
     if (typeof window !== 'undefined' && user) {
-      const timestampStr = localStorage.getItem('session_timestamp');
+      const timestampStr = sessionStorage.getItem('session_timestamp');
       if (timestampStr) {
         const timestamp = parseInt(timestampStr, 10);
         const twoHours = 2 * 60 * 60 * 1000;
@@ -64,10 +64,10 @@ export default function AuthWrapper({ children }: { children: React.ReactNode })
           router.push("/login");
         } else {
           // Slide expiration
-          localStorage.setItem('session_timestamp', Date.now().toString());
+          sessionStorage.setItem('session_timestamp', Date.now().toString());
         }
       } else {
-        localStorage.setItem('session_timestamp', Date.now().toString());
+        sessionStorage.setItem('session_timestamp', Date.now().toString());
       }
     }
   }, [pathname, user, router]);

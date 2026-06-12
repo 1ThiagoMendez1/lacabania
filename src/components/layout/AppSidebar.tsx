@@ -14,8 +14,11 @@ import {
   Printer,
   History,
   Utensils,
+  UtensilsCrossed,
   ClipboardList,
-  Lock
+  Lock,
+  Ban,
+  ReceiptText
 } from "lucide-react";
 import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
@@ -39,6 +42,7 @@ export const ALL_MENU_ITEMS = [
   { icon: LayoutDashboard, label: "Dashboard", href: "/dashboard" },
   { icon: Lock, label: "Cierre Diario", href: "/cierre" },
   { icon: Map, label: "Mesas", href: "/mesas" },
+  { icon: UtensilsCrossed, label: "Entregas", href: "/entregas" },
   { icon: Flame, label: "Asado", href: "/estaciones/asado" },
   { icon: Utensils, label: "Parrilla", href: "/estaciones/parrilla" },
   { icon: ChefHat, label: "Cocina", href: "/estaciones/cocina" },
@@ -47,6 +51,7 @@ export const ALL_MENU_ITEMS = [
   { icon: ClipboardList, label: "Menú Carta", href: "/menu" },
   { icon: Package, label: "Inventario", href: "/inventario" },
   { icon: History, label: "Historial Meseros", href: "/reportes/meseros" },
+  { icon: ReceiptText, label: "Historial Pedidos", href: "/reportes/pedidos" },
   { icon: Users, label: "Personal", href: "/personal" },
   { icon: Printer, label: "Impresoras", href: "/configuracion/impresoras" },
 ];

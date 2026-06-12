@@ -27,7 +27,7 @@ CREATE TYPE public.station AS ENUM ('ASADO', 'PARRILLA', 'COCINA', 'BAR');
 CREATE TYPE public.table_status AS ENUM ('LIBRE', 'OCUPADA', 'EN PEDIDO', 'LISTA PAGAR', 'RESERVADA', 'FUERA SERVICIO');
 
 -- Enum for order item status
-CREATE TYPE public.order_item_status AS ENUM ('PENDIENTE', 'EN PREPARACION', 'LISTO', 'ENTREGADO');
+CREATE TYPE public.order_item_status AS ENUM ('PENDIENTE', 'EN PREPARACION', 'LISTO', 'ENTREGADO', 'CANCELADO');
 
 -- Enum for order status
 CREATE TYPE public.order_status AS ENUM ('ABIERTA', 'CERRADA', 'ANULADA');
@@ -148,6 +148,29 @@ CREATE TABLE public.cierres_diarios (
 
 ALTER TABLE public.cierres_diarios DISABLE ROW LEVEL SECURITY;
 
+CREATE TABLE public.gastos (
+    id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+    categoria TEXT NOT NULL,
+    descripcion TEXT,
+    valor NUMERIC NOT NULL CHECK (valor >= 0),
+    fecha DATE NOT NULL DEFAULT CURRENT_DATE,
+    created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+);
+
+ALTER TABLE public.gastos DISABLE ROW LEVEL SECURITY;
+
+CREATE TABLE public.modificaciones_comanda (
+    id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+    orden_id UUID NOT NULL REFERENCES public.ordenes(id) ON DELETE CASCADE,
+    usuario_id UUID NOT NULL REFERENCES public.usuarios(id) ON DELETE RESTRICT,
+    tipo TEXT NOT NULL CHECK (tipo IN ('CANCELACION', 'ADICION', 'MODIFICACION')),
+    items_afectados JSONB NOT NULL,
+    observaciones TEXT,
+    fecha TIMESTAMPTZ NOT NULL DEFAULT NOW()
+);
+
+ALTER TABLE public.modificaciones_comanda DISABLE ROW LEVEL SECURITY;
+
 -- Insertar Super Usuario Administrador Inicial
 INSERT INTO public.usuarios (nombre, cedula, rol, pin, estado, telefono) 
 VALUES ('Super Admin', '1000518202', 'ADMINISTRADOR', '8202', 'ACTIVO', '0000000000');
@@ -167,7 +190,7 @@ ON CONFLICT (id) DO NOTHING;
 DO $$
 DECLARE
     tabla_name TEXT;
-    tablas_realtime TEXT[] := ARRAY['mesas', 'ordenes', 'items_orden', 'productos', 'menu_items', 'configuracion_impresoras'];
+    tablas_realtime TEXT[] := ARRAY['mesas', 'ordenes', 'items_orden', 'productos', 'menu_items', 'configuracion_impresoras', 'gastos', 'modificaciones_comanda'];
 BEGIN
     FOREACH tabla_name IN ARRAY tablas_realtime LOOP
         IF NOT EXISTS (
@@ -191,4 +214,5 @@ ALTER TABLE public.mesas DISABLE ROW LEVEL SECURITY;
 ALTER TABLE public.ordenes DISABLE ROW LEVEL SECURITY;
 ALTER TABLE public.items_orden DISABLE ROW LEVEL SECURITY;
 ALTER TABLE public.permisos DISABLE ROW LEVEL SECURITY;
+ALTER TABLE public.gastos DISABLE ROW LEVEL SECURITY;
 

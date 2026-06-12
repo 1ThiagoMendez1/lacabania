@@ -21,7 +21,7 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { cn, formatCurrencyInput, parseCurrencyInput } from "@/lib/utils";
 import { useToast } from "@/hooks/use-toast";
 import {
@@ -54,6 +54,22 @@ export default function MenuPage() {
   const [editingStockId, setEditingStockId] = useState<string | null>(null);
   const [editStockValue, setEditStockValue] = useState<string>("");
 
+  useEffect(() => {
+    const refreshMenu = usePOSStore.getState().refreshMenuItems;
+    const setupRealtime = usePOSStore.getState().setupRealtime;
+    
+    // Forzar actualización inicial
+    refreshMenu().catch(err => console.error("Error al refrescar menú:", err));
+    setupRealtime();
+
+    // Sondeo de respaldo cada 5 segundos para stock en tiempo real
+    const interval = setInterval(() => {
+      refreshMenu().catch(err => console.error("Error en sondeo de respaldo de menú:", err));
+    }, 5000);
+
+    return () => clearInterval(interval);
+  }, []);
+
   const handleUpdateStockInline = (id: string) => {
     const val = parseInt(editStockValue);
     if (isNaN(val)) return;
@@ -71,7 +87,7 @@ export default function MenuPage() {
     nombre: "",
     categoria: "",
     estacion: "COCINA",
-    precio: 0,
+    precio: undefined,
     descripcion: "",
     disponible: true
   });
@@ -86,6 +102,10 @@ export default function MenuPage() {
       toast({ variant: "destructive", title: "Campos Incompletos", description: "Por favor diligencia todos los campos antes de guardar." });
       return;
     }
+    if (newItem.stock === null) {
+      toast({ variant: "destructive", title: "Stock Vacío", description: "Por favor introduce la cantidad en stock si activas el control de inventario." });
+      return;
+    }
     const menuItem: MenuItem = {
       id: `m-${Date.now()}`, // Se sobrescribirá con UUID en el store
       nombre: newItem.nombre!,
@@ -93,11 +113,12 @@ export default function MenuPage() {
       estacion: (newItem.estacion as Estacion) || "COCINA",
       precio: newItem.precio || 0,
       descripcion: newItem.descripcion || "",
-      disponible: newItem.disponible !== false
+      disponible: newItem.disponible !== false,
+      stock: newItem.stock
     };
     addMenuItem(menuItem);
     setIsDialogOpen(false);
-    setNewItem({ nombre: "", categoria: "", estacion: "COCINA", precio: 0, descripcion: "", disponible: true });
+    setNewItem({ nombre: "", categoria: "", estacion: "COCINA", precio: undefined, descripcion: "", disponible: true });
     toast({
       title: "Plato Registrado",
       description: `${menuItem.nombre} añadido al Menú Carta.`,
@@ -109,13 +130,18 @@ export default function MenuPage() {
       toast({ variant: "destructive", title: "Campos Incompletos", description: "Por favor diligencia todos los campos antes de guardar." });
       return;
     }
+    if (itemToEdit.stock === null) {
+      toast({ variant: "destructive", title: "Stock Vacío", description: "Por favor introduce la cantidad en stock si activas el control de inventario." });
+      return;
+    }
     updateMenuItem(itemToEdit.id, {
       nombre: itemToEdit.nombre,
       categoria: itemToEdit.categoria,
       estacion: itemToEdit.estacion,
       precio: itemToEdit.precio,
       descripcion: itemToEdit.descripcion,
-      disponible: itemToEdit.disponible
+      disponible: itemToEdit.disponible,
+      stock: itemToEdit.stock
     });
     setIsEditDialogOpen(false);
     toast({
@@ -227,7 +253,7 @@ export default function MenuPage() {
                     <span className="absolute left-3 top-1/2 -translate-y-1/2 text-secondary font-bold">$</span>
                     <Input 
                       type="text" 
-                      placeholder="0"
+                      placeholder="Ej: 25.000"
                       className="pl-8 bg-background/50 font-black text-secondary"
                       value={formatCurrencyInput(newItem.precio)} 
                       onChange={(e) => setNewItem({...newItem, precio: parseCurrencyInput(e.target.value)})} 
@@ -241,7 +267,7 @@ export default function MenuPage() {
                   </div>
                   <Switch 
                     checked={newItem.stock !== undefined} 
-                    onCheckedChange={(checked) => setNewItem({...newItem, stock: checked ? 0 : undefined})}
+                    onCheckedChange={(checked) => setNewItem({...newItem, stock: checked ? null as any : undefined})}
                     className="data-[state=checked]:bg-primary"
                   />
                 </div>
@@ -250,9 +276,9 @@ export default function MenuPage() {
                     <Label>Cantidad en Stock</Label>
                     <Input 
                       type="number" 
-                      placeholder="Cantidad"
-                      value={newItem.stock} 
-                      onChange={(e) => setNewItem({...newItem, stock: parseInt(e.target.value) || 0})} 
+                      placeholder="Ej: 20"
+                      value={newItem.stock ?? ""} 
+                      onChange={(e) => setNewItem({...newItem, stock: e.target.value === "" ? null as any : parseInt(e.target.value)})} 
                       className="bg-background/50"
                     />
                   </div>
@@ -347,7 +373,7 @@ export default function MenuPage() {
                     <span className="absolute left-3 top-1/2 -translate-y-1/2 text-secondary font-bold">$</span>
                     <Input 
                       type="text" 
-                      placeholder="0"
+                      placeholder="Ej: 25.000"
                       className="pl-8 bg-background/50 font-black text-secondary"
                       value={formatCurrencyInput(itemToEdit.precio)} 
                       onChange={(e) => setItemToEdit({...itemToEdit, precio: parseCurrencyInput(e.target.value)})} 
@@ -361,7 +387,7 @@ export default function MenuPage() {
                   </div>
                   <Switch 
                     checked={itemToEdit.stock !== undefined} 
-                    onCheckedChange={(checked) => setItemToEdit({...itemToEdit, stock: checked ? 0 : undefined})}
+                    onCheckedChange={(checked) => setItemToEdit({...itemToEdit, stock: checked ? (itemToEdit.stock ?? null as any) : undefined})}
                     className="data-[state=checked]:bg-primary"
                   />
                 </div>
@@ -370,9 +396,9 @@ export default function MenuPage() {
                     <Label>Cantidad en Stock</Label>
                     <Input 
                       type="number" 
-                      placeholder="Cantidad"
-                      value={itemToEdit.stock} 
-                      onChange={(e) => setItemToEdit({...itemToEdit, stock: parseInt(e.target.value) || 0})} 
+                      placeholder="Ej: 20"
+                      value={itemToEdit.stock ?? ""} 
+                      onChange={(e) => setItemToEdit({...itemToEdit, stock: e.target.value === "" ? null as any : parseInt(e.target.value)})} 
                       className="bg-background/50"
                     />
                   </div>

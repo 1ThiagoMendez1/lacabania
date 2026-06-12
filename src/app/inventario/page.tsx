@@ -56,22 +56,22 @@ export default function InventarioPage() {
   const [editValue, setEditValue] = useState<string>("");
   const [isDialogOpen, setIsDialogOpen] = useState(false);
   const [isEditDialogOpen, setIsEditDialogOpen] = useState(false);
-  const [productToEdit, setProductToEdit] = useState<Partial<Producto>>({});
+  const [productToEdit, setProductToEdit] = useState<Partial<Producto> & { camposExtras?: {nombre: string, valor: string}[] }>({});
   const { toast } = useToast();
 
-  const [newProduct, setNewProduct] = useState<Partial<Producto>>({
+  const [newProduct, setNewProduct] = useState<Partial<Producto> & { camposExtras?: {nombre: string, valor: string}[] }>({
     sku: "",
     nombre: "",
     categoria: "",
     estacion: "COCINA",
-    stock: 0,
+    stock: undefined,
     stockMinimo: 0,
-    precio: 0,
-    costoProveedor: 0,
+    precio: undefined,
+    costoProveedor: undefined,
     unidadMedida: "und",
     ubicacion: "",
-    fechaVencimiento: "",
-    descripcion: ""
+    descripcion: "",
+    camposExtras: []
   });
 
   const filteredProducts = productos.filter(p => 
@@ -95,7 +95,7 @@ export default function InventarioPage() {
   };
 
   const handleCreateProduct = () => {
-    if (!newProduct.sku || !newProduct.nombre || !newProduct.categoria || newProduct.stock === undefined || newProduct.stock === null || newProduct.stockMinimo === undefined || newProduct.stockMinimo === null || newProduct.precio === undefined || newProduct.precio === null || newProduct.costoProveedor === undefined || newProduct.costoProveedor === null || !newProduct.unidadMedida || !newProduct.ubicacion || !newProduct.fechaVencimiento) {
+    if (!newProduct.sku || !newProduct.nombre || !newProduct.categoria || newProduct.stock === undefined || newProduct.stock === null || newProduct.precio === undefined || newProduct.precio === null || newProduct.costoProveedor === undefined || newProduct.costoProveedor === null || !newProduct.unidadMedida || !newProduct.ubicacion) {
       toast({ variant: "destructive", title: "Campos Incompletos", description: "Por favor diligencia todos los campos antes de guardar." });
       return;
     }
@@ -111,12 +111,12 @@ export default function InventarioPage() {
       costoProveedor: newProduct.costoProveedor || 0,
       unidadMedida: newProduct.unidadMedida || "und",
       ubicacion: newProduct.ubicacion || "",
-      fechaVencimiento: newProduct.fechaVencimiento || undefined,
       descripcion: newProduct.descripcion || "",
+      // Si se desea guardar los campos extra en el futuro, se añadiría aquí.
     };
     addProducto(producto);
     setIsDialogOpen(false);
-    setNewProduct({ sku: "", nombre: "", categoria: "", estacion: "COCINA", stock: 0, stockMinimo: 0, precio: 0, costoProveedor: 0, unidadMedida: "und", ubicacion: "", fechaVencimiento: "", descripcion: "" });
+    setNewProduct({ sku: "", nombre: "", categoria: "", estacion: "COCINA", stock: undefined, stockMinimo: 0, precio: undefined, costoProveedor: undefined, unidadMedida: "und", ubicacion: "", descripcion: "", camposExtras: [] });
     toast({
       title: "Producto Registrado",
       description: `${producto.nombre} añadido al inventario.`,
@@ -129,7 +129,7 @@ export default function InventarioPage() {
   };
 
   const handleSaveEdit = () => {
-    if (!productToEdit.id || !productToEdit.sku || !productToEdit.nombre || !productToEdit.categoria || productToEdit.stock === undefined || productToEdit.stock === null || productToEdit.stockMinimo === undefined || productToEdit.stockMinimo === null || productToEdit.precio === undefined || productToEdit.precio === null || productToEdit.costoProveedor === undefined || productToEdit.costoProveedor === null || !productToEdit.unidadMedida || !productToEdit.ubicacion || !productToEdit.fechaVencimiento) {
+    if (!productToEdit.id || !productToEdit.sku || !productToEdit.nombre || !productToEdit.categoria || productToEdit.stock === undefined || productToEdit.stock === null || productToEdit.precio === undefined || productToEdit.precio === null || productToEdit.costoProveedor === undefined || productToEdit.costoProveedor === null || !productToEdit.unidadMedida || !productToEdit.ubicacion) {
       toast({ variant: "destructive", title: "Campos Incompletos", description: "Por favor diligencia todos los campos antes de guardar." });
       return;
     }
@@ -214,7 +214,7 @@ export default function InventarioPage() {
                         <SelectItem value="Verduras">Verduras</SelectItem>
                         <SelectItem value="Lacteos">Lácteos</SelectItem>
                         <SelectItem value="Bebidas">Bebidas</SelectItem>
-                        <SelectItem value="Abarrotes">Abarrotes</SelectItem>
+                        <SelectItem value="Proteinas">Proteínas</SelectItem>
                         <SelectItem value="Otros">Otros</SelectItem>
                       </SelectContent>
                     </Select>
@@ -239,46 +239,26 @@ export default function InventarioPage() {
                   </div>
                 </div>
 
-                <div className="grid grid-cols-2 gap-4">
-                  <div className="space-y-2">
-                    <Label>Stock Inicial ({newProduct.unidadMedida || 'und'})</Label>
-                    <Input 
-                      type="number" 
-                      value={newProduct.stock} 
-                      onChange={(e) => setNewProduct({...newProduct, stock: parseFloat(e.target.value)})} 
-                      className="bg-background/50"
-                    />
-                  </div>
-                  <div className="space-y-2">
-                    <Label>Stock Mínimo</Label>
-                    <Input 
-                      type="number" 
-                      value={newProduct.stockMinimo} 
-                      onChange={(e) => setNewProduct({...newProduct, stockMinimo: parseFloat(e.target.value)})} 
-                      className="bg-background/50"
-                    />
-                  </div>
+                <div className="space-y-2">
+                  <Label>Stock Inicial ({newProduct.unidadMedida || 'und'})</Label>
+                  <Input 
+                    type="number" 
+                    value={newProduct.stock ?? ""} 
+                    onChange={(e) => setNewProduct({...newProduct, stock: e.target.value === "" ? undefined : parseFloat(e.target.value)})} 
+                    placeholder="Ej: 50"
+                    className="bg-background/50"
+                  />
                 </div>
-                <div className="grid grid-cols-2 gap-4">
-                  <div className="space-y-2">
-                    <Label>Costo Proveedor</Label>
-                    <div className="relative">
-                      <span className="absolute left-3 top-1/2 -translate-y-1/2 text-muted-foreground">$</span>
-                      <Input 
-                        type="text" 
-                        className="pl-8 bg-background/50"
-                        value={formatCurrencyInput(newProduct.costoProveedor)} 
-                        onChange={(e) => setNewProduct({...newProduct, costoProveedor: parseCurrencyInput(e.target.value)})} 
-                      />
-                    </div>
-                  </div>
-                  <div className="space-y-2">
-                    <Label>Fecha Vencimiento</Label>
+                <div className="space-y-2">
+                  <Label>Costo Proveedor</Label>
+                  <div className="relative">
+                    <span className="absolute left-3 top-1/2 -translate-y-1/2 text-muted-foreground">$</span>
                     <Input 
-                      type="date" 
-                      value={newProduct.fechaVencimiento} 
-                      onChange={(e) => setNewProduct({...newProduct, fechaVencimiento: e.target.value})} 
-                      className="bg-background/50"
+                      type="text" 
+                      className="pl-8 bg-background/50"
+                      value={formatCurrencyInput(newProduct.costoProveedor)} 
+                      onChange={(e) => setNewProduct({...newProduct, costoProveedor: parseCurrencyInput(e.target.value)})} 
+                      placeholder="Ej: 5.000"
                     />
                   </div>
                 </div>
@@ -297,7 +277,7 @@ export default function InventarioPage() {
                     <span className="absolute left-3 top-1/2 -translate-y-1/2 text-secondary font-bold">$</span>
                     <Input 
                       type="text" 
-                      placeholder="0"
+                      placeholder="Ej: 15.000"
                       className="pl-8 bg-background/50 font-black text-secondary"
                       value={formatCurrencyInput(newProduct.precio)} 
                       onChange={(e) => setNewProduct({...newProduct, precio: parseCurrencyInput(e.target.value)})} 
@@ -305,6 +285,9 @@ export default function InventarioPage() {
                   </div>
                   <p className="text-[10px] text-muted-foreground italic">El valor se guardará en pesos colombianos.</p>
                 </div>
+                
+
+
               </div>
               <DialogFooter className="gap-2">
                 <Button variant="ghost" onClick={() => setIsDialogOpen(false)} className="rounded-xl">Cancelar</Button>
@@ -348,7 +331,7 @@ export default function InventarioPage() {
                         <SelectItem value="Verduras">Verduras</SelectItem>
                         <SelectItem value="Lacteos">Lácteos</SelectItem>
                         <SelectItem value="Bebidas">Bebidas</SelectItem>
-                        <SelectItem value="Abarrotes">Abarrotes</SelectItem>
+                        <SelectItem value="Proteinas">Proteínas</SelectItem>
                         <SelectItem value="Otros">Otros</SelectItem>
                       </SelectContent>
                     </Select>
@@ -373,46 +356,26 @@ export default function InventarioPage() {
                   </div>
                 </div>
 
-                <div className="grid grid-cols-2 gap-4">
-                  <div className="space-y-2">
-                    <Label>Stock Actual ({productToEdit.unidadMedida || 'und'})</Label>
-                    <Input 
-                      type="number" 
-                      value={productToEdit.stock ?? 0} 
-                      onChange={(e) => setProductToEdit({...productToEdit, stock: parseFloat(e.target.value)})} 
-                      className="bg-background/50"
-                    />
-                  </div>
-                  <div className="space-y-2">
-                    <Label>Stock Mínimo</Label>
-                    <Input 
-                      type="number" 
-                      value={productToEdit.stockMinimo ?? 0} 
-                      onChange={(e) => setProductToEdit({...productToEdit, stockMinimo: parseFloat(e.target.value)})} 
-                      className="bg-background/50"
-                    />
-                  </div>
+                <div className="space-y-2">
+                  <Label>Stock Actual ({productToEdit.unidadMedida || 'und'})</Label>
+                  <Input 
+                    type="number" 
+                    value={productToEdit.stock ?? ""} 
+                    onChange={(e) => setProductToEdit({...productToEdit, stock: e.target.value === "" ? undefined : parseFloat(e.target.value)})} 
+                    placeholder="Ej: 50"
+                    className="bg-background/50"
+                  />
                 </div>
-                <div className="grid grid-cols-2 gap-4">
-                  <div className="space-y-2">
-                    <Label>Costo Proveedor</Label>
-                    <div className="relative">
-                      <span className="absolute left-3 top-1/2 -translate-y-1/2 text-muted-foreground">$</span>
-                      <Input 
-                        type="text" 
-                        className="pl-8 bg-background/50"
-                        value={formatCurrencyInput(productToEdit.costoProveedor)} 
-                        onChange={(e) => setProductToEdit({...productToEdit, costoProveedor: parseCurrencyInput(e.target.value)})} 
-                      />
-                    </div>
-                  </div>
-                  <div className="space-y-2">
-                    <Label>Fecha Vencimiento</Label>
+                <div className="space-y-2">
+                  <Label>Costo Proveedor</Label>
+                  <div className="relative">
+                    <span className="absolute left-3 top-1/2 -translate-y-1/2 text-muted-foreground">$</span>
                     <Input 
-                      type="date" 
-                      value={productToEdit.fechaVencimiento || ""} 
-                      onChange={(e) => setProductToEdit({...productToEdit, fechaVencimiento: e.target.value})} 
-                      className="bg-background/50"
+                      type="text" 
+                      className="pl-8 bg-background/50"
+                      value={formatCurrencyInput(productToEdit.costoProveedor)} 
+                      onChange={(e) => setProductToEdit({...productToEdit, costoProveedor: parseCurrencyInput(e.target.value)})} 
+                      placeholder="Ej: 5.000"
                     />
                   </div>
                 </div>
@@ -433,9 +396,13 @@ export default function InventarioPage() {
                       className="pl-8 bg-background/50 font-black text-secondary"
                       value={formatCurrencyInput(productToEdit.precio)} 
                       onChange={(e) => setProductToEdit({...productToEdit, precio: parseCurrencyInput(e.target.value)})} 
+                      placeholder="Ej: 15.000"
                     />
                   </div>
                 </div>
+                
+
+
               </div>
               <DialogFooter className="gap-2">
                 <Button variant="ghost" onClick={() => setIsEditDialogOpen(false)} className="rounded-xl">Cancelar</Button>

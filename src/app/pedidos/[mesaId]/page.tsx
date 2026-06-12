@@ -35,7 +35,7 @@ import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
 import { cn, uuidv4 } from "@/lib/utils";
 import { ItemOrden, MenuItem, Orden } from "@/lib/types";
-import { printKitchenTickets } from "@/lib/printHelper";
+import { printKitchenTickets, printModificacionTicket } from "@/lib/printHelper";
 import {
   Sheet,
   SheetContent,
@@ -63,6 +63,14 @@ import {
 import { Label } from "@/components/ui/label";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { useToast } from "@/hooks/use-toast";
+import { 
+  Select, 
+  SelectContent, 
+  SelectItem, 
+  SelectTrigger, 
+  SelectValue 
+} from "@/components/ui/select";
+import { SearchableSelect } from "@/components/ui/searchable-select";
 
 type CartItem = {
   menuItem: MenuItem;
@@ -94,7 +102,6 @@ export default function OrderPage() {
   };
   
   const [searchTerm, setSearchTerm] = useState("");
-  const [activeTab, setActiveTab] = useState("menu");
   const [selectedCategory, setSelectedCategory] = useState("TODOS");
   const [cart, setCart] = useState<CartItem[]>([]);
   const [showConfirmDialog, setShowConfirmDialog] = useState(false);
@@ -102,6 +109,11 @@ export default function OrderPage() {
   
   const [noteEditingItem, setNoteEditingItem] = useState<CartItem | null>(null);
   const [tempNote, setTempNote] = useState("");
+
+  const [cancelItemDialog, setCancelItemDialog] = useState<ItemOrden | null>(null);
+  const [cancelMotivo, setCancelMotivo] = useState("");
+  const [cancelReplacementId, setCancelReplacementId] = useState<string>("none");
+  const { cancelarItemOrden } = usePOSStore();
 
   if (!mesa) {
     return (
@@ -259,7 +271,11 @@ export default function OrderPage() {
     }
     
     // Intentar imprimir comandas en segundo plano
-    printKitchenTickets(mesa.numero, user?.nombre || 'Mesero', newItems)
+    const printPromise = activeOrder 
+      ? printModificacionTicket(mesa.numero, user?.nombre || 'Mesero', [], newItems, "Nuevos items agregados")
+      : printKitchenTickets(mesa.numero, user?.nombre || 'Mesero', newItems);
+
+    printPromise
       .then(() => {
         toast({
           title: "Comandas impresas",
@@ -299,9 +315,7 @@ export default function OrderPage() {
     }, 600);
   };
 
-  const pendingItems = activeOrder?.items.filter(item => item.estado !== 'ENTREGADO') || [];
-  const readyItemsCount = pendingItems.filter(item => item.estado === 'LISTO').length;
-  const inKitchenCount = pendingItems.filter(item => item.estado === 'EN PREPARACION' || item.estado === 'PENDIENTE').length;
+  // Removing pendingItems as it moved to global Entregas view
 
   if (!mesa) return <div className="p-8">Mesa no encontrada</div>;
 
@@ -445,24 +459,7 @@ export default function OrderPage() {
         </div>
       </header>
 
-      <Tabs value={activeTab} onValueChange={setActiveTab} className="flex-1 flex flex-col overflow-hidden">
-        <div className="px-3 md:px-8 bg-accent/10 border-b">
-          <TabsList className="grid w-full grid-cols-2 max-w-lg mx-auto h-10 bg-accent/20 rounded-xl p-1">
-            <TabsTrigger value="menu" className="rounded-lg data-[state=active]:bg-primary data-[state=active]:text-white font-bold gap-2 text-xs">
-              <ListTodo className="w-3.5 h-3.5" /> Carta
-            </TabsTrigger>
-            <TabsTrigger value="status" className="rounded-lg data-[state=active]:bg-secondary data-[state=active]:text-secondary-foreground font-bold gap-2 text-xs">
-              <UtensilsCrossed className="w-3.5 h-3.5" /> Entregas
-              {readyItemsCount > 0 && (
-                <Badge className="ml-1 h-4 w-4 p-0 flex items-center justify-center bg-red-500 animate-pulse text-[9px]">
-                  {readyItemsCount}
-                </Badge>
-              )}
-            </TabsTrigger>
-          </TabsList>
-        </div>
-
-        <TabsContent value="menu" className="flex-1 flex flex-col lg:flex-row gap-0 lg:gap-3 p-0 lg:p-3 overflow-hidden mt-0 data-[state=inactive]:hidden">
+      <div className="flex-1 flex flex-col lg:flex-row gap-0 lg:gap-3 p-0 lg:p-3 overflow-hidden mt-0 bg-accent/5">
           <div className="flex-1 flex flex-col gap-2 p-2 lg:p-0 overflow-hidden">
             <div className="space-y-1.5">
               <div className="relative group">
@@ -555,146 +552,7 @@ export default function OrderPage() {
               <CartSummary />
             </div>
           </Card>
-        </TabsContent>
-
-        <TabsContent value="status" className="flex-1 p-1 md:p-2 overflow-hidden mt-0 data-[state=inactive]:hidden">
-          <div className="max-w-6xl mx-auto h-full flex flex-col gap-2">
-            {pendingItems.length > 0 && (
-              <div className="grid grid-cols-1 sm:grid-cols-3 gap-2 animate-in fade-in slide-in-from-top-4 duration-500">
-                <Card className="bg-accent/20 border-border/50">
-                  <CardContent className="p-2 flex items-center gap-3">
-                    <div className="p-1.5 bg-primary/10 rounded-xl">
-                      <ChefHat className="w-3.5 h-3.5 text-primary" />
-                    </div>
-                    <div>
-                      <p className="text-[8px] font-black uppercase tracking-widest text-muted-foreground leading-none mb-0.5">En Cocina</p>
-                      <p className="text-base font-black leading-none">{inKitchenCount} platos</p>
-                    </div>
-                  </CardContent>
-                </Card>
-                <Card className="bg-green-500/10 border-green-500/20">
-                  <CardContent className="p-2 flex items-center gap-3">
-                    <div className="p-1.5 bg-green-500/10 rounded-xl">
-                      <BellRing className={cn("w-3.5 h-3.5 text-green-500", readyItemsCount > 0 && "animate-bounce")} />
-                    </div>
-                    <div>
-                      <p className="text-[8px] font-black uppercase tracking-widest text-green-500/70 leading-none mb-0.5">Listos para Entrega</p>
-                      <p className="text-base font-black text-green-500 leading-none">{readyItemsCount} platos</p>
-                    </div>
-                  </CardContent>
-                </Card>
-                <Card className="bg-secondary/10 border-secondary/20">
-                  <CardContent className="p-2 flex items-center gap-3">
-                    <div className="p-1.5 bg-secondary/10 rounded-xl">
-                      <PackageCheck className="w-3.5 h-3.5 text-secondary" />
-                    </div>
-                    <div>
-                      <p className="text-[8px] font-black uppercase tracking-widest text-secondary/70 leading-none mb-0.5">Atendiendo mesa</p>
-                      <p className="text-base font-black text-secondary leading-none">#{mesaId}</p>
-                    </div>
-                  </CardContent>
-                </Card>
-              </div>
-            )}
-
-            {!activeOrder || pendingItems.length === 0 ? (
-              <div className="flex-1 flex flex-col items-center justify-center opacity-30 text-center space-y-2">
-                <div className="p-6 bg-accent/10 rounded-full">
-                  <UtensilsCrossed className="w-16 h-16" />
-                </div>
-                <p className="font-headline text-2xl">Mesa despejada 🤠</p>
-                <p className="text-xs max-w-xs mx-auto opacity-70">
-                  No hay platos pendientes por entregar. Todo está en marcha o servido.
-                </p>
-              </div>
-            ) : (
-              <ScrollArea className="flex-1">
-                <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-2 pb-8">
-                  {pendingItems.map((item) => {
-                    const isReady = item.estado === 'LISTO';
-                    const elapsed = Math.floor((new Date().getTime() - new Date(item.createdAt).getTime()) / 1000 / 60);
-
-                    return (
-                      <Card 
-                        key={item.id} 
-                        className={cn(
-                          "border-none paper-texture transition-all duration-300 overflow-hidden group hover:scale-[1.01]",
-                          isReady ? "ring-2 ring-green-500 shadow-[0_0_20px_rgba(34,197,94,0.15)] bg-green-500/5" : "bg-card/40 border border-border/50"
-                        )}
-                      >
-                        <CardContent className="p-0">
-                          <div className={cn(
-                            "p-2.5 border-b border-border/20 flex justify-between items-start",
-                            isReady ? "bg-green-500/10" : "bg-accent/10"
-                          )}>
-                            <div className="flex gap-2.5">
-                              <div className={cn(
-                                "w-9 h-9 rounded-xl flex items-center justify-center font-black text-lg shadow-lg border",
-                                isReady ? "bg-green-500 text-white border-green-400" : "bg-accent text-muted-foreground border-border"
-                              )}>
-                                {item.cantidad}
-                              </div>
-                              <div className="min-w-0 pr-2">
-                                <p className="font-bold text-sm leading-tight truncate">{item.nombre}</p>
-                                <div className="flex items-center gap-2 mt-1">
-                                  {isReady ? (
-                                    <Badge className="bg-green-600 text-white animate-pulse text-[7px] uppercase font-black px-1.5 py-0 border-none">¡LISTO!</Badge>
-                                  ) : (
-                                    <Badge variant="outline" className="text-[7px] uppercase font-bold opacity-60 bg-background/30">En Cocina</Badge>
-                                  )}
-                                  <span className="text-[8px] text-muted-foreground flex items-center gap-1 font-mono">
-                                    <Clock className="w-2.5 h-2.5" /> {elapsed}m
-                                  </span>
-                                </div>
-                              </div>
-                            </div>
-                          </div>
-                          
-                          <div className="p-2.5 space-y-2">
-                            {item.notas && (
-                              <div className="text-[8px] text-primary italic bg-primary/5 p-1.5 rounded-lg border border-primary/10 mb-1">
-                                "{item.notas}"
-                              </div>
-                            )}
-                            <Button 
-                              className={cn(
-                                "w-full h-11 font-black rounded-xl transition-all shadow-lg active:scale-95 text-sm",
-                                isReady ? "bg-green-600 hover:bg-green-700 text-white glow-gold" : "bg-secondary text-secondary-foreground"
-                              )}
-                              onClick={() => updateItemEstado(activeOrder.id, item.id, 'ENTREGADO')}
-                            >
-                              ENTREGAR 🤠
-                            </Button>
-                          </div>
-                        </CardContent>
-                      </Card>
-                    );
-                  })}
-                </div>
-              </ScrollArea>
-            )}
-
-            {activeOrder?.items.some(i => i.estado === 'ENTREGADO') && (
-              <div className="mt-auto border-t border-border/30 pt-1 pb-3 opacity-60">
-                <p className="text-[8px] font-black uppercase tracking-[0.3em] text-center mb-1.5">Reciente</p>
-                <div className="flex flex-wrap justify-center gap-1">
-                  {activeOrder.items
-                    .filter(i => i.estado === 'ENTREGADO')
-                    .slice(-4)
-                    .map(item => (
-                      <div key={item.id} className="flex items-center gap-1.5 text-[8px] bg-accent/20 px-2 py-0.5 rounded-full border border-border/30">
-                        <span className="font-black text-green-500">{item.cantidad}x</span>
-                        <span className="font-medium truncate max-w-[80px]">{item.nombre}</span>
-                        <CheckCircle2 className="w-2 h-2 text-green-500" />
-                      </div>
-                    ))
-                  }
-                </div>
-              </div>
-            )}
-          </div>
-        </TabsContent>
-      </Tabs>
+      </div>
 
       <AlertDialog open={showConfirmDialog} onOpenChange={setShowConfirmDialog}>
         <AlertDialogContent className="max-w-[90vw] md:max-w-md bg-card border-border paper-texture rounded-[2rem]">
@@ -793,6 +651,131 @@ export default function OrderPage() {
           </Sheet>
         </div>
       )}
+    <Dialog open={!!cancelItemDialog} onOpenChange={(open) => !open && setCancelItemDialog(null)}>
+        <DialogContent className="max-w-[90vw] md:max-w-md bg-card border-border paper-texture rounded-[2rem]">
+          <DialogHeader>
+            <DialogTitle className="font-headline text-red-500 flex items-center gap-2">
+              <Ban className="w-5 h-5" /> Cancelar Producto
+            </DialogTitle>
+          </DialogHeader>
+          <div className="space-y-4 py-4">
+            <p className="text-sm">
+              Vas a cancelar <strong>{cancelItemDialog?.cantidad}x {cancelItemDialog?.nombre}</strong>.
+            </p>
+            <div className="space-y-2">
+              <Label>Motivo de cancelación</Label>
+              <Input 
+                value={cancelMotivo}
+                onChange={(e) => setCancelMotivo(e.target.value)}
+                placeholder="Ej: Cliente cambió de opinión"
+                className="bg-background"
+              />
+            </div>
+            
+            <div className="space-y-2 bg-primary/5 p-4 rounded-xl border border-primary/20">
+              <Label className="text-primary font-bold">¿Cambiar por otro producto?</Label>
+              <p className="text-xs text-muted-foreground mb-2">Si el cliente solicitó un cambio, selecciona el nuevo producto aquí para enviarlo a cocina automáticamente.</p>
+              <SearchableSelect 
+                value={cancelReplacementId} 
+                onValueChange={setCancelReplacementId}
+                placeholder="Seleccionar producto..."
+                searchPlaceholder="Buscar plato..."
+                options={[
+                  { label: "-- Ninguno (Solo cancelar) --", value: "none" },
+                  ...menuItems.map(item => ({
+                    label: `${item.nombre} - $${item.precio.toLocaleString('es-CO')}`,
+                    value: item.id
+                  }))
+                ]}
+              />
+            </div>
+          </div>
+          <DialogFooter className="gap-2">
+            <Button variant="outline" onClick={() => setCancelItemDialog(null)} className="rounded-xl">Volver</Button>
+            <Button 
+              className="bg-red-600 hover:bg-red-700 font-bold rounded-xl" 
+              onClick={async () => {
+                if (!activeOrder || !cancelItemDialog) return;
+                
+                const userToLogId = user?.id || '';
+
+                // Obtener datos operativos para el nuevo item (si hay)
+                const getOperationalTimestamp = () => {
+                  const now = new Date();
+                  const timePart = now.toTimeString().split(' ')[0];
+                  const ms = String(now.getMilliseconds()).padStart(3, '0');
+                  const offsetMinutes = now.getTimezoneOffset();
+                  const absOffset = Math.abs(offsetMinutes);
+                  const sign = offsetMinutes > 0 ? '-' : '+';
+                  const offsetHours = String(Math.floor(absOffset / 60)).padStart(2, '0');
+                  const offsetMins = String(absOffset % 60).padStart(2, '0');
+                  const timezoneOffsetStr = `${sign}${offsetHours}:${offsetMins}`;
+                  
+                  const activeDate = fechaOperativa || new Date(now.getTime() - (offsetMinutes * 60000)).toISOString().split('T')[0];
+                  return `${activeDate}T${timePart}.${ms}${timezoneOffsetStr}`;
+                };
+
+                let nuevosItemsParaComanda: ItemOrden[] = [];
+                
+                // Execute cancellation
+                await cancelarItemOrden(activeOrder.id, cancelItemDialog.id, cancelMotivo, userToLogId);
+                
+                // Si seleccionó un producto de reemplazo
+                if (cancelReplacementId && cancelReplacementId !== "none") {
+                  const replacementMenu = menuItems.find(m => m.id === cancelReplacementId);
+                  if (replacementMenu) {
+                    const operationalTimestamp = getOperationalTimestamp();
+                    const newItem: ItemOrden = {
+                      id: uuidv4(),
+                      menuItemId: replacementMenu.id,
+                      nombre: replacementMenu.nombre,
+                      cantidad: cancelItemDialog.cantidad, // Misma cantidad que el cancelado
+                      precioUnitario: replacementMenu.precio,
+                      notas: `Cambio por: ${cancelItemDialog.nombre}`,
+                      estacion: replacementMenu.estacion,
+                      estado: 'EN PREPARACION',
+                      createdAt: operationalTimestamp
+                    };
+                    
+                    usePOSStore.getState().addItemsToOrden(activeOrder.id, [newItem]);
+                    nuevosItemsParaComanda = [newItem];
+                  }
+                }
+
+                // Print modification ticket
+                try {
+                  const notasTicket = cancelMotivo 
+                    ? `${cancelMotivo}${nuevosItemsParaComanda.length > 0 ? ' (CAMBIO)' : ''}`
+                    : (nuevosItemsParaComanda.length > 0 ? 'Cambio de producto' : 'Cancelación');
+                    
+                  await printModificacionTicket(
+                    mesa.numero, 
+                    user?.nombre || 'Mesero', 
+                    [cancelItemDialog], 
+                    nuevosItemsParaComanda, 
+                    notasTicket
+                  );
+                  
+                  toast({
+                    title: nuevosItemsParaComanda.length > 0 ? "Producto cambiado" : "Producto cancelado",
+                    description: "Se imprimió la modificación en la estación correspondiente.",
+                  });
+                } catch (err: any) {
+                  toast({
+                    variant: "destructive",
+                    title: "Error de Impresión",
+                    description: err.message || "No se pudo imprimir el ticket de modificación.",
+                  });
+                }
+                setCancelItemDialog(null);
+              }}
+            >
+              CONFIRMAR CANCELACIÓN
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
     </main>
   );
 }

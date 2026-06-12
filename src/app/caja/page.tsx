@@ -27,7 +27,7 @@ import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { useState, useEffect } from "react";
-import { cn } from "@/lib/utils";
+import { cn, getOrderIdentifier, parseCurrencyInput, formatCurrencyInput } from "@/lib/utils";
 import { useToast } from "@/hooks/use-toast";
 import { Separator } from "@/components/ui/separator";
 import { MetodoPago, Orden, ClienteFE, TipoDocumentoFE } from "@/lib/types";
@@ -37,6 +37,7 @@ import {
   DialogHeader,
   DialogTitle,
   DialogFooter,
+  DialogTrigger,
 } from "@/components/ui/dialog";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -50,13 +51,18 @@ import {
 } from "@/components/ui/select";
 
 export default function CajaPage() {
-  const { ordenes, mesas, closeOrden, isCajaCerrada, usuarios } = usePOSStore();
+  const { ordenes, mesas, closeOrden, isCajaCerrada, usuarios, addGasto, fechaOperativa } = usePOSStore();
   const { toast } = useToast();
   const [selectedMesaId, setSelectedMesaId] = useState<number | null>(null);
   const [metodoPago, setMetodoPago] = useState<MetodoPago | null>(null);
   const [showReceipt, setShowReceipt] = useState(false);
   const [lastClosedOrden, setLastClosedOrden] = useState<Orden | null>(null);
   const [incluirPropina, setIncluirPropina] = useState(true);
+  
+  const [isGastoDialogOpen, setIsGastoDialogOpen] = useState(false);
+  const [gastoCategoria, setGastoCategoria] = useState("Insumos");
+  const [gastoDescripcion, setGastoDescripcion] = useState("");
+  const [gastoValor, setGastoValor] = useState("");
   
   useEffect(() => {
     if (typeof window !== 'undefined') {
@@ -108,7 +114,9 @@ export default function CajaPage() {
 
   const activeOrden = ordenes.find(o => String(o.mesaId) === String(selectedMesaId) && o.estado === 'ABIERTA');
 
-  const subtotal = (activeOrden?.items || []).reduce((acc, item) => acc + (item.precioUnitario * item.cantidad), 0);
+  const subtotal = (activeOrden?.items || [])
+    .filter(item => item.estado !== 'CANCELADO')
+    .reduce((acc, item) => acc + (item.precioUnitario * item.cantidad), 0);
   const propinaSugerida = incluirPropina ? subtotal * 0.10 : 0;
   const total = subtotal + propinaSugerida;
 
@@ -153,10 +161,11 @@ export default function CajaPage() {
       clienteNombre: incluirPropina ? 'CON_PROPINA' : 'SIN_PROPINA'
     };
     
-    const selectedMesa = mesas.find(m => m.id === selectedMesaId);
-    const mesaLabel = selectedMesa?.zona === 'Para Llevar'
-      ? `Pedido ORD-${selectedMesaId && selectedMesaId >= 101 ? selectedMesaId - 100 : selectedMesaId}`
-      : `Mesa ${selectedMesaId}`;
+    const mesaLabel = getOrderIdentifier({ 
+      mesaId: selectedMesaId, 
+      consecutivo: activeOrden.consecutivo, 
+      id: activeOrden.id 
+    });
 
     setLastClosedOrden(ordenToClose);
     closeOrden(activeOrden.id, selectedMesaId, metodoPago, incluirPropina);
@@ -224,16 +233,12 @@ export default function CajaPage() {
                       )}
                     >
                       <div className="flex justify-between mb-2">
-                        <span className="text-xl font-black">
-                          {mesa.zona === 'Para Llevar' 
-                            ? `ORD-${mesa.id >= 101 ? mesa.id - 100 : mesa.id}` 
-                            : `MESA ${mesa.id}`}
+                        <span className="text-xl font-black flex items-center gap-2">
+                          {activeOrder ? getOrderIdentifier({ mesaId: mesa.id, consecutivo: activeOrder.consecutivo, id: activeOrder.id }) : (mesa.zona === 'Para Llevar' ? `PLL-${mesa.id}` : `Mesa ${mesa.id}`)}
+                          {mesa.id < 101 && activeOrder && (
+                            <span className="text-[9px] bg-background/50 px-1.5 py-0.5 rounded text-muted-foreground uppercase tracking-widest font-bold">Mesa {mesa.id}</span>
+                          )}
                         </span>
-                        {activeOrder && activeOrder.consecutivo && (
-                          <span className="text-xs font-mono font-black px-1.5 py-0.5 rounded bg-primary/20 text-primary border border-primary/30">
-                            {mesa.zona === 'Para Llevar' ? 'PLL' : 'MESA'}-{activeOrder.consecutivo}
-                          </span>
-                        )}
                       </div>
                       <div className="flex items-center gap-2 text-xs text-muted-foreground"><Clock className="w-3 h-3" /><span>Cuenta Activa</span></div>
                     </button>
@@ -251,16 +256,13 @@ export default function CajaPage() {
                 <div className="flex items-center gap-4">
                   <Receipt className="w-6 h-6 text-primary" />
                   <div>
-                    <CardTitle className="font-headline text-xl text-foreground">
+                    <CardTitle className="font-headline text-xl text-foreground flex items-center gap-2">
                       {(() => {
-                        const selectedMesa = mesas.find(m => m.id === selectedMesaId);
-                        const label = selectedMesa?.zona === 'Para Llevar'
-                          ? `Pedido ORD-${selectedMesaId && selectedMesaId >= 101 ? selectedMesaId - 100 : selectedMesaId}`
-                          : `Mesa ${selectedMesaId}`;
-                        return activeOrden?.consecutivo 
-                          ? `${label} (${selectedMesa?.zona === 'Para Llevar' ? 'PLL' : 'MESA'}-${activeOrden.consecutivo})` 
-                          : label;
+                        return getOrderIdentifier({ mesaId: selectedMesaId!, consecutivo: activeOrden.consecutivo, id: activeOrden.id });
                       })()}
+                      {selectedMesaId! < 101 && (
+                        <span className="text-[10px] bg-primary/10 text-primary px-2 py-0.5 rounded uppercase tracking-wider font-bold">Mesa {selectedMesaId}</span>
+                      )}
                     </CardTitle>
                     <p className="text-[10px] uppercase text-muted-foreground font-mono">Orden: {activeOrden.id}</p>
                   </div>
@@ -272,13 +274,21 @@ export default function CajaPage() {
                     <h3 className="text-xs font-black uppercase tracking-widest text-muted-foreground mb-4">Consumo</h3>
                     <table className="w-full text-sm">
                       <tbody>
-                        {(activeOrden.items || []).map((item) => (
-                          <tr key={item.id} className="border-b border-border/30">
-                            <td className="py-3 font-bold pr-2">{item.cantidad}x</td>
-                            <td className="py-3 text-foreground">{item.nombre}</td>
-                            <td className="py-3 text-right font-bold text-foreground">${(item.precioUnitario * item.cantidad).toLocaleString('es-CO')}</td>
-                          </tr>
-                        ))}
+                        {(activeOrden.items || []).map((item) => {
+                          const isCancelado = item.estado === 'CANCELADO';
+                          return (
+                            <tr key={item.id} className={`border-b border-border/30 ${isCancelado ? 'opacity-50 line-through' : ''}`}>
+                              <td className="py-3 font-bold pr-2">{item.cantidad}x</td>
+                              <td className="py-3 text-foreground">
+                                {isCancelado && <span className="text-[10px] text-red-500 font-bold bg-red-500/10 px-1 py-0.5 rounded mr-1">CANCELADO</span>}
+                                {item.nombre}
+                              </td>
+                              <td className="py-3 text-right font-bold text-foreground">
+                                {isCancelado ? "$0" : `$${(item.precioUnitario * item.cantidad).toLocaleString('es-CO')}`}
+                              </td>
+                            </tr>
+                          );
+                        })}
                       </tbody>
                     </table>
                   </ScrollArea>
@@ -501,6 +511,7 @@ export default function CajaPage() {
 
       <Dialog open={showReceipt} onOpenChange={setShowReceipt}>
         <DialogContent className="max-w-[400px] p-0 overflow-hidden bg-white text-black border-none rounded-none sm:rounded-none font-mono">
+          <DialogTitle className="sr-only">Recibo de Caja</DialogTitle>
           <div className="p-8 space-y-4">
             <div className="text-center space-y-1">
               <div className="text-3xl mb-2">🤠</div>
@@ -508,12 +519,7 @@ export default function CajaPage() {
               {lastClosedOrden?.consecutivo && (
                 <div className="my-2 border border-black py-1">
                   <p className="text-sm font-bold uppercase tracking-widest">
-                    {(() => {
-                      const closedMesa = mesas.find(m => m.id === lastClosedOrden?.mesaId);
-                      return closedMesa?.zona === 'Para Llevar' 
-                        ? `Pedido PLL-${lastClosedOrden.consecutivo}` 
-                        : `Pedido MESA-${lastClosedOrden.consecutivo}`;
-                    })()}
+                    {lastClosedOrden ? getOrderIdentifier({ mesaId: lastClosedOrden.mesaId, consecutivo: lastClosedOrden.consecutivo, id: lastClosedOrden.id }) : ''}
                   </p>
                 </div>
               )}
@@ -531,18 +537,7 @@ export default function CajaPage() {
               <div className="flex justify-between">
                 <span>FECHA: {new Date().toLocaleDateString()}</span>
                 <span>
-                  MESA: {
-                    (() => {
-                      const closedMesa = mesas.find(m => m.id === lastClosedOrden?.mesaId);
-                      const isTakeAway = closedMesa?.zona === 'Para Llevar' || (lastClosedOrden?.mesaId && lastClosedOrden.mesaId >= 101);
-                      const label = isTakeAway && lastClosedOrden?.mesaId 
-                        ? `ORD-${lastClosedOrden.mesaId >= 101 ? lastClosedOrden.mesaId - 100 : lastClosedOrden.mesaId}`
-                        : lastClosedOrden?.mesaId;
-                      return lastClosedOrden?.consecutivo 
-                        ? `${label} (${closedMesa?.zona === 'Para Llevar' ? 'PLL' : 'MESA'}-${lastClosedOrden.consecutivo})` 
-                        : label;
-                    })()
-                  }
+                  PEDIDO: {lastClosedOrden ? getOrderIdentifier({ mesaId: lastClosedOrden.mesaId, consecutivo: lastClosedOrden.consecutivo, id: lastClosedOrden.id }) : ''}
                 </span>
               </div>
               {lastClosedOrden?.meseroId && (
@@ -569,13 +564,20 @@ export default function CajaPage() {
                   </tr>
                 </thead>
                 <tbody className="divide-y divide-dashed divide-black/10">
-                  {lastClosedOrden?.items.map((item) => (
-                    <tr key={item.id}>
-                      <td className="py-2 align-top">{item.cantidad}</td>
-                      <td className="py-2 pr-2">{item.nombre}</td>
-                      <td className="py-2 text-right align-top">${(item.precioUnitario * item.cantidad).toLocaleString('es-CO')}</td>
-                    </tr>
-                  ))}
+                  {lastClosedOrden?.items.map((item) => {
+                    const isCancelado = item.estado === 'CANCELADO';
+                    return (
+                      <tr key={item.id} className={isCancelado ? "opacity-60 text-muted-foreground" : ""}>
+                        <td className="py-2 align-top">{item.cantidad}</td>
+                        <td className="py-2 pr-2">
+                          {isCancelado ? `(CANCELADO) ${item.nombre}` : item.nombre}
+                        </td>
+                        <td className="py-2 text-right align-top">
+                          {isCancelado ? "$0" : `$${(item.precioUnitario * item.cantidad).toLocaleString('es-CO')}`}
+                        </td>
+                      </tr>
+                    );
+                  })}
                 </tbody>
               </table>
             </div>
@@ -585,7 +587,7 @@ export default function CajaPage() {
                 <span>SUBTOTAL:</span>
                 <span>
                   ${(() => {
-                    const sub = lastClosedOrden?.items.reduce((acc, i) => acc + (i.precioUnitario * i.cantidad), 0) || 0;
+                    const sub = lastClosedOrden?.items.filter(i => i.estado !== 'CANCELADO').reduce((acc, i) => acc + (i.precioUnitario * i.cantidad), 0) || 0;
                     return sub.toLocaleString('es-CO');
                   })()}
                 </span>
@@ -595,7 +597,7 @@ export default function CajaPage() {
                   <span>SERVICIO (10%):</span>
                   <span>
                     ${(() => {
-                      const sub = lastClosedOrden?.items.reduce((acc, i) => acc + (i.precioUnitario * i.cantidad), 0) || 0;
+                      const sub = lastClosedOrden?.items.filter(i => i.estado !== 'CANCELADO').reduce((acc, i) => acc + (i.precioUnitario * i.cantidad), 0) || 0;
                       return (sub * 0.10).toLocaleString('es-CO');
                     })()}
                   </span>
@@ -605,7 +607,7 @@ export default function CajaPage() {
                 <span>TOTAL:</span>
                 <span>
                   ${(() => {
-                    const sub = lastClosedOrden?.items.reduce((acc, i) => acc + (i.precioUnitario * i.cantidad), 0) || 0;
+                    const sub = lastClosedOrden?.items.filter(i => i.estado !== 'CANCELADO').reduce((acc, i) => acc + (i.precioUnitario * i.cantidad), 0) || 0;
                     const tienePropina = lastClosedOrden?.clienteNombre !== 'SIN_PROPINA';
                     return (sub * (tienePropina ? 1.10 : 1.00)).toLocaleString('es-CO');
                   })()}

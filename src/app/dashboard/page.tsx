@@ -10,6 +10,7 @@ import {
   ChefHat, 
   Beer, 
   Utensils,
+  UtensilsCrossed,
   Map as MapIcon,
   Plus,
   Trash2,
@@ -26,7 +27,9 @@ import {
   LayoutDashboard,
   CircleDollarSign,
   Package,
-  ArrowRight
+  ArrowRight,
+  FolderClosed,
+  Receipt
 } from "lucide-react";
 import { 
   BarChart, 
@@ -37,7 +40,7 @@ import {
   Tooltip, 
   ResponsiveContainer
 } from "recharts";
-import { cn, formatCurrencyInput, parseCurrencyInput } from "@/lib/utils";
+import { cn, formatCurrencyInput, parseCurrencyInput, getOrderIdentifier } from "@/lib/utils";
 import { usePOSStore } from "@/lib/store";
 import { supabase } from "@/lib/supabase";
 import { 
@@ -56,6 +59,8 @@ import { Separator } from "@/components/ui/separator";
 import { useToast } from "@/hooks/use-toast";
 import { Gasto } from "@/lib/types";
 import { Badge } from "@/components/ui/badge";
+import { format } from "date-fns";
+import { es } from "date-fns/locale";
 
 const chartData = [
   { name: '12:00', ventas: 450000 },
@@ -69,14 +74,18 @@ const chartData = [
 ];
 
 export default function DashboardPage() {
-  const { ordenes, mesas, isCajaCerrada, setCajaCerrada, user, fechaOperativa, setFechaOperativa, usuarios, productos } = usePOSStore();
+  const { ordenes, mesas, isCajaCerrada, setCajaCerrada, user, fechaOperativa, setFechaOperativa, usuarios, productos, gastos, addGasto, deleteGasto } = usePOSStore();
   const { toast } = useToast();
   const [isCorteOpen, setIsCorteOpen] = useState(false);
+  const [isAdminDayOpen, setIsAdminDayOpen] = useState(false);
   const [realEfectivo, setRealEfectivo] = useState<number | null>(null);
   const [notas, setNotas] = useState<string>("");
   const [historialCierres, setHistorialCierres] = useState<any[]>([]);
-  const [otrosCostos, setOtrosCostos] = useState<number>(0);
   const [incidencias, setIncidencias] = useState<number>(0);
+  const [gastoCategoria, setGastoCategoria] = useState<string>("Insumos");
+  const [gastoDescripcion, setGastoDescripcion] = useState<string>("");
+  const [gastoValor, setGastoValor] = useState<string>("");
+  const [isAddingGasto, setIsAddingGasto] = useState(false);
 
   const [activeTab, setActiveTab] = useState<"dashboard" | "cierre">("dashboard");
   const [cierreStep, setCierreStep] = useState<number>(1);
@@ -105,7 +114,6 @@ export default function DashboardPage() {
     if (isCorteOpen) {
       setRealEfectivo(null);
       setNotas("");
-      setOtrosCostos(0);
       setIncidencias(0);
       
       const activeDate = cierreFecha || fechaOperativa;
@@ -173,6 +181,16 @@ export default function DashboardPage() {
   };
 
   const activeCloseDate = cierreFecha || fechaOperativa;
+
+  const otrosCostos = useMemo(() => {
+    return (gastos || [])
+      .filter(g => g.fecha === activeCloseDate)
+      .reduce((sum, g) => sum + g.valor, 0);
+  }, [gastos, activeCloseDate]);
+
+  const gastosHoy = useMemo(() => {
+    return (gastos || []).filter(g => g.fecha === activeCloseDate);
+  }, [gastos, activeCloseDate]);
 
   const openCierreForDate = (dateStr: string) => {
     setCierreFecha(dateStr);
@@ -390,14 +408,7 @@ export default function DashboardPage() {
     let tableRows = "";
     ventasCerradas.forEach(o => {
       const mesa = mesas.find(m => m.id === o.mesaId);
-      let nameLabel = `#${o.consecutivo || o.id.slice(0, 4)}`;
-      if (mesa) {
-        if (mesa.zona === 'Para Llevar') {
-          nameLabel = `PLL-${o.consecutivo || 'X'}`;
-        } else {
-          nameLabel = `Mesa ${mesa.numero}`;
-        }
-      }
+      const nameLabel = getOrderIdentifier({ mesaId: o.mesaId, consecutivo: o.consecutivo, id: o.id });
       
       const metodoLabel = o.metodoPago === 'TRANSFERENCIA' ? 'Nequi' : (o.metodoPago === 'TARJETA' ? 'Tarjeta' : 'Efectivo');
       const totalFact = o.items.reduce((sum, i) => sum + (i.precioUnitario * i.cantidad), 0);
@@ -534,6 +545,68 @@ ${tableRows}${cleanNotas}`;
 
     const list = Array.from(map.values()).sort((a: any, b: any) => b.fecha.localeCompare(a.fecha));
     setHistorialCierres(list);
+  };
+
+  const handleAddGasto = async (e?: React.FormEvent) => {
+    if (e) e.preventDefault();
+    const val = parseCurrencyInput(gastoValor);
+    if (!gastoDescripcion.trim()) {
+      toast({
+        variant: "destructive",
+        title: "Descripción requerida",
+        description: "Debe ingresar una descripción para el gasto.",
+      });
+      return;
+    }
+    if (val <= 0) {
+      toast({
+        variant: "destructive",
+        title: "Valor inválido",
+        description: "El valor del gasto debe ser mayor a 0.",
+      });
+      return;
+    }
+    setIsAddingGasto(true);
+    try {
+      await addGasto({
+        categoria: gastoCategoria,
+        descripcion: gastoDescripcion.trim(),
+        valor: val,
+        fecha: activeCloseDate
+      });
+      setGastoDescripcion("");
+      setGastoValor("");
+      toast({
+        title: "Gasto registrado",
+        description: "El gasto se ha guardado correctamente.",
+      });
+    } catch (err: any) {
+      toast({
+        variant: "destructive",
+        title: "Error al guardar gasto",
+        description: err.message || "No se pudo registrar el gasto.",
+      });
+    } finally {
+      setIsAddingGasto(false);
+    }
+  };
+
+  const handleDeleteGasto = async (id: string) => {
+    if (window.confirm('¿Está seguro de eliminar este gasto?')) {
+      try {
+        await deleteGasto(id);
+        toast({
+          title: "Gasto eliminado",
+          description: "El gasto se ha eliminado correctamente.",
+        });
+      } catch (err: any) {
+        toast({
+          variant: "destructive",
+          title: "Error al eliminar",
+          description: err.message || "No se pudo eliminar el gasto.",
+        });
+      }
+    }
   };
 
   useEffect(() => {
@@ -866,6 +939,8 @@ ${tableRows}${cleanNotas}`;
     const costoInsumos = ordersForDate.reduce((sum, o) => sum + getCostoAsociado(o), 0);
     const pagosVal = (costoInsumos || (totalIngresos * 0.35)) + otrosCostosVal;
     const utilidadVal = totalIngresos - pagosVal;
+    
+    const gastosDelDia = gastos.filter(g => g.fecha === c.fecha);
 
     return (
       <div className="bg-card border border-border/80 rounded-2xl overflow-hidden transition-all shadow-sm hover:shadow-md mb-3">
@@ -982,6 +1057,98 @@ ${tableRows}${cleanNotas}`;
               </div>
             </div>
 
+            {/* LISTA DETALLADA DE EGRESOS */}
+            {gastosDelDia.length > 0 && (
+              <div className="bg-card border border-red-500/20 p-4 rounded-xl mt-4">
+                <div className="flex justify-between items-center mb-4">
+                  <h5 className="text-xs font-black uppercase tracking-widest text-red-500 flex items-center gap-2">
+                    <CircleDollarSign className="w-4 h-4" /> Detalle de Egresos Administrativos
+                  </h5>
+                  <Badge variant="outline" className="text-[10px] font-bold border-red-500/30 text-red-500 bg-red-500/10">
+                    {gastosDelDia.length} Registros
+                  </Badge>
+                </div>
+                
+                <div className="max-h-[250px] overflow-y-auto pr-2 scrollbar-thin">
+                  <div className="space-y-2">
+                    {gastosDelDia.map(g => (
+                      <div key={g.id} className="flex justify-between items-center p-3 bg-background border border-border/50 rounded-xl hover:border-red-500/30 transition-all gap-3 shadow-sm">
+                        <div className="flex flex-col">
+                          <span className="text-xs font-bold text-foreground uppercase">{g.categoria}</span>
+                          <span className="text-[10px] text-muted-foreground">{g.descripcion}</span>
+                        </div>
+                        <span className="text-sm font-black text-red-500">
+                          ${g.valor.toLocaleString('es-CO')}
+                        </span>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              </div>
+            )}
+
+            {/* LISTA DETALLADA DE PEDIDOS */}
+            {ordersForDate.length > 0 && (
+              <div className="bg-card border border-border/50 p-4 rounded-xl mt-4">
+                <div className="flex justify-between items-center mb-4">
+                  <h5 className="text-xs font-black uppercase tracking-widest text-primary flex items-center gap-2">
+                    <Utensils className="w-4 h-4" /> Detalle de Pedidos
+                  </h5>
+                  <Badge variant="outline" className="text-[10px] font-bold">
+                    {ordersForDate.length} {ordersForDate.length === 1 ? 'Pedido' : 'Pedidos'}
+                  </Badge>
+                </div>
+                
+                <div className="max-h-[300px] overflow-y-auto pr-2 scrollbar-thin">
+                  <div className="space-y-2">
+                    {ordersForDate.map(o => {
+                       const m = mesas.find(x => x.id === o.mesaId);
+                       const identifier = getOrderIdentifier({ mesaId: o.mesaId, consecutivo: o.consecutivo, id: o.id });
+                       const activeItems = o.items.filter(i => i.estado !== 'CANCELADO');
+                       const subtotal = activeItems.reduce((sum, i) => sum + (i.precioUnitario * i.cantidad), 0);
+                       const tienePropina = o.clienteNombre !== 'SIN_PROPINA';
+                       const propinaVal = tienePropina ? (subtotal * 0.1) : 0;
+                       const totalFinal = subtotal + propinaVal;
+                       
+                       return (
+                         <div key={o.id} className="flex flex-col sm:flex-row justify-between sm:items-center p-3 bg-background border border-border/50 rounded-xl hover:border-primary/30 transition-all gap-3 shadow-sm">
+                            <div className="flex items-center gap-3">
+                              <Badge className="bg-primary/10 text-primary border-none font-mono text-[11px] px-2 py-1">
+                                {identifier}
+                              </Badge>
+                              <div>
+                                <span className="text-xs font-bold block text-foreground flex items-center gap-2">
+                                  {m ? (m.zona === 'Para Llevar' ? 'Para Llevar' : `Mesa ${m.numero}`) : "Mesa Desconocida"}
+                                  {m?.zona === "Para Llevar" && (
+                                    <Badge className="bg-orange-500/10 text-orange-500 border-none text-[8px] py-0 px-1 uppercase">Llevar</Badge>
+                                  )}
+                                </span>
+                                <span className="text-[10px] text-muted-foreground block mt-0.5">
+                                  {o.items.length} items • Atendió: {usuarios.find(u => u.id === o.meseroId)?.nombre || "Cajero"}
+                                </span>
+                              </div>
+                            </div>
+                            
+                            <div className="flex flex-col sm:items-end text-left sm:text-right border-t sm:border-none border-border/30 pt-2 sm:pt-0 mt-1 sm:mt-0">
+                              <div className="flex items-center gap-2 justify-between sm:justify-end">
+                                <span className="text-[10px] font-mono uppercase text-muted-foreground">{o.metodoPago || "Sin método"}</span>
+                                <span className="text-sm font-black text-secondary">
+                                  ${totalFinal.toLocaleString('es-CO')}
+                                </span>
+                              </div>
+                              {tienePropina && (
+                                <span className="text-[9px] text-green-500 font-bold uppercase tracking-widest mt-0.5 block">
+                                  +10% Propina incl.
+                                </span>
+                              )}
+                            </div>
+                         </div>
+                       )
+                    })}
+                  </div>
+                </div>
+              </div>
+            )}
 
           </div>
         )}
@@ -1071,32 +1238,161 @@ ${tableRows}${cleanNotas}`;
             </button>
           </div>
 
-          {/* Dialog for Close */}
-          <Dialog open={isCorteOpen} onOpenChange={setIsCorteOpen}>
-            <DialogTrigger asChild>
-              <Button
-                onClick={() => setCierreFecha("")}
-                className="bg-white hover:bg-white/95 text-primary font-black px-5 py-2 h-9 rounded-xl text-xs flex items-center gap-2 shadow-md transition-all"
-              >
-                <Calculator className="w-4 h-4" />
-                Cierre Hoy
-              </Button>
-            </DialogTrigger>
-            <DialogContent className="max-w-2xl bg-card border-border paper-texture rounded-[2rem] text-foreground max-h-[95vh] overflow-y-auto">
-              <DialogHeader>
-                <div className="flex items-center gap-4 mb-2 border-b border-border/25 pb-3">
-                  <div className={cn(
+          <div className="flex gap-2">
+            {!isCierreClosed && (
+              <Dialog open={isAdminDayOpen} onOpenChange={setIsAdminDayOpen}>
+                <DialogTrigger asChild>
+                  <Button
+                    variant="outline"
+                    className="bg-transparent hover:bg-white/10 text-white border-white/20 font-black px-4 py-2 h-9 rounded-xl text-xs flex items-center gap-2 transition-all"
+                  >
+                    <FolderClosed className="w-4 h-4" />
+                    Día Sin Ventas
+                  </Button>
+                </DialogTrigger>
+                <DialogContent className="max-w-md bg-card border-border paper-texture rounded-[2rem] text-foreground">
+                  <DialogHeader>
+                    <DialogTitle className="text-xl font-headline text-primary flex items-center gap-2">
+                      <FolderClosed className="w-6 h-6" /> Día Administrativo
+                    </DialogTitle>
+                  </DialogHeader>
+                  <div className="space-y-4 py-4">
+                    <p className="text-sm text-muted-foreground">
+                      Usa esta opción para cerrar un día donde el restaurante no abrió o no tuvo ventas, pero necesitas registrar pagos (Nómina, Servicios, etc.).
+                    </p>
+                    
+                    <div className="bg-background/40 p-3 rounded-xl border border-border/30 space-y-3">
+                      <h4 className="text-xs font-black uppercase text-muted-foreground">Registrar Gasto del Día</h4>
+                      <div className="grid gap-2">
+                        <select
+                          value={gastoCategoria}
+                          onChange={(e) => {
+                            setGastoCategoria(e.target.value);
+                            setGastoDescripcion("");
+                          }}
+                          className="bg-card border border-border/60 text-foreground font-semibold text-[11px] py-2 px-3 rounded-xl focus:outline-none focus:ring-1 focus:ring-primary cursor-pointer w-full"
+                        >
+                          <option value="Insumos">Insumos</option>
+                          <option value="Servicios">Servicios</option>
+                          <option value="Nómina">Nómina</option>
+                          <option value="Mantenimiento">Mantenimiento</option>
+                          <option value="Diversos">Otros</option>
+                        </select>
+                        {gastoCategoria === "Nómina" ? (
+                          <select
+                            value={gastoDescripcion}
+                            onChange={(e) => setGastoDescripcion(e.target.value)}
+                            className="bg-card border border-border/60 text-foreground font-semibold text-[11px] py-2 px-3 rounded-xl focus:outline-none focus:ring-1 focus:ring-primary cursor-pointer w-full"
+                          >
+                            <option value="">-- Seleccionar Personal --</option>
+                            {usuarios.filter(u => u.estado === 'ACTIVO').map(u => (
+                              <option key={u.id} value={`Adelanto/Nómina: ${u.nombre}`}>{u.nombre} ({u.rol})</option>
+                            ))}
+                          </select>
+                        ) : (
+                          <Input
+                            placeholder="Descripción (ej. Compra de limones)"
+                            value={gastoDescripcion}
+                            onChange={(e) => setGastoDescripcion(e.target.value)}
+                            className="h-9 text-[11px] rounded-xl bg-card border-border/60 text-foreground w-full"
+                          />
+                        )}
+                        <Input
+                          placeholder="Valor (ej. 15.000)"
+                          value={gastoValor}
+                          onChange={(e) => {
+                            const parsed = parseCurrencyInput(e.target.value);
+                            setGastoValor(parsed > 0 ? formatCurrencyInput(parsed) : "");
+                          }}
+                          className="h-9 text-[11px] rounded-xl bg-card border-border/60 text-foreground w-full font-bold"
+                        />
+                        <Button
+                          onClick={async (e) => {
+                            e.preventDefault();
+                            const val = parseCurrencyInput(gastoValor);
+                            if (!gastoDescripcion.trim()) return;
+                            if (val <= 0) return;
+                            try {
+                              await addGasto({
+                                categoria: gastoCategoria,
+                                descripcion: gastoDescripcion.trim(),
+                                valor: val,
+                                fecha: activeCloseDate
+                              });
+                              setGastoDescripcion("");
+                              setGastoValor("");
+                              toast({ title: "Gasto agregado", description: "Se registró el gasto exitosamente." });
+                            } catch (err: any) {
+                              toast({ variant: "destructive", title: "Error", description: err.message });
+                            }
+                          }}
+                          className="w-full bg-primary font-bold text-xs h-9 rounded-xl"
+                        >
+                          Añadir Gasto
+                        </Button>
+                      </div>
+                    </div>
+
+                    <div className="bg-red-500/10 border border-red-500/20 p-3 rounded-xl flex justify-between items-center">
+                      <span className="text-xs font-bold text-red-500 uppercase">Egresos Totales:</span>
+                      <span className="text-base font-black text-red-500">${otrosCostos.toLocaleString('es-CO')}</span>
+                    </div>
+
+                  </div>
+                  <DialogFooter>
+                    <Button variant="ghost" onClick={() => setIsAdminDayOpen(false)} className="rounded-xl">Cancelar</Button>
+                    <Button 
+                      className="bg-primary hover:bg-primary/90 font-bold rounded-xl"
+                      onClick={async () => {
+                        try {
+                          await handleConfirmarCierre();
+                          setIsAdminDayOpen(false);
+                        } catch (err: any) {
+                          toast({ variant: "destructive", title: "Error al cerrar", description: err.message });
+                        }
+                      }}
+                    >
+                      CERRAR DÍA CON $0 VENTAS
+                    </Button>
+                  </DialogFooter>
+                </DialogContent>
+              </Dialog>
+            )}
+
+            {/* Dialog for Close */}
+            <Dialog open={isCorteOpen} onOpenChange={setIsCorteOpen}>
+              <DialogTrigger asChild>
+                <Button
+                  onClick={() => setCierreFecha("")}
+                  className="bg-white hover:bg-white/95 text-primary font-black px-5 py-2 h-9 rounded-xl text-xs flex items-center gap-2 shadow-md transition-all"
+                >
+                  <Calculator className="w-4 h-4" />
+                  Cierre Hoy
+                </Button>
+              </DialogTrigger>
+              <DialogContent className="max-w-2xl bg-card border-border paper-texture rounded-[2rem] text-foreground max-h-[95vh] overflow-y-auto">
+                <DialogHeader>
+                  <div className="flex items-center gap-4 mb-2 border-b border-border/25 pb-3">
+                    <div className={cn(
+
                     "p-3 rounded-2xl text-white",
                     isCierreClosed ? "bg-green-600" : "bg-primary"
                   )}>
                     <Calculator className="w-7 h-7" />
                   </div>
                   <div>
-                    <DialogTitle className="text-2xl font-headline tracking-tight">
-                      {isCierreClosed 
-                        ? `Reporte de Cierre de Caja (${activeCloseDate})`
-                        : `${cierreStep}. Pre-Cierre — Revisión Automática`
-                      }
+                    <DialogTitle className="text-2xl font-headline tracking-tight flex items-center justify-between gap-4">
+                      <span>
+                        {isCierreClosed 
+                          ? `Reporte de Cierre de Caja (${activeCloseDate})`
+                          : `${cierreStep}. Pre-Cierre — Revisión Automática`
+                        }
+                      </span>
+                      {!isCierreClosed && typeof window !== 'undefined' && (
+                        <span className="text-[12px] uppercase tracking-widest font-mono text-muted-foreground bg-accent/20 border border-border/50 px-3 py-1 rounded-full whitespace-nowrap">
+                          {format(new Date(), "dd MMM yyyy - hh:mm a", { locale: es })}
+                        </span>
+                      )}
                     </DialogTitle>
                     <p className="text-[10px] text-muted-foreground uppercase font-black tracking-widest mt-0.5">
                       {isCierreClosed 
@@ -1294,6 +1590,112 @@ ${tableRows}${cleanNotas}`;
                         </div>
                       </div>
 
+                      {/* Quick Register form inside closure dialog (Step 1) */}
+                      <div className="bg-accent/10 p-4 rounded-[1.5rem] border border-border/30 space-y-3 shadow-inner">
+                        <div className="flex items-center gap-2 mb-1">
+                          <Receipt className="w-4 h-4 text-primary" />
+                          <h4 className="text-xs font-black uppercase tracking-widest text-muted-foreground">Registrar Gasto Rápido</h4>
+                        </div>
+                        <div className="flex flex-col sm:flex-row gap-2">
+                          <select
+                            value={gastoCategoria}
+                            onChange={(e) => {
+                              setGastoCategoria(e.target.value);
+                              setGastoDescripcion("");
+                            }}
+                            className="bg-card border border-border/60 text-foreground font-semibold text-[11px] py-2 px-3 rounded-xl focus:outline-none focus:ring-1 focus:ring-primary h-10 cursor-pointer shrink-0"
+                          >
+                            <option value="Insumos">Insumos</option>
+                            <option value="Servicios">Servicios</option>
+                            <option value="Nómina">Nómina</option>
+                            <option value="Mantenimiento">Mantenimiento</option>
+                            <option value="Diversos">Otros</option>
+                          </select>
+                          {gastoCategoria === "Nómina" ? (
+                            <select
+                              value={gastoDescripcion}
+                              onChange={(e) => setGastoDescripcion(e.target.value)}
+                              className="h-10 text-[11px] rounded-xl bg-card border border-border/60 text-foreground flex-1 px-3 focus:outline-none focus:ring-1 focus:ring-primary cursor-pointer"
+                            >
+                              <option value="">-- Seleccionar Personal --</option>
+                              {usuarios.filter(u => u.estado === 'ACTIVO').map(u => (
+                                <option key={u.id} value={`Adelanto/Nómina: ${u.nombre}`}>{u.nombre} ({u.rol})</option>
+                              ))}
+                            </select>
+                          ) : (
+                            <Input
+                              placeholder="Descripción (ej. Compra de limones)"
+                              value={gastoDescripcion}
+                              onChange={(e) => setGastoDescripcion(e.target.value)}
+                              className="h-10 text-[11px] rounded-xl bg-card border-border/60 text-foreground flex-1"
+                            />
+                          )}
+                          <Input
+                            placeholder="Valor (ej. 15.000)"
+                            value={gastoValor}
+                            onChange={(e) => {
+                              const parsed = parseCurrencyInput(e.target.value);
+                              setGastoValor(parsed > 0 ? formatCurrencyInput(parsed) : "");
+                            }}
+                            className="h-10 text-[11px] rounded-xl bg-card border-border/60 text-foreground w-full sm:w-[120px] font-bold"
+                          />
+                          <Button
+                            onClick={async (e) => {
+                              e.preventDefault();
+                              const val = parseCurrencyInput(gastoValor);
+                              if (!gastoDescripcion.trim()) return;
+                              if (val <= 0) return;
+                              try {
+                                await addGasto({
+                                  categoria: gastoCategoria,
+                                  descripcion: gastoDescripcion.trim(),
+                                  valor: val,
+                                  fecha: activeCloseDate
+                                });
+                                setGastoDescripcion("");
+                                setGastoValor("");
+                                toast({ title: "Gasto agregado", description: "Se registró el gasto exitosamente." });
+                              } catch (err: any) {
+                                toast({ variant: "destructive", title: "Error", description: err.message });
+                              }
+                            }}
+                            className="w-full sm:w-auto bg-primary font-bold text-xs h-10 rounded-xl px-4"
+                          >
+                            Añadir
+                          </Button>
+                        </div>
+
+                        {/* List of today's expenses inside closure dialog */}
+                        <div className="max-h-[120px] overflow-y-auto pr-1 space-y-1 text-xs border-t border-border/20 pt-2">
+                          {gastosHoy.length === 0 && (
+                            <div className="text-center text-muted-foreground/50 py-2">No hay gastos adicionales hoy</div>
+                          )}
+                          {gastosHoy.map((g) => (
+                            <div key={g.id} className="flex justify-between items-center py-1.5 border-b border-border/5 last:border-0 group">
+                              <div className="flex flex-col">
+                                <span className="font-bold text-[10px]">{g.descripcion}</span>
+                                <span className="text-[9px] text-muted-foreground/70 uppercase tracking-widest">{g.categoria}</span>
+                              </div>
+                              <div className="flex items-center gap-2">
+                                <span className="font-bold text-red-500/90 tabular-nums">-${g.valor.toLocaleString('es-CO')}</span>
+                                <Button 
+                                  variant="ghost" 
+                                  size="icon" 
+                                  className="h-5 w-5 text-red-500 opacity-0 group-hover:opacity-100 transition-opacity"
+                                  onClick={(e) => {
+                                    e.preventDefault();
+                                    handleDeleteGasto(g.id);
+                                  }}
+                                  title="Eliminar Gasto"
+                                >
+                                  <Trash2 className="w-3 h-3" />
+                                </Button>
+                              </div>
+                            </div>
+                          ))}
+                        </div>
+                      </div>
+
                       {/* Checklist Validations */}
                       <div className="space-y-3 bg-card border border-border/40 p-5 rounded-[1.5rem] shadow-inner">
                         <h4 className="text-xs font-black uppercase tracking-widest text-muted-foreground flex items-center gap-1.5 mb-3">
@@ -1352,6 +1754,109 @@ ${tableRows}${cleanNotas}`;
                           ) : (
                             <p><strong>Excelente:</strong> Todos los pedidos del día se han cerrado con éxito. Listo para arqueo de caja.</p>
                           )}
+                        </div>
+                      </div>
+
+                      {/* Desglose Detallado de Ventas e Historial de Mesas */}
+                      <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                        {/* Informe Financiero Detallado */}
+                        <div className="space-y-3 bg-card border border-border/40 p-5 rounded-[1.5rem] shadow-inner">
+                          <h4 className="text-xs font-black uppercase tracking-widest text-muted-foreground flex items-center gap-1.5 mb-3">
+                            <TrendingUp className="w-4 h-4 text-green-500" /> Desglose Detallado de Caja
+                          </h4>
+                          
+                          <div className="space-y-2 text-xs">
+                            <div className="flex justify-between items-center py-1.5 border-b border-border/10">
+                              <span className="text-muted-foreground font-medium">💵 Ventas en Efectivo:</span>
+                              <span className="font-bold text-foreground">${esperadoEfectivo.toLocaleString('es-CO')}</span>
+                            </div>
+                            <div className="flex justify-between items-center py-1.5 border-b border-border/10">
+                              <span className="text-muted-foreground font-medium">💳 Ventas con Tarjeta:</span>
+                              <span className="font-bold text-foreground">${esperadoTarjeta.toLocaleString('es-CO')}</span>
+                            </div>
+                            <div className="flex justify-between items-center py-1.5 border-b border-border/10">
+                              <span className="text-muted-foreground font-medium">📲 Ventas por Transferencia:</span>
+                              <span className="font-bold text-foreground">${esperadoTransferencia.toLocaleString('es-CO')}</span>
+                            </div>
+                            <div className="flex justify-between items-center py-1.5 border-b border-border/10">
+                              <span className="text-muted-foreground font-medium">💰 Propinas Totales:</span>
+                              <span className="font-bold text-foreground text-secondary">${totalPropinas.toLocaleString('es-CO')}</span>
+                            </div>
+                            <div className="flex justify-between items-center py-1.5 border-b border-border/10">
+                              <span className="text-muted-foreground font-medium">🥩 Costo Estimado de Insumos:</span>
+                              <span className="font-bold text-foreground">${costoInsumosHoy.toLocaleString('es-CO')}</span>
+                            </div>
+                            <div className="flex justify-between items-center py-1.5">
+                              <span className="text-muted-foreground font-medium">📈 Margen del Día:</span>
+                              <span className={cn(
+                                "font-black",
+                                margenHoy > 40 ? "text-green-500" : margenHoy > 20 ? "text-yellow-500" : "text-red-500"
+                              )}>
+                                {margenHoy.toFixed(1)}%
+                              </span>
+                            </div>
+                          </div>
+                        </div>
+
+                        {/* Mesas y Pedidos Atendidos */}
+                        <div className="space-y-3 bg-card border border-border/40 p-5 rounded-[1.5rem] shadow-inner flex flex-col h-[280px]">
+                          <h4 className="text-xs font-black uppercase tracking-widest text-muted-foreground flex items-center gap-1.5 shrink-0">
+                            <UtensilsCrossed className="w-4 h-4 text-primary" /> Mesas y Pedidos de Hoy
+                          </h4>
+                          
+                          <div className="flex-1 overflow-y-auto pr-1 space-y-2">
+                            {ordersToday.map((o) => {
+                              const identifier = getOrderIdentifier({ mesaId: o.mesaId, consecutivo: o.consecutivo, id: o.id });
+                              
+                              const subtotal = o.items.reduce((sum, i) => sum + (i.precioUnitario * i.cantidad), 0);
+                              const tienePropina = o.clienteNombre !== 'SIN_PROPINA';
+                              const totalOrder = subtotal * (tienePropina ? 1.10 : 1.00);
+                              const waiterName = usuarios.find(u => u.id === o.meseroId)?.nombre || 'Mesero';
+
+                              return (
+                                <div key={o.id} className="p-2.5 bg-background/50 rounded-xl border border-border/30 flex items-center justify-between text-[11px] gap-2 hover:border-primary/20 transition-all duration-200">
+                                  <div className="min-w-0 flex-1">
+                                    <div className="flex items-center gap-1.5 font-bold text-foreground">
+                                      <span className="truncate">{identifier}</span>
+                                      {o.mesaId < 101 && (
+                                        <Badge variant="outline" className="text-[8px] font-mono px-1 py-0 border-primary/20 text-muted-foreground bg-primary/5 rounded shrink-0 uppercase tracking-widest">
+                                          Mesa {o.mesaId}
+                                        </Badge>
+                                      )}
+                                    </div>
+                                    <div className="text-[9px] text-muted-foreground mt-0.5 truncate">
+                                      Atendió: {waiterName}
+                                    </div>
+                                  </div>
+                                  <div className="text-right shrink-0">
+                                    <div className="font-bold text-foreground">
+                                      ${totalOrder.toLocaleString('es-CO')}
+                                    </div>
+                                    <div className="flex items-center justify-end gap-1 mt-0.5 text-[9px]">
+                                      {o.estado === 'CERRADA' ? (
+                                        <>
+                                          <span className="text-green-500 font-semibold">Cerrada</span>
+                                          <span className="opacity-40">•</span>
+                                          <span>
+                                            {o.metodoPago === 'EFECTIVO' ? '💵' : o.metodoPago === 'TARJETA' ? '💳' : '📲'}
+                                          </span>
+                                        </>
+                                      ) : o.estado === 'ANULADA' ? (
+                                        <span className="text-red-500 font-semibold">Anulada</span>
+                                      ) : (
+                                        <span className="text-amber-500 font-semibold animate-pulse">Abierta</span>
+                                      )}
+                                    </div>
+                                  </div>
+                                </div>
+                              );
+                            })}
+                            {ordersToday.length === 0 && (
+                              <p className="text-xs text-muted-foreground text-center py-10 italic">
+                                No hay mesas atendidas registradas hoy.
+                              </p>
+                            )}
+                          </div>
                         </div>
                       </div>
 
@@ -1457,7 +1962,8 @@ ${tableRows}${cleanNotas}`;
                 </div>
               )}
             </DialogContent>
-          </Dialog>
+            </Dialog>
+          </div>
         </div>
       </div>
 
@@ -1673,59 +2179,198 @@ ${tableRows}${cleanNotas}`;
             </Card>
           </div>
 
-          {/* Resumen de Gastos y Nómina */}
-          <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-            {/* Payroll Card */}
-            <Card className="bg-card border-border paper-texture shadow-xl rounded-[2rem] overflow-hidden">
-              <CardHeader className="bg-accent/10 border-b border-border/40 p-5">
-                <CardTitle className="text-base font-headline font-black tracking-tight flex items-center justify-between">
-                  <span>Gastos de Personal (Nómina Mensual)</span>
-                  <span className="text-sm font-black text-secondary">${totalNominaMensual.toLocaleString('es-CO')}</span>
-                </CardTitle>
+          {/* Registro de Gastos y Resumen */}
+          <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+            {/* Column 1 & 2: Registro de Gastos (Span 2) */}
+            <Card className="lg:col-span-2 bg-card border-border paper-texture shadow-xl rounded-[2rem] overflow-hidden">
+              <CardHeader className="bg-accent/10 border-b border-border/40 p-5 flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
+                <div>
+                  <CardTitle className="text-base font-headline font-black tracking-tight flex items-center gap-2">
+                    <CircleDollarSign className="w-5 h-5 text-primary" />
+                    Gastos de la Operación
+                  </CardTitle>
+                  <p className="text-xs text-muted-foreground mt-1">
+                    Registre egresos y salidas de caja para el día operativo activo.
+                  </p>
+                </div>
+                <Badge variant="outline" className="border-border/60 text-muted-foreground text-[10px] py-1 px-3 rounded-lg shrink-0 font-bold bg-accent/20">
+                  Fecha: {getShortDateLabel(activeCloseDate)}
+                </Badge>
               </CardHeader>
-              <CardContent className="p-4 max-h-[280px] overflow-y-auto pr-2 scrollbar-thin">
-                <div className="space-y-3">
-                  {usuarios.filter(u => u.estado === 'ACTIVO').map((u) => (
-                    <div key={u.id} className="flex justify-between items-center p-3 bg-accent/20 rounded-2xl border border-border/30 hover:border-primary/20 transition-all">
-                      <div>
-                        <span className="text-xs font-bold block">{u.nombre}</span>
-                        <span className="text-[9px] text-muted-foreground uppercase font-black">{u.rol}</span>
+              <CardContent className="p-6 space-y-6">
+                {/* Form to add expense */}
+                {!isCierreClosed ? (
+                  <form onSubmit={handleAddGasto} className="space-y-4 bg-accent/20 p-4 rounded-2xl border border-border/40">
+                    <h4 className="text-xs font-black uppercase tracking-wider text-muted-foreground">Nuevo Registro de Gasto</h4>
+                    <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
+                      <div className="space-y-1">
+                        <Label htmlFor="gasto-categoria" className="text-[10px] font-bold uppercase tracking-wide text-muted-foreground">Categoría</Label>
+                        <select
+                          id="gasto-categoria"
+                          value={gastoCategoria}
+                          onChange={(e) => {
+                            setGastoCategoria(e.target.value);
+                            setGastoDescripcion("");
+                          }}
+                          className="bg-card border border-border text-foreground font-semibold text-xs py-2 px-3 rounded-xl focus:outline-none focus:ring-1 focus:ring-primary w-full h-9 cursor-pointer"
+                        >
+                          <option value="Insumos">🛒 Insumos</option>
+                          <option value="Servicios">⚡ Servicios</option>
+                          <option value="Nómina">👤 Nómina / Adelanto</option>
+                          <option value="Mantenimiento">🔧 Mantenimiento</option>
+                          <option value="Diversos">📦 Diversos / Otros</option>
+                        </select>
                       </div>
-                      <span className="text-xs font-black text-foreground">{u.sueldo !== undefined && u.sueldo > 0 ? `$${u.sueldo.toLocaleString('es-CO')}` : '-'}</span>
+
+                      <div className="space-y-1">
+                        <Label htmlFor="gasto-descripcion" className="text-[10px] font-bold uppercase tracking-wide text-muted-foreground">
+                          {gastoCategoria === "Nómina" ? "Personal (Seleccione)" : "Descripción"}
+                        </Label>
+                        {gastoCategoria === "Nómina" ? (
+                          <select
+                            id="gasto-descripcion"
+                            value={gastoDescripcion}
+                            onChange={(e) => setGastoDescripcion(e.target.value)}
+                            className="bg-card border border-border text-foreground font-semibold text-xs py-2 px-3 rounded-xl focus:outline-none focus:ring-1 focus:ring-primary w-full h-9 cursor-pointer"
+                          >
+                            <option value="">-- Seleccionar --</option>
+                            {usuarios.filter(u => u.estado === 'ACTIVO').map(u => (
+                              <option key={u.id} value={`Adelanto/Nómina: ${u.nombre}`}>{u.nombre} ({u.rol})</option>
+                            ))}
+                          </select>
+                        ) : (
+                          <Input
+                            id="gasto-descripcion"
+                            type="text"
+                            placeholder="Ej. Pago de luz, compras plaza"
+                            value={gastoDescripcion}
+                            onChange={(e) => setGastoDescripcion(e.target.value)}
+                            className="h-9 text-xs rounded-xl bg-card border-border text-foreground w-full"
+                          />
+                        )}
+                      </div>
+
+                      <div className="space-y-1">
+                        <Label htmlFor="gasto-valor" className="text-[10px] font-bold uppercase tracking-wide text-muted-foreground">Valor (Pesos)</Label>
+                        <Input
+                          id="gasto-valor"
+                          type="text"
+                          placeholder="Ej. 45.000"
+                          value={gastoValor}
+                          onChange={(e) => {
+                            const parsed = parseCurrencyInput(e.target.value);
+                            setGastoValor(parsed > 0 ? formatCurrencyInput(parsed) : "");
+                          }}
+                          className="h-9 text-xs rounded-xl bg-card border-border text-foreground w-full font-bold"
+                          required
+                        />
+                      </div>
                     </div>
-                  ))}
-                  {usuarios.filter(u => u.estado === 'ACTIVO').length === 0 && (
-                    <p className="text-xs text-muted-foreground text-center italic py-4">No hay personal activo registrado.</p>
-                  )}
+
+                    <div className="flex justify-end pt-2">
+                      <Button
+                        type="submit"
+                        disabled={isAddingGasto}
+                        className="bg-primary hover:bg-primary/90 text-primary-foreground font-black px-5 h-9 rounded-xl text-xs flex items-center gap-1.5 shadow-md transition-all duration-200 hover:scale-[1.02]"
+                      >
+                        <Plus className="w-3.5 h-3.5" />
+                        Registrar Gasto
+                      </Button>
+                    </div>
+                  </form>
+                ) : (
+                  <div className="bg-muted/30 border border-muted/50 text-muted-foreground p-4 rounded-2xl text-xs font-semibold text-center italic">
+                    🔒 Caja cerrada para este día. El registro de gastos está deshabilitado.
+                  </div>
+                )}
+
+                {/* List of registered expenses */}
+                <div className="space-y-3">
+                  <div className="flex justify-between items-center border-b border-border/40 pb-2">
+                    <span className="text-xs font-bold uppercase tracking-wider text-muted-foreground">Egresos del Día</span>
+                    <Badge className="bg-red-500/10 border border-red-500/20 text-red-500 font-black text-xs px-3 py-0.5 rounded-full">
+                      Total: ${otrosCostos.toLocaleString('es-CO')}
+                    </Badge>
+                  </div>
+
+                  <div className="max-h-[300px] overflow-y-auto pr-2 scrollbar-thin space-y-2">
+                    {gastosHoy.map((g) => {
+                      // Color class mapping based on category
+                      let categoryColor = "bg-primary/10 border-primary/20 text-primary";
+                      if (g.categoria === "Servicios") categoryColor = "bg-blue-500/10 border-blue-500/20 text-blue-400";
+                      if (g.categoria === "Nómina") categoryColor = "bg-purple-500/10 border-purple-500/20 text-purple-400";
+                      if (g.categoria === "Mantenimiento") categoryColor = "bg-amber-500/10 border-amber-500/20 text-amber-400";
+                      if (g.categoria === "Insumos") categoryColor = "bg-green-500/10 border-green-500/20 text-green-400";
+                      
+                      return (
+                        <div key={g.id} className="flex justify-between items-center p-3 bg-accent/20 rounded-2xl border border-border/30 hover:border-primary/20 transition-all duration-200">
+                          <div className="flex items-center gap-3">
+                            <Badge className={cn("text-[9px] uppercase font-black px-2 py-0.5 rounded-lg border", categoryColor)}>
+                              {g.categoria}
+                            </Badge>
+                            <div>
+                              <span className="text-xs font-bold block text-foreground">{g.descripcion}</span>
+                              <span className="text-[9px] text-muted-foreground font-medium block">ID: {g.id.slice(0, 8)}</span>
+                            </div>
+                          </div>
+
+                          <div className="flex items-center gap-3">
+                            <span className="text-xs font-black text-red-500">${g.valor.toLocaleString('es-CO')}</span>
+                            {!isCierreClosed && (
+                              <Button
+                                variant="ghost"
+                                size="icon"
+                                className="w-7 h-7 rounded-lg text-muted-foreground hover:text-destructive hover:bg-destructive/10 transition-colors"
+                                onClick={() => handleDeleteGasto(g.id)}
+                              >
+                                <Trash2 className="w-3.5 h-3.5" />
+                              </Button>
+                            )}
+                          </div>
+                        </div>
+                      );
+                    })}
+
+                    {gastosHoy.length === 0 && (
+                      <p className="text-xs text-muted-foreground text-center italic py-8">
+                        No hay gastos operativos registrados para esta fecha.
+                      </p>
+                    )}
+                  </div>
                 </div>
               </CardContent>
             </Card>
 
-            {/* Other Expenses Card */}
-            <Card className="bg-card border-border paper-texture shadow-xl rounded-[2rem] overflow-hidden">
-              <CardHeader className="bg-accent/10 border-b border-border/40 p-5">
-                <CardTitle className="text-base font-headline font-black tracking-tight flex items-center justify-between">
-                  <span>Otros Gastos Operativos (Cierres Diarios)</span>
-                  <span className="text-sm font-black text-red-500">${totalGastosOperativosHistoricos.toLocaleString('es-CO')}</span>
-                </CardTitle>
-              </CardHeader>
-              <CardContent className="p-4 max-h-[280px] overflow-y-auto pr-2 scrollbar-thin">
-                <div className="space-y-3">
-                  {historialCierres.filter(c => parseOtrosCostos(c) > 0).map((c) => (
-                    <div key={c.fecha} className="flex justify-between items-center p-3 bg-accent/20 rounded-2xl border border-border/30 hover:border-primary/20 transition-all">
-                      <div>
-                        <span className="text-xs font-bold block">{c.fecha}</span>
-                        <span className="text-[9px] text-muted-foreground uppercase font-black">Cajero: {c.usuario}</span>
+            {/* Column 3: Payroll and Historical Expenses Card */}
+            <div className="space-y-6">
+
+
+              {/* Other Expenses Card */}
+              <Card className="bg-card border-border paper-texture shadow-xl rounded-[2rem] overflow-hidden">
+                <CardHeader className="bg-accent/10 border-b border-border/40 p-5">
+                  <CardTitle className="text-base font-headline font-black tracking-tight flex items-center justify-between">
+                    <span>Otros Gastos Operativos (Cierres Diarios)</span>
+                    <span className="text-sm font-black text-red-500">${totalGastosOperativosHistoricos.toLocaleString('es-CO')}</span>
+                  </CardTitle>
+                </CardHeader>
+                <CardContent className="p-4 max-h-[280px] overflow-y-auto pr-2 scrollbar-thin">
+                  <div className="space-y-3">
+                    {historialCierres.filter(c => parseOtrosCostos(c) > 0).map((c) => (
+                      <div key={c.fecha} className="flex justify-between items-center p-3 bg-accent/20 rounded-2xl border border-border/30 hover:border-primary/20 transition-all">
+                        <div>
+                          <span className="text-xs font-bold block">{c.fecha}</span>
+                          <span className="text-[9px] text-muted-foreground uppercase font-black">Cajero: {c.usuario}</span>
+                        </div>
+                        <span className="text-xs font-black text-red-500">${parseOtrosCostos(c).toLocaleString('es-CO')}</span>
                       </div>
-                      <span className="text-xs font-black text-red-500">${parseOtrosCostos(c).toLocaleString('es-CO')}</span>
-                    </div>
-                  ))}
-                  {historialCierres.filter(c => parseOtrosCostos(c) > 0).length === 0 && (
-                    <p className="text-xs text-muted-foreground text-center italic py-4">No hay otros gastos registrados en los cierres.</p>
-                  )}
-                </div>
-              </CardContent>
-            </Card>
+                    ))}
+                    {historialCierres.filter(c => parseOtrosCostos(c) > 0).length === 0 && (
+                      <p className="text-xs text-muted-foreground text-center italic py-4">No hay otros gastos registrados en los cierres.</p>
+                    )}
+                  </div>
+                </CardContent>
+              </Card>
+            </div>
           </div>
 
           {/* Expandable Accordion List Section */}

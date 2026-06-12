@@ -27,3 +27,13 @@ export function uuidv4(): string {
   });
 }
 
+export function getOrderIdentifier(orden: { mesaId: number, consecutivo?: number, id?: string }): string {
+  const isParaLlevar = orden.mesaId >= 101;
+  if (orden.consecutivo) {
+    return isParaLlevar ? `PLL-${orden.consecutivo}` : `ORD-${orden.consecutivo}`;
+  }
+  if (orden.id) {
+    return isParaLlevar ? `PLL-${orden.id.substring(0, 4).toUpperCase()}` : `ORD-${orden.id.substring(0, 4).toUpperCase()}`;
+  }
+  return isParaLlevar ? `PLL-${orden.mesaId >= 101 ? orden.mesaId - 100 : orden.mesaId}` : `Mesa ${orden.mesaId}`;
+}

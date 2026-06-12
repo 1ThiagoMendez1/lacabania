@@ -1,5 +1,5 @@
 import { create } from 'zustand';
-import { Mesa, Producto, MenuItem, Orden, Usuario, ItemOrden, EstadoComanda, MetodoPago, Rol } from './types';
+import { Mesa, Producto, MenuItem, Orden, Usuario, ItemOrden, EstadoComanda, MetodoPago, Rol, Gasto } from './types';
 import { supabase } from './supabase';
 import { uuidv4 } from './utils';
 
@@ -52,6 +52,7 @@ interface POSState {
   updateOrden: (ordenId: string, updates: Partial<Orden>) => Promise<void>;
   addItemsToOrden: (ordenId: string, newItems: ItemOrden[]) => Promise<void>;
   updateItemEstado: (ordenId: string, itemId: string, estado: EstadoComanda) => Promise<void>;
+  cancelarItemOrden: (ordenId: string, itemId: string, observaciones: string, usuarioId: string) => Promise<void>;
   updateStock: (productoId: string, cantidad: number) => Promise<void>;
   adjustStock: (productoId: string, nuevoStock: number) => Promise<void>;
   addProducto: (producto: Producto) => Promise<void>;
@@ -69,6 +70,10 @@ interface POSState {
   updateIpServidorImpresion: (ip: string) => Promise<void>;
   printTicket: (stationId: string, data: any[]) => Promise<void>;
   checkQzConnection: () => Promise<void>;
+  gastos: Gasto[];
+  fetchGastos: () => Promise<void>;
+  addGasto: (gasto: Omit<Gasto, 'id'>) => Promise<void>;
+  deleteGasto: (id: string) => Promise<void>;
 }
 
 export const usePOSStore = create<POSState>((set, get) => ({
@@ -89,8 +94,8 @@ export const usePOSStore = create<POSState>((set, get) => ({
   })() || null,
   usuarios: [],
   permisos: {
-    ADMINISTRADOR: ["Dashboard", "Mesas", "Asado", "Parrilla", "Cocina", "Bar", "Caja", "Menú Carta", "Inventario", "Personal", "Reportes & AI", "Impresoras", "Historial Meseros"],
-    MESERO: ["Mesas", "Asado", "Parrilla", "Cocina", "Bar"],
+    ADMINISTRADOR: ["Dashboard", "Mesas", "Entregas", "Asado", "Parrilla", "Cocina", "Bar", "Caja", "Menú Carta", "Inventario", "Personal", "Reportes & AI", "Impresoras", "Historial Meseros", "Historial Pedidos"],
+    MESERO: ["Mesas", "Entregas", "Asado", "Parrilla", "Cocina", "Bar"],
     CAJERO: ["Caja"],
   },
   mesas: [],
@@ -105,6 +110,7 @@ export const usePOSStore = create<POSState>((set, get) => ({
   availablePrinters: [],
   printerMappings: {},
   ipServidorImpresion: 'localhost',
+  gastos: [],
   setCajaCerrada: (cerrada) => set({ isCajaCerrada: cerrada }),
   setFechaOperativa: (fecha) => {
     if (typeof window !== 'undefined') {
@@ -116,7 +122,7 @@ export const usePOSStore = create<POSState>((set, get) => ({
 
   fetchInitialData: async () => {
     // Fetch from Supabase
-    const [usuariosRes, mesasRes, productosRes, menuRes, ordenesRes, permisosRes, configImpresorasRes] = await Promise.all([
+    const [usuariosRes, mesasRes, productosRes, menuRes, ordenesRes, permisosRes, configImpresorasRes, gastosRes] = await Promise.all([
       supabase.from('usuarios').select('*'),
       supabase.from('mesas').select('*'),
       supabase.from('productos').select('*'),
@@ -124,6 +130,7 @@ export const usePOSStore = create<POSState>((set, get) => ({
       supabase.from('ordenes').select('*, items:items_orden(*)'),
       supabase.from('permisos').select('*'),
       supabase.from('configuracion_impresoras').select('*').eq('id', 'default').maybeSingle(),
+      supabase.from('gastos').select('*').order('fecha', { ascending: false })
     ]);
 
     if (usuariosRes.error) console.error("Error al cargar usuarios de Supabase:", usuariosRes.error);
@@ -133,9 +140,10 @@ export const usePOSStore = create<POSState>((set, get) => ({
     if (ordenesRes.error) console.error("Error al cargar órdenes de Supabase:", ordenesRes.error);
     if (permisosRes.error) console.error("Error al cargar permisos de Supabase:", permisosRes.error);
     if (configImpresorasRes.error) console.error("Error al cargar configuracion de impresoras de Supabase:", configImpresorasRes.error);
+    if (gastosRes.error) console.error("Error al cargar gastos de Supabase:", gastosRes.error);
 
     const permisosParsed: Record<string, string[]> = {
-      ADMINISTRADOR: ["Dashboard", "Mesas", "Asado", "Parrilla", "Cocina", "Bar", "Caja", "Menú Carta", "Inventario", "Personal", "Reportes & AI", "Impresoras", "Historial Meseros"],
+      ADMINISTRADOR: ["Dashboard", "Mesas", "Asado", "Parrilla", "Cocina", "Bar", "Caja", "Menú Carta", "Inventario", "Personal", "Reportes & AI", "Impresoras", "Historial Meseros", "Historial Pedidos"],
       MESERO: ["Mesas", "Asado", "Parrilla", "Cocina", "Bar"],
       CAJERO: ["Dashboard", "Mesas", "Caja"],
     };
@@ -144,12 +152,18 @@ export const usePOSStore = create<POSState>((set, get) => ({
         permisosParsed[p.rol] = p.labels;
       });
     }
-    // Force specific permissions for CAJERO based on recent requirements
+    // Compatibilidad retroactiva de permisos
     if (!permisosParsed.CAJERO.includes("Cierre Diario")) permisosParsed.CAJERO.push("Cierre Diario");
     if (!permisosParsed.CAJERO.includes("Mesas")) permisosParsed.CAJERO.push("Mesas");
     if (!permisosParsed.CAJERO.includes("Caja")) permisosParsed.CAJERO.push("Caja");
     
-    // Remove Dashboard from CAJERO to enforce the new independent route
+    // Inyectar "Entregas" si falta
+    if (permisosParsed.ADMINISTRADOR && !permisosParsed.ADMINISTRADOR.includes("Entregas")) permisosParsed.ADMINISTRADOR.push("Entregas");
+    if (permisosParsed.MESERO && !permisosParsed.MESERO.includes("Entregas")) permisosParsed.MESERO.push("Entregas");
+    
+    // Inyectar "Historial Pedidos" si falta
+    if (permisosParsed.ADMINISTRADOR && !permisosParsed.ADMINISTRADOR.includes("Historial Pedidos")) permisosParsed.ADMINISTRADOR.push("Historial Pedidos");
+
     permisosParsed.CAJERO = permisosParsed.CAJERO.filter(p => p !== "Dashboard");
 
     const productosMapped = (productosRes.data || []).map((p: any) => ({
@@ -222,7 +236,8 @@ export const usePOSStore = create<POSState>((set, get) => ({
       metodoPago: o.metodo_pago,
       facturaElectronicaId: o.factura_electronica_id,
       clienteNombre: o.cliente_nombre,
-      rating: o.cliente_documento ? parseInt(o.cliente_documento, 10) : undefined,
+      rating: o.cliente_documento ? (o.cliente_documento.startsWith('{') ? JSON.parse(o.cliente_documento).rating : parseInt(o.cliente_documento, 10)) : undefined,
+      ratingObservacion: o.cliente_documento && o.cliente_documento.startsWith('{') ? JSON.parse(o.cliente_documento).obs : undefined,
       createdAt: o.created_at,
       updatedAt: o.updated_at,
       items: (o.items || []).map((i: any) => ({
@@ -301,7 +316,8 @@ export const usePOSStore = create<POSState>((set, get) => ({
       fechaOperativa: activeFecha,
       isCajaCerrada: isClosed,
       printerMappings: savedMappings,
-      ipServidorImpresion: ipServidor
+      ipServidorImpresion: ipServidor,
+      gastos: gastosRes.data || []
     });
     
     get().setupRealtime();
@@ -327,7 +343,8 @@ export const usePOSStore = create<POSState>((set, get) => ({
         metodoPago: o.metodo_pago,
         facturaElectronicaId: o.factura_electronica_id,
         clienteNombre: o.cliente_nombre,
-        rating: o.cliente_documento ? parseInt(o.cliente_documento, 10) : undefined,
+        rating: o.cliente_documento ? (o.cliente_documento.startsWith('{') ? JSON.parse(o.cliente_documento).rating : parseInt(o.cliente_documento, 10)) : undefined,
+        ratingObservacion: o.cliente_documento && o.cliente_documento.startsWith('{') ? JSON.parse(o.cliente_documento).obs : undefined,
         createdAt: o.created_at,
         updatedAt: o.updated_at,
         items: (o.items || []).map((i: any) => ({
@@ -460,6 +477,14 @@ export const usePOSStore = create<POSState>((set, get) => ({
               }
             }
           }
+        }
+      )
+      .on(
+        'postgres_changes',
+        { event: '*', schema: 'public', table: 'gastos' },
+        (payload) => {
+          console.log("Realtime: gastos change detected", payload.eventType);
+          get().fetchGastos();
         }
       )
       .subscribe();
@@ -627,6 +652,8 @@ export const usePOSStore = create<POSState>((set, get) => ({
     const { error } = await supabase.from('mesas').insert(dbMesa);
     if (error) {
       console.error("Error al añadir mesa en Supabase:", error.message, "Detalles:", error.details, "Código:", error.code, error);
+      set((state) => ({ mesas: state.mesas.filter(m => m.id !== mesa.id) }));
+      throw new Error(error.message || "Error al crear la mesa");
     }
   },
   deleteMesa: async (mesaId) => {
@@ -635,7 +662,9 @@ export const usePOSStore = create<POSState>((set, get) => ({
     if (error) console.error("Error al eliminar mesa de Supabase:", error);
   },
   addOrden: async (orden) => {
-    const lastConsecutivo = get().ordenes.reduce((max, o) => (o.consecutivo && o.consecutivo > max ? o.consecutivo : max), 0);
+    const isParaLlevar = orden.mesaId >= 101;
+    const sameTypeOrders = get().ordenes.filter(o => isParaLlevar ? o.mesaId >= 101 : o.mesaId < 101);
+    const lastConsecutivo = sameTypeOrders.reduce((max, o) => (o.consecutivo && o.consecutivo > max ? o.consecutivo : max), 0);
     const optimisticConsecutivo = lastConsecutivo + 1;
     const ordenWithConsecutivo = { 
       consecutivo: optimisticConsecutivo,
@@ -683,9 +712,13 @@ export const usePOSStore = create<POSState>((set, get) => ({
   updateOrden: async (ordenId, updates) => {
     set((state) => ({ ordenes: state.ordenes.map(o => o.id === ordenId ? { ...o, ...updates } : o) }));
     const dbUpdates: any = { ...updates };
-    if (dbUpdates.rating !== undefined) {
-      dbUpdates.cliente_documento = dbUpdates.rating ? dbUpdates.rating.toString() : null;
+    if (dbUpdates.rating !== undefined || dbUpdates.ratingObservacion !== undefined) {
+      const currentOrder = get().ordenes.find(o => o.id === ordenId);
+      const newRating = dbUpdates.rating !== undefined ? dbUpdates.rating : currentOrder?.rating;
+      const newObs = dbUpdates.ratingObservacion !== undefined ? dbUpdates.ratingObservacion : currentOrder?.ratingObservacion;
+      dbUpdates.cliente_documento = JSON.stringify({ rating: newRating, obs: newObs });
       delete dbUpdates.rating;
+      delete dbUpdates.ratingObservacion;
     }
     const { error } = await supabase.from('ordenes').update(dbUpdates).eq('id', ordenId);
     if (error) console.error("Error al actualizar orden en Supabase:", error);
@@ -727,6 +760,34 @@ export const usePOSStore = create<POSState>((set, get) => ({
     }));
     const { error } = await supabase.from('items_orden').update({ estado }).eq('id', itemId);
     if (error) console.error("Error al actualizar estado de item de orden en Supabase:", error);
+  },
+  cancelarItemOrden: async (ordenId, itemId, observaciones, usuarioId) => {
+    set((state) => ({
+      ordenes: state.ordenes.map(o => 
+        o.id === ordenId 
+          ? { ...o, items: o.items.map(i => i.id === itemId ? { ...i, estado: 'CANCELADO' } : i) }
+          : o
+      )
+    }));
+
+    const { error: err1 } = await supabase.from('items_orden').update({ estado: 'CANCELADO' }).eq('id', itemId);
+    if (err1) console.error("Error al cancelar item:", err1);
+
+    const orden = get().ordenes.find(o => o.id === ordenId);
+    const item = orden?.items.find(i => i.id === itemId);
+    if (item) {
+      await get().decrementMenuItemStock(item.menuItemId, -item.cantidad);
+      const { error: err2 } = await supabase.from('modificaciones_comanda').insert({
+        id: uuidv4(),
+        orden_id: ordenId,
+        usuario_id: usuarioId,
+        tipo: 'CANCELACION',
+        items_afectados: [item],
+        observaciones: observaciones,
+        fecha: new Date().toISOString()
+      });
+      if (err2) console.error("Error al guardar auditoria de modificacion:", err2);
+    }
   },
   updateStock: async (productoId, cantidad) => {
     const p = get().productos.find(p => p.id === productoId);
@@ -1055,6 +1116,68 @@ export const usePOSStore = create<POSState>((set, get) => ({
       }
     } catch (e) {
       set({ isQzConnected: false, isQzConnecting: false });
+    }
+  },
+  fetchGastos: async () => {
+    const { data, error } = await supabase.from('gastos').select('*').order('fecha', { ascending: false });
+    if (error) {
+      console.error("Error al cargar gastos:", {
+        code: error.code,
+        message: error.message,
+        details: error.details,
+        hint: error.hint
+      });
+      return;
+    }
+    set({ gastos: data || [] });
+  },
+  addGasto: async (gasto) => {
+    const newGasto: Gasto = {
+      id: uuidv4(),
+      categoria: gasto.categoria,
+      descripcion: gasto.descripcion,
+      valor: gasto.valor,
+      fecha: gasto.fecha
+    };
+    // Optimistic update
+    set(state => ({ gastos: [newGasto, ...state.gastos] }));
+
+    const { error } = await supabase.from('gastos').insert({
+      id: newGasto.id,
+      categoria: newGasto.categoria,
+      descripcion: newGasto.descripcion,
+      valor: newGasto.valor,
+      fecha: newGasto.fecha
+    });
+
+    if (error) {
+      console.error("Error al insertar gasto:", {
+        code: error.code,
+        message: error.message,
+        details: error.details,
+        hint: error.hint
+      });
+      // Rollback
+      set(state => ({ gastos: state.gastos.filter(g => g.id !== newGasto.id) }));
+      throw new Error(error.message || "No se pudo insertar el gasto");
+    }
+  },
+  deleteGasto: async (id) => {
+    const prevGastos = get().gastos;
+    // Optimistic update
+    set(state => ({ gastos: state.gastos.filter(g => g.id !== id) }));
+
+    const { error } = await supabase.from('gastos').delete().eq('id', id);
+    if (error) {
+      console.error("Error al eliminar gasto:", {
+        code: error.code,
+        message: error.message,
+        details: error.details,
+        hint: error.hint
+      });
+      // Rollback
+      set({ gastos: prevGastos });
+      throw new Error(error.message || "No se pudo eliminar el gasto");
     }
   },
 }));

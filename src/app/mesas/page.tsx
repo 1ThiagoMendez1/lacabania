@@ -3,7 +3,7 @@
 
 import { usePOSStore } from "@/lib/store";
 import { Badge } from "@/components/ui/badge";
-import { cn } from "@/lib/utils";
+import { cn, getOrderIdentifier } from "@/lib/utils";
 import { Clock, Users, UtensilsCrossed, PlusCircle, Edit, Ban, CheckCircle, Layers, AlertCircle, MapPin, Activity, Info, Map, Trash2, ShoppingBag, Star, Lock } from "lucide-react";
 import { 
   Dialog, 
@@ -11,7 +11,8 @@ import {
   DialogHeader, 
   DialogTitle, 
   DialogTrigger,
-  DialogFooter
+  DialogFooter,
+  DialogDescription
 } from "@/components/ui/dialog";
 import { useState, useEffect } from "react";
 import { Button } from "@/components/ui/button";
@@ -24,6 +25,7 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
+import { Textarea } from "@/components/ui/textarea";
 import { useRouter } from "next/navigation";
 import { useToast } from "@/hooks/use-toast";
 import { Mesa, Orden } from "@/lib/types";
@@ -61,10 +63,10 @@ export default function MesasPage() {
     };
   }, []);
 
-  const [newMesa, setNewMesa] = useState({
+  const [newMesa, setNewMesa] = useState<{ id: string; zona: Mesa['zona']; capacidad: number | undefined }>({
     id: "",
     zona: "Primer Piso" as Mesa['zona'],
-    capacidad: 4
+    capacidad: undefined
   });
 
   const [editMesa, setEditMesa] = useState<Partial<Mesa>>({});
@@ -109,30 +111,50 @@ export default function MesasPage() {
 
   const handleAddMesaDialogOpenChange = (open: boolean) => {
     if (open) {
-      const nextId = mesas.length > 0 ? Math.max(...mesas.map(m => m.id)) + 1 : 1;
-      setNewMesa(prev => ({ ...prev, id: nextId.toString() }));
+      setNewMesa({
+        id: "",
+        zona: "Primer Piso",
+        capacidad: undefined
+      });
     }
     setIsAddMesaOpen(open);
   };
 
-  const handleAddMesa = () => {
+  const handleAddMesa = async () => {
     const mesaId = parseInt(newMesa.id);
     if (isNaN(mesaId)) return;
+
+    if (mesas.some(m => m.id === mesaId)) {
+      toast({
+        variant: "destructive",
+        title: "Error",
+        description: `La mesa número ${mesaId} ya existe.`
+      });
+      return;
+    }
 
     const mesa: Mesa = {
       id: mesaId,
       numero: mesaId,
       zona: newMesa.zona,
-      capacidad: newMesa.capacidad,
+      capacidad: newMesa.capacidad || 4,
       estado: 'LIBRE'
     };
 
-    addMesa(mesa);
-    setIsAddMesaOpen(false);
-    toast({
-      title: "Mesa Agregada",
-      description: `Mesa ${mesaId} registrada.`
-    });
+    try {
+      await addMesa(mesa);
+      setIsAddMesaOpen(false);
+      toast({
+        title: "Mesa Agregada",
+        description: `Mesa ${mesaId} registrada.`
+      });
+    } catch (error: any) {
+      toast({
+        variant: "destructive",
+        title: "Error al crear mesa",
+        description: error.message
+      });
+    }
   };
 
   const handleStartEdit = (mesa: Mesa) => {
@@ -168,7 +190,7 @@ export default function MesasPage() {
         await updateMesaEstado(availableMesa.id, 'OCUPADA', user?.id);
         toast({
           title: "Pedido Para Llevar Reutilizado",
-          description: `Reabriendo canal para llevar ORD-${availableMesa.id >= 101 ? availableMesa.id - 100 : availableMesa.id}.`
+          description: `Reabriendo canal para llevar ${getOrderIdentifier({ mesaId: availableMesa.id })}.`
         });
         router.push(`/pedidos/${availableMesa.id}`);
         return;
@@ -205,7 +227,7 @@ export default function MesasPage() {
       console.log("Pedido para llevar creado exitosamente en Supabase. Redirigiendo a pedidos de mesa ID:", nextId);
       toast({
         title: "Pedido Para Llevar Creado",
-        description: `Abriendo comanda para llevar ORD-${nextId - 100}.`
+        description: `Abriendo comanda para llevar ${getOrderIdentifier({ mesaId: nextId })}.`
       });
       router.push(`/pedidos/${nextId}`);
     } catch (err: any) {
@@ -259,24 +281,38 @@ export default function MesasPage() {
               <div className="grid gap-4 py-4">
                 <div className="space-y-2">
                   <Label>Número</Label>
-                  <Input value={newMesa.id} readOnly className="bg-accent/20" />
+                  <Input 
+                    value={newMesa.id} 
+                    onChange={(e) => setNewMesa({ ...newMesa, id: e.target.value })}
+                    placeholder="Ej. 10"
+                  />
                 </div>
                 <div className="space-y-2">
-                  <Label>Piso</Label>
-                  <Select onValueChange={(v) => setNewMesa({ ...newMesa, zona: v as any })} defaultValue="Primer Piso">
+                  <Label>Zona / Área</Label>
+                  <Select 
+                    onValueChange={(v) => {
+                      setNewMesa({ ...newMesa, zona: v });
+                    }} 
+                    value={newMesa.zona}
+                  >
                     <SelectTrigger>
-                      <SelectValue placeholder="Selecciona Piso" />
+                      <SelectValue placeholder="Selecciona Zona" />
                     </SelectTrigger>
                     <SelectContent className="bg-card border-border">
                       <SelectItem value="Primer Piso">Primer Piso</SelectItem>
                       <SelectItem value="Segundo Piso">Segundo Piso</SelectItem>
-                      <SelectItem value="Para Llevar">Para Llevar</SelectItem>
+                      <SelectItem value="Para Llevar">Para Llevar (Lleva)</SelectItem>
                     </SelectContent>
                   </Select>
                 </div>
                 <div className="space-y-2">
                   <Label>Capacidad</Label>
-                  <Input type="number" value={newMesa.capacidad} onChange={(e) => setNewMesa({...newMesa, capacidad: parseInt(e.target.value) || 0})} />
+                  <Input 
+                    type="number" 
+                    value={newMesa.capacidad ?? ""} 
+                    onChange={(e) => setNewMesa({...newMesa, capacidad: e.target.value === "" ? undefined : parseInt(e.target.value)})} 
+                    placeholder="Ej: 4"
+                  />
                 </div>
               </div>
               <DialogFooter>
@@ -312,10 +348,12 @@ export default function MesasPage() {
               </TabsTrigger>
             </>
           )}
-          <TabsTrigger value="paraLlevar" className="flex-1 sm:flex-none data-[state=active]:bg-amber-600 data-[state=active]:text-white gap-2 px-6">
-            <Layers className="w-4 h-4" />
-            Para Llevar
-          </TabsTrigger>
+          {user?.rol !== 'MESERO' && (
+            <TabsTrigger value="paraLlevar" className="flex-1 sm:flex-none data-[state=active]:bg-amber-600 data-[state=active]:text-white gap-2 px-6">
+              <Layers className="w-4 h-4" />
+              Para Llevar
+            </TabsTrigger>
+          )}
         </TabsList>
 
         {user?.rol !== 'CAJERO' && (
@@ -360,6 +398,7 @@ export default function MesasPage() {
           </>
         )}
 
+        {user?.rol !== 'MESERO' && (
         <TabsContent value="paraLlevar">
           <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-5 gap-4 md:gap-6">
             <button
@@ -395,6 +434,7 @@ export default function MesasPage() {
             ))}
           </div>
         </TabsContent>
+        )}
       </Tabs>
 
       <Dialog open={isEditMode} onOpenChange={setIsEditMode}>
@@ -416,7 +456,12 @@ export default function MesasPage() {
                   </div>
                   <div className="space-y-2">
                     <Label>Capacidad</Label>
-                    <Input type="number" value={editMesa.capacidad} onChange={(e) => setEditMesa({ ...editMesa, capacidad: parseInt(e.target.value) || 0 })} />
+                    <Input 
+                      type="number" 
+                      value={editMesa.capacidad ?? ""} 
+                      onChange={(e) => setEditMesa({ ...editMesa, capacidad: e.target.value === "" ? undefined : parseInt(e.target.value) })} 
+                      placeholder="Ej: 4"
+                    />
                   </div>
                   <div className="flex gap-2 pt-4">
                     <Button variant="ghost" className="flex-1" onClick={() => setIsEditMode(false)}>Cancelar</Button>
@@ -435,31 +480,11 @@ function MesaCard({ mesa, user, onOpenMesa, onVerPedido, onStartEdit, onToggleFu
     const activeOrder = ordenes.find((o: Orden) => o.mesaId === mesa.id && o.estado === 'ABIERTA');
     const isMesaOwnedByOther = user?.rol === 'MESERO' && mesa.meseroId && mesa.meseroId !== user.id;
     const ownerMeseroNombre = (mesa.meseroId && usuarios.find((u: any) => u.id === mesa.meseroId)?.nombre) || "otro mesero";
-    const [delayLevel, setDelayLevel] = useState<'none' | 'warning' | 'critical'>('none');
     const [isOpen, setIsOpen] = useState(false);
     const [isRatingOpen, setIsRatingOpen] = useState(false);
     const [isRatingSuccess, setIsRatingSuccess] = useState(false);
-
-    useEffect(() => {
-      if (!activeOrder) {
-        setDelayLevel('none');
-        return;
-      }
-
-      const checkDelay = () => {
-        const start = new Date(activeOrder.createdAt).getTime();
-        const now = new Date().getTime();
-        const mins = (now - start) / 1000 / 60;
-
-        if (mins >= 60) setDelayLevel('critical');
-        else if (mins >= 30) setDelayLevel('warning');
-        else setDelayLevel('none');
-      };
-
-      checkDelay();
-      const interval = setInterval(checkDelay, 30000);
-      return () => clearInterval(interval);
-    }, [activeOrder]);
+    const [ratingObservation, setRatingObservation] = useState("");
+    const [selectedRating, setSelectedRating] = useState<number>(0);
 
     const isLlevar = mesa.zona === 'Para Llevar';
     const orderNum = mesa.id >= 101 ? mesa.id - 100 : mesa.id;
@@ -477,8 +502,6 @@ function MesaCard({ mesa, user, onOpenMesa, onVerPedido, onStartEdit, onToggleFu
                     : mesa.estado === 'EN PEDIDO'
                     ? "bg-gradient-to-br from-amber-600/10 via-amber-700/5 to-transparent border-amber-500/40 text-amber-300 shadow-[0_4px_20px_rgba(245,158,11,0.15)] hover:border-amber-500/60"
                     : "bg-gradient-to-br from-emerald-600/10 via-emerald-700/5 to-transparent border-emerald-500/40 text-emerald-300 shadow-[0_4px_20px_rgba(16,185,129,0.15)] hover:border-emerald-500/60",
-                  delayLevel === 'critical' ? "ring-2 ring-red-500 ring-offset-2 ring-offset-background animate-pulse shadow-[0_0_15px_rgba(239,68,68,0.4)]" : 
-                  delayLevel === 'warning' ? "ring-2 ring-yellow-500/50 ring-offset-1 ring-offset-background" : 
                   "hover:scale-[1.02] shadow-lg"
                 )}
               >
@@ -490,18 +513,6 @@ function MesaCard({ mesa, user, onOpenMesa, onVerPedido, onStartEdit, onToggleFu
                   <span className="text-[7px] md:text-[8px] font-mono font-black px-2 py-0.5 rounded-lg bg-amber-500/15 border border-amber-500/20 text-amber-500 uppercase tracking-widest">
                     LLEVAR
                   </span>
-                  {delayLevel !== 'none' && (
-                    <div className="flex items-center">
-                      <div className={cn(
-                        "w-2 md:w-2.5 h-2 md:h-2.5 rounded-full animate-ping absolute",
-                        delayLevel === 'critical' ? "bg-red-500" : "bg-yellow-500"
-                      )} />
-                      <div className={cn(
-                        "w-2 md:w-2.5 h-2 md:h-2.5 rounded-full relative",
-                        delayLevel === 'critical' ? "bg-red-500" : "bg-yellow-500"
-                      )} />
-                    </div>
-                  )}
                 </div>
 
                 <div className="flex flex-col items-center gap-0.5 md:gap-1 z-10">
@@ -527,8 +538,6 @@ function MesaCard({ mesa, user, onOpenMesa, onVerPedido, onStartEdit, onToggleFu
                 className={cn(
                   "relative group h-32 md:h-40 rounded-3xl border-2 transition-all duration-500 p-4 md:p-5 flex flex-col items-center justify-between wood-texture overflow-hidden active:scale-95",
                   getStatusColor(mesa.estado),
-                  delayLevel === 'critical' ? "ring-2 ring-red-500 ring-offset-2 ring-offset-background animate-pulse shadow-[0_0_15px_rgba(239,68,68,0.4)]" : 
-                  delayLevel === 'warning' ? "ring-2 ring-yellow-500/50 ring-offset-1 ring-offset-background" : 
                   "hover:scale-[1.02] shadow-lg"
                 )}
               >
@@ -558,18 +567,6 @@ function MesaCard({ mesa, user, onOpenMesa, onVerPedido, onStartEdit, onToggleFu
                       <span className="text-[8px] md:text-[9px] font-mono font-black px-1.5 py-0.5 rounded bg-primary/20 border border-primary/30 text-primary">
                         MESA-{activeOrder.consecutivo}
                       </span>
-                    )}
-                    {delayLevel !== 'none' && (
-                      <div className="flex items-center relative">
-                        <div className={cn(
-                          "w-2 md:w-2.5 h-2 md:h-2.5 rounded-full animate-ping absolute",
-                          delayLevel === 'critical' ? "bg-red-500" : "bg-yellow-500"
-                        )} />
-                        <div className={cn(
-                          "w-2 md:w-2.5 h-2 md:h-2.5 rounded-full relative",
-                          delayLevel === 'critical' ? "bg-red-500" : "bg-yellow-500"
-                        )} />
-                      </div>
                     )}
                   </div>
                 </div>
@@ -603,10 +600,7 @@ function MesaCard({ mesa, user, onOpenMesa, onVerPedido, onStartEdit, onToggleFu
                   </div>
                   <div>
                     <DialogTitle className="text-3xl font-headline tracking-tighter">
-                      {mesa.zona === 'Para Llevar' 
-                        ? `Pedido ORD-${mesa.id >= 101 ? mesa.id - 100 : mesa.id}` 
-                        : `Mesa ${mesa.id}`}
-                      {activeOrder && activeOrder.consecutivo && ` (${mesa.zona === 'Para Llevar' ? 'PLL' : 'MESA'}-${activeOrder.consecutivo})`}
+                      {getOrderIdentifier({ mesaId: mesa.id, consecutivo: activeOrder?.consecutivo, id: activeOrder?.id })}
                     </DialogTitle>
                     <p className="text-[10px] uppercase font-bold tracking-widest text-muted-foreground">Detalle de Gestión</p>
                   </div>
@@ -638,25 +632,6 @@ function MesaCard({ mesa, user, onOpenMesa, onVerPedido, onStartEdit, onToggleFu
                   </p>
                 </div>
               </div>
-
-              {delayLevel !== 'none' && (
-                <div className={cn(
-                  "p-4 rounded-3xl border-2 flex items-center gap-4 animate-in fade-in slide-in-from-top-2 duration-500",
-                  delayLevel === 'critical' ? "bg-red-500/10 border-red-500/30 text-red-500" : "bg-yellow-500/10 border-yellow-500/30 text-yellow-500"
-                )}>
-                  <div className={cn(
-                    "w-10 h-10 rounded-full flex items-center justify-center shrink-0",
-                    delayLevel === 'critical' ? "bg-red-500/20" : "bg-yellow-500/20"
-                  )}>
-                    <AlertCircle className="w-5 h-5 animate-pulse" />
-                  </div>
-                  <div>
-                    <p className="text-sm font-black uppercase tracking-tighter">¡Atención: Retraso Detectado!</p>
-                    <p className="text-[10px] opacity-80 leading-tight">Es necesario validar prioridad con la cocina de inmediato.</p>
-                  </div>
-                </div>
-              )}
-
               <div className="space-y-4 pt-2 relative z-10">
                 {isMesaOwnedByOther ? (
                   <div className="bg-destructive/10 border border-destructive/20 p-6 rounded-3xl text-center space-y-2">
@@ -705,13 +680,21 @@ function MesaCard({ mesa, user, onOpenMesa, onVerPedido, onStartEdit, onToggleFu
 
                     {activeOrder && (
                       <Button 
-                        className="w-full h-16 bg-yellow-500 hover:bg-yellow-600 text-black font-bold text-xl rounded-[1.25rem] transition-all hover:scale-[1.02] shadow-xl group gap-2" 
+                        className={cn("w-full h-16 font-bold text-xl rounded-[1.25rem] transition-all shadow-xl group gap-2", 
+                          activeOrder.rating 
+                            ? "bg-muted text-muted-foreground cursor-not-allowed"
+                            : "bg-yellow-500 hover:bg-yellow-600 text-black hover:scale-[1.02]"
+                        )} 
                         onClick={() => {
+                          if (activeOrder.rating) return;
                           setIsOpen(false);
-                          setIsRatingOpen(true);
+                          setTimeout(() => {
+                            setIsRatingOpen(true);
+                          }, 300); // Retraso para evitar bug de Radix UI con el pointer-events del body
                         }}
+                        disabled={!!activeOrder.rating}
                       >
-                        ⭐ CALIFICAR ATENCIÓN
+                        ⭐ {activeOrder.rating ? "ATENCIÓN YA CALIFICADA" : "CALIFICAR ATENCIÓN"}
                       </Button>
                     )}
                   </div>
@@ -774,9 +757,14 @@ function MesaCard({ mesa, user, onOpenMesa, onVerPedido, onStartEdit, onToggleFu
           setIsRatingOpen(open);
           if (!open) {
             setIsRatingSuccess(false);
+            setSelectedRating(0);
+            setRatingObservation("");
           }
         }}>
-          <DialogContent className="bg-card border-border text-foreground paper-texture max-w-[95vw] sm:max-w-[450px] rounded-[2.5rem] p-8 text-center overflow-hidden">
+          <DialogContent aria-describedby="rating-desc" className="bg-card border-border text-foreground paper-texture max-w-[95vw] sm:max-w-[450px] rounded-[2.5rem] p-8 text-center overflow-hidden">
+            <DialogDescription id="rating-desc" className="hidden">
+              Ventana para calificar la atención del mesero
+            </DialogDescription>
             <div className="absolute inset-0 wood-texture opacity-5 pointer-events-none rounded-[2.5rem]" />
             
             {activeOrder ? (
@@ -842,23 +830,44 @@ function MesaCard({ mesa, user, onOpenMesa, onVerPedido, onStartEdit, onToggleFu
                     {[1, 2, 3, 4, 5].map((star) => (
                       <button
                         key={star}
-                        onClick={async () => {
-                          await updateOrden(activeOrder.id, { rating: star });
-                          setIsRatingSuccess(true);
-                          setTimeout(() => {
-                            setIsRatingOpen(false);
-                          }, 1500);
-                        }}
+                        onClick={() => setSelectedRating(star)}
                         className="p-1 hover:scale-125 transition-transform duration-200 focus:outline-none"
                       >
-                        <Star className="w-10 h-10 text-muted-foreground/40 hover:text-yellow-500/70" />
+                        <Star className={cn("w-10 h-10 transition-colors duration-200", star <= selectedRating ? "fill-yellow-500 text-yellow-500" : "text-muted-foreground/40 hover:text-yellow-500/70")} />
                       </button>
                     ))}
                   </div>
 
-                  <p className="text-[10px] text-muted-foreground italic">
-                    Toca las estrellas para calificar
-                  </p>
+                  <div className="w-full mt-2">
+                    <Label htmlFor="obs" className="text-[10px] text-muted-foreground uppercase font-black tracking-wider block mb-1.5 text-left">
+                      ¿Alguna observación adicional? (Opcional)
+                    </Label>
+                    <Textarea 
+                      id="obs"
+                      placeholder="Déjanos un comentario sobre tu experiencia..."
+                      value={ratingObservation}
+                      onChange={(e) => setRatingObservation(e.target.value)}
+                      className="bg-background/50 border-border/50 text-xs min-h-[60px] resize-none rounded-xl"
+                    />
+                  </div>
+
+                  <div className="w-full mt-6">
+                    <Button 
+                      className="w-full bg-yellow-500 hover:bg-yellow-600 text-black font-bold h-12 rounded-xl transition-all shadow-md"
+                      disabled={selectedRating === 0}
+                      onClick={async () => {
+                        await updateOrden(activeOrder.id, { rating: selectedRating, ratingObservacion: ratingObservation || undefined });
+                        setIsRatingSuccess(true);
+                        setTimeout(() => {
+                          setIsRatingOpen(false);
+                          setSelectedRating(0);
+                          setRatingObservation("");
+                        }, 2500);
+                      }}
+                    >
+                      {selectedRating === 0 ? "SELECCIONA LAS ESTRELLAS" : "CONFIRMAR Y ENVIAR"}
+                    </Button>
+                  </div>
                 </div>
               )
             ) : (

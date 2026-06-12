@@ -1,5 +1,6 @@
 import { ItemOrden, Estacion } from './types';
 import { usePOSStore } from './store';
+import { getOrderIdentifier } from './utils';
 
 /**
  * Agrupa los nuevos productos de un pedido por su impresora de destino (estación)
@@ -46,6 +47,8 @@ export async function printKitchenTickets(
       const isParaLlevar = mesa?.zona === 'Para Llevar' || mesaNumero >= 100;
       const activeOrder = store.ordenes.find(o => o.mesaId === mesaNumero && o.estado === 'ABIERTA');
       const consecutivo = activeOrder?.consecutivo;
+      
+      const orderIdStr = activeOrder ? getOrderIdentifier({ mesaId: mesaNumero, consecutivo, id: activeOrder.id }) : (isParaLlevar ? 'PLL-NUEVO' : 'ORD-NUEVO');
 
       data.push('\x1B\x40'); // Inicializar impresora
       data.push('\x1B\x61\x01'); // Centrar texto
@@ -57,12 +60,10 @@ export async function printKitchenTickets(
         data.push('\x1B\x61\x01'); // Centrar
       }
 
-      if (consecutivo) {
-        data.push('\x1B\x21\x18'); // Doble altura + Negrita
-        data.push(`PEDIDO ${isParaLlevar ? 'PLL' : 'MESA'}-${consecutivo}\n`);
-        data.push('\x1B\x21\x00'); // Normal
-        data.push('\x1B\x61\x01'); // Centrar
-      }
+      data.push('\x1B\x21\x18'); // Doble altura + Negrita
+      data.push(`PEDIDO ${orderIdStr}\n`);
+      data.push('\x1B\x21\x00'); // Normal
+      data.push('\x1B\x61\x01'); // Centrar
 
       data.push('\x1B\x45\x01'); // Negrita ON
       data.push(`LA CABANA - COMANDA ${station}\n`);
@@ -71,11 +72,7 @@ export async function printKitchenTickets(
 
       data.push('\x1B\x61\x00'); // Alinear a la izquierda
       data.push('\x1B\x21\x18'); // Doble altura + Negrita
-      if (isParaLlevar) {
-        data.push(`PEDIDO: ORD-${mesaNumero >= 101 ? mesaNumero - 100 : mesaNumero}${consecutivo ? ` (${isParaLlevar ? 'PLL' : 'MESA'}-${consecutivo})` : ''}\n`);
-      } else {
-        data.push(`MESA: ${mesaNumero}${consecutivo ? ` (${isParaLlevar ? 'PLL' : 'MESA'}-${consecutivo})` : ''}\n`);
-      }
+      data.push(`PEDIDO: ${orderIdStr}\n`);
       data.push(`MESERO: ${meseroNombre}\n`);
       data.push('\x1B\x21\x00'); // Volver a tamaño normal
       data.push(`FECHA: ${dateStr} ${timeStr}\n`);
@@ -115,6 +112,124 @@ export async function printKitchenTickets(
       console.log(`Ticket de comanda enviado a la impresora "${printerName}" de la estación ${station}.`);
     } catch (error) {
       console.error(`Error al imprimir comanda en la estación ${station}:`, error);
+      throw error;
+    }
+  }
+}
+
+export async function printModificacionTicket(
+  mesaNumero: number,
+  meseroNombre: string,
+  cancelados: ItemOrden[],
+  agregados: ItemOrden[],
+  observaciones?: string
+): Promise<void> {
+  const store = usePOSStore.getState();
+  const { printTicket, printerMappings } = store;
+
+  const affectedStations = new Set<Estacion>();
+  cancelados.forEach(i => affectedStations.add(i.estacion));
+  agregados.forEach(i => affectedStations.add(i.estacion));
+
+  for (const station of Array.from(affectedStations)) {
+    const canceladosStation = cancelados.filter(i => i.estacion === station);
+    const agregadosStation = agregados.filter(i => i.estacion === station);
+    
+    if (canceladosStation.length === 0 && agregadosStation.length === 0) continue;
+
+    const printerName = printerMappings[station];
+    if (!printerName) {
+      console.warn(`No hay impresora para la estación ${station}. Omitiendo ticket de modificación.`);
+      continue;
+    }
+
+    try {
+      const now = new Date();
+      const timeStr = now.toLocaleTimeString('es-CO', { hour: '2-digit', minute: '2-digit' });
+      const dateStr = now.toLocaleDateString('es-CO');
+
+      const data: any[] = [];
+      const mesa = store.mesas.find(m => m.id === mesaNumero || m.numero === mesaNumero);
+      const isParaLlevar = mesa?.zona === 'Para Llevar' || mesaNumero >= 100;
+      const activeOrder = store.ordenes.find(o => o.mesaId === mesaNumero && o.estado === 'ABIERTA');
+      const consecutivo = activeOrder?.consecutivo;
+      
+      const orderIdStr = activeOrder ? getOrderIdentifier({ mesaId: mesaNumero, consecutivo, id: activeOrder.id }) : (isParaLlevar ? 'PLL-NUEVO' : 'ORD-NUEVO');
+
+      data.push('\x1B\x40'); // Inicializar
+      data.push('\x1B\x61\x01'); // Centrar
+      
+      // Encabezado de MODIFICACIÓN en colores inversos (si lo soporta) o negrita
+      data.push('\x1D\x42\x01'); // Invertido ON
+      data.push('\x1B\x21\x38'); // Doble ancho + Doble alto
+      data.push(' MODIFICACION \n\n');
+      data.push('\x1B\x21\x00');
+      data.push('\x1D\x42\x00'); // Invertido OFF
+
+      data.push('\x1B\x61\x00'); // Izquierda
+      data.push('\x1B\x21\x18'); // Doble altura + Negrita
+      data.push(`PEDIDO: ${orderIdStr}\n`);
+      data.push(`MESERO: ${meseroNombre}\n`);
+      data.push('\x1B\x21\x00'); 
+      data.push(`FECHA: ${dateStr} ${timeStr}\n`);
+      data.push('--------------------------------\n\n');
+
+      if (observaciones) {
+        data.push('\x1B\x45\x01');
+        data.push(`MOTIVO: ${observaciones}\n`);
+        data.push('\x1B\x45\x00');
+        data.push('--------------------------------\n\n');
+      }
+
+      if (canceladosStation.length > 0) {
+        data.push('\x1B\x61\x01'); // Centrar
+        data.push('\x1B\x21\x18'); // Doble altura + Negrita
+        data.push('*** CANCELAR ***\n');
+        data.push('\x1B\x21\x00'); 
+        data.push('\x1B\x61\x00'); // Izquierda
+        
+        for (const item of canceladosStation) {
+          data.push('\x1B\x21\x30'); 
+          data.push(`-${item.cantidad}x `);
+          data.push('\x1B\x21\x00'); 
+          data.push('\x1B\x45\x01'); 
+          data.push(` ${item.nombre}\n`);
+          data.push('\x1B\x45\x00'); 
+          data.push('\n');
+        }
+        data.push('--------------------------------\n');
+      }
+
+      if (agregadosStation.length > 0) {
+        data.push('\x1B\x61\x01'); // Centrar
+        data.push('\x1B\x21\x18'); // Doble altura + Negrita
+        data.push('*** AGREGAR ***\n');
+        data.push('\x1B\x21\x00'); 
+        data.push('\x1B\x61\x00'); // Izquierda
+        
+        for (const item of agregadosStation) {
+          data.push('\x1B\x21\x30'); 
+          data.push(`+${item.cantidad}x `);
+          data.push('\x1B\x21\x00'); 
+          data.push('\x1B\x45\x01'); 
+          data.push(` ${item.nombre}\n`);
+          data.push('\x1B\x45\x00'); 
+          if (item.notas && item.notas.trim() !== '') {
+            data.push(`   * NOTAS: ${item.notas.trim()}\n`);
+          }
+          data.push('\n');
+        }
+        data.push('--------------------------------\n');
+      }
+
+      data.push('\x1B\x61\x01'); // Centrar texto
+      data.push('Comanda Modificada La Cabana\n');
+      data.push('\n\n\n\n\x1D\x56\x41\x10');
+
+      await printTicket(station, data);
+      console.log(`Ticket de modificacion enviado a "${printerName}" (estación ${station}).`);
+    } catch (error) {
+      console.error(`Error al imprimir modificacion en la estación ${station}:`, error);
       throw error;
     }
   }

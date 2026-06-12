@@ -19,7 +19,9 @@ import {
   ShieldAlert,
   IdCard,
   FileImage,
-  Image as ImageIcon
+  Image as ImageIcon,
+  Star,
+  CircleDollarSign
 } from "lucide-react";
 import { 
   Table, 
@@ -33,7 +35,7 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
-import { useState, useMemo } from "react";
+import { useState, useMemo, Fragment } from "react";
 import { cn, formatCurrencyInput, parseCurrencyInput } from "@/lib/utils";
 import { useToast } from "@/hooks/use-toast";
 import {
@@ -67,10 +69,13 @@ import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 const ROLES: Rol[] = ["ADMINISTRADOR", "MESERO", "CAJERO"];
 
 export default function PersonalPage() {
-  const { usuarios, addUsuario, updateUsuario, deleteUsuario, permisos, togglePermiso, user, ordenes } = usePOSStore();
+  const { usuarios, addUsuario, updateUsuario, deleteUsuario, permisos, togglePermiso, user, ordenes, gastos } = usePOSStore();
   const [searchTerm, setSearchTerm] = useState("");
   const [isDialogOpen, setIsDialogOpen] = useState(false);
   const [isEditDialogOpen, setIsEditDialogOpen] = useState(false);
+  const [isReviewsDialogOpen, setIsReviewsDialogOpen] = useState(false);
+  const [selectedMesero, setSelectedMesero] = useState<Usuario | null>(null);
+  const [expandedUserId, setExpandedUserId] = useState<string | null>(null);
   const { toast } = useToast();
 
   const [staffToEdit, setStaffToEdit] = useState<Partial<Usuario>>({});
@@ -480,6 +485,50 @@ export default function PersonalPage() {
                   </DialogFooter>
                 </DialogContent>
               </Dialog>
+
+              {/* Diálogo de Reseñas */}
+              <Dialog open={isReviewsDialogOpen} onOpenChange={setIsReviewsDialogOpen}>
+                <DialogContent className="bg-card border-border text-foreground max-w-[95vw] md:max-w-2xl rounded-[2rem] p-4 md:p-6 max-h-[90vh] flex flex-col">
+                  <DialogHeader>
+                    <DialogTitle className="text-xl md:text-2xl font-headline flex items-center gap-2">
+                      <Star className="w-6 h-6 text-yellow-500" />
+                      Reseñas: {selectedMesero?.nombre}
+                    </DialogTitle>
+                  </DialogHeader>
+                  <div className="grid gap-4 py-2 overflow-y-auto px-1 flex-1">
+                    {(() => {
+                      if (!selectedMesero) return null;
+                      const closedOrders = ordenes.filter(o => o.estado === 'CERRADA' && o.meseroId === selectedMesero.id);
+                      const ratedOrders = closedOrders.filter(o => o.rating && o.rating > 0).sort((a,b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime());
+                      if (ratedOrders.length === 0) return <p className="text-sm text-muted-foreground italic text-center py-8">No hay reseñas todavía.</p>;
+                      return ratedOrders.map(o => (
+                        <div key={o.id} className="border border-border/50 bg-accent/20 rounded-xl p-4 space-y-2">
+                          <div className="flex justify-between items-start">
+                            <div>
+                              <span className="text-yellow-500 font-bold tracking-widest text-lg">
+                                {"⭐".repeat(o.rating || 0)}
+                              </span>
+                            </div>
+                            <span className="text-xs text-muted-foreground">
+                              {new Date(o.createdAt).toLocaleDateString()} {new Date(o.createdAt).toLocaleTimeString([], {hour: '2-digit', minute:'2-digit'})}
+                            </span>
+                          </div>
+                          {o.ratingObservacion ? (
+                            <p className="text-sm italic text-foreground border-l-2 border-yellow-500/50 pl-3 py-1 bg-background/50 rounded-r-md">
+                              "{o.ratingObservacion}"
+                            </p>
+                          ) : (
+                            <p className="text-xs text-muted-foreground italic">Sin comentario.</p>
+                          )}
+                        </div>
+                      ));
+                    })()}
+                  </div>
+                  <DialogFooter>
+                    <Button variant="ghost" onClick={() => setIsReviewsDialogOpen(false)}>Cerrar</Button>
+                  </DialogFooter>
+                </DialogContent>
+              </Dialog>
             </div>
           </CardHeader>
           <CardContent className="p-0">
@@ -489,15 +538,20 @@ export default function PersonalPage() {
                   <TableHead>Integrante</TableHead>
                   <TableHead>Documento</TableHead>
                   <TableHead>Cargo</TableHead>
-                  <TableHead>Sueldo</TableHead>
                   <TableHead>Ingreso</TableHead>
                   <TableHead className="text-center">Estado</TableHead>
                   <TableHead className="text-right">Acciones</TableHead>
                 </TableRow>
               </TableHeader>
               <TableBody>
-                {filteredStaff.map((u) => (
-                  <TableRow key={u.id} className={cn("border-border", u.estado === 'INACTIVO' && "opacity-60")}>
+                {filteredStaff.map((u) => {
+                  const diasTrabajados = [...new Set(ordenes.filter(o => o.meseroId === u.id).map(o => o.createdAt.split('T')[0]))].sort((a,b) => b.localeCompare(a));
+                  const pagos = gastos.filter(g => g.categoria === 'Nómina' && g.descripcion.includes(u.nombre)).sort((a,b) => b.fecha.localeCompare(a.fecha));
+                  const isExpanded = expandedUserId === u.id;
+
+                  return (
+                  <Fragment key={u.id}>
+                  <TableRow className={cn("border-border cursor-pointer hover:bg-accent/10 transition-colors", u.estado === 'INACTIVO' && "opacity-60", isExpanded && "bg-accent/10")} onClick={() => setExpandedUserId(isExpanded ? null : u.id)}>
                     <TableCell className="font-bold flex items-center gap-2">
                       <div className="w-8 h-8 rounded-full bg-primary/20 flex items-center justify-center text-primary font-bold text-xs">
                         {u.nombre[0]}
@@ -541,9 +595,7 @@ export default function PersonalPage() {
                         })()}
                       </div>
                     </TableCell>
-                    <TableCell className="font-mono text-xs font-bold">
-                      {u.sueldo !== undefined && u.sueldo > 0 ? `$${u.sueldo.toLocaleString('es-CO')}` : '-'}
-                    </TableCell>
+
                     <TableCell>
                       <div className="flex items-center gap-2 text-xs text-muted-foreground">
                         <Calendar className="w-3 h-3" /> {u.fechaIngreso}
@@ -554,15 +606,23 @@ export default function PersonalPage() {
                         {u.estado}
                       </Badge>
                     </TableCell>
-                    <TableCell className="text-right">
+                    <TableCell className="text-right" onClick={(e) => e.stopPropagation()}>
                       <DropdownMenu>
                         <DropdownMenuTrigger asChild>
                           <Button variant="ghost" size="icon"><MoreVertical className="w-4 h-4" /></Button>
                         </DropdownMenuTrigger>
                         <DropdownMenuContent align="end" className="bg-card border-border">
-                          <DropdownMenuItem className="cursor-pointer" onClick={() => openEditDialog(u)}>
+                          <DropdownMenuItem className="cursor-pointer" onClick={() => { setTimeout(() => openEditDialog(u), 150); }}>
                             Editar
                           </DropdownMenuItem>
+                          {u.rol === 'MESERO' && (
+                            <DropdownMenuItem className="cursor-pointer text-yellow-600 font-bold" onClick={() => { 
+                              setSelectedMesero(u); 
+                              setTimeout(() => setIsReviewsDialogOpen(true), 150); 
+                            }}>
+                              Ver Reseñas
+                            </DropdownMenuItem>
+                          )}
                           <DropdownMenuItem className="cursor-pointer" onClick={() => toggleEstado(u)}>
                             {u.estado === 'ACTIVO' ? 'Inactivar' : 'Activar'}
                           </DropdownMenuItem>
@@ -573,7 +633,41 @@ export default function PersonalPage() {
                       </DropdownMenu>
                     </TableCell>
                   </TableRow>
-                ))}
+                  {isExpanded && (
+                    <TableRow className="bg-accent/5 border-border hover:bg-accent/5">
+                      <TableCell colSpan={6} className="p-0 border-b border-border/50">
+                        <div className="p-4 grid grid-cols-1 md:grid-cols-2 gap-4 animate-in fade-in slide-in-from-top-2">
+                          <div className="space-y-2 bg-card p-4 rounded-xl border border-border/50 shadow-inner">
+                            <h5 className="text-xs font-black uppercase text-primary mb-2 flex items-center gap-2"><Calendar className="w-4 h-4"/> Días Trabajados (Turnos)</h5>
+                            {diasTrabajados.length > 0 ? (
+                              <div className="flex flex-wrap gap-2 max-h-32 overflow-y-auto pr-1">
+                                {diasTrabajados.map(d => <Badge key={d} variant="outline" className="text-[10px] bg-background border-primary/20">{d}</Badge>)}
+                              </div>
+                            ) : (
+                              <p className="text-xs text-muted-foreground italic">No hay registro de turnos u órdenes.</p>
+                            )}
+                          </div>
+                          <div className="space-y-2 bg-card p-4 rounded-xl border border-border/50 shadow-inner">
+                            <h5 className="text-xs font-black uppercase text-green-500 mb-2 flex items-center gap-2"><CircleDollarSign className="w-4 h-4"/> Pagos y Adelantos</h5>
+                            {pagos.length > 0 ? (
+                              <div className="space-y-2 max-h-32 overflow-y-auto pr-1">
+                                {pagos.map(p => (
+                                  <div key={p.id} className="flex justify-between items-center text-xs bg-background p-2 rounded-lg border border-border/50">
+                                    <span>{p.fecha.split('T')[0]}</span>
+                                    <span className="font-bold text-green-500">${p.valor.toLocaleString('es-CO')}</span>
+                                  </div>
+                                ))}
+                              </div>
+                            ) : (
+                              <p className="text-xs text-muted-foreground italic">No hay pagos registrados.</p>
+                            )}
+                          </div>
+                        </div>
+                      </TableCell>
+                    </TableRow>
+                  )}
+                  </Fragment>
+                )})}
               </TableBody>
             </Table>
           </CardContent>

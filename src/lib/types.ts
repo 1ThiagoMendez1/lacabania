@@ -4,7 +4,7 @@ export type Estacion = 'ASADO' | 'PARRILLA' | 'COCINA' | 'BAR';
 
 export type EstadoMesa = 'LIBRE' | 'OCUPADA' | 'EN PEDIDO' | 'LISTA PAGAR' | 'RESERVADA' | 'FUERA SERVICIO';
 
-export type EstadoComanda = 'PENDIENTE' | 'EN PREPARACION' | 'LISTO' | 'ENTREGADO';
+export type EstadoComanda = 'PENDIENTE' | 'EN PREPARACION' | 'LISTO' | 'ENTREGADO' | 'CANCELADO';
 
 export type MetodoPago = 'EFECTIVO' | 'TARJETA' | 'TRANSFERENCIA';
 
@@ -85,6 +85,7 @@ export interface Orden {
   facturaElectronicaId?: string;
   clienteNombre?: string;
   rating?: number;
+  ratingObservacion?: string;
   createdAt: string;
   updatedAt: string;
 }
@@ -105,5 +106,15 @@ export interface Gasto {
   categoria: string;
   descripcion: string;
   valor: number;
+  fecha: string;
+}
+
+export interface ModificacionComanda {
+  id: string;
+  ordenId: string;
+  usuarioId: string;
+  tipo: 'CANCELACION' | 'ADICION' | 'MODIFICACION';
+  itemsAfectados: any;
+  observaciones?: string;
   fecha: string;
 }

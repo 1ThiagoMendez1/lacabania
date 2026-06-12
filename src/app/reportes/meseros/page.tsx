@@ -34,7 +34,7 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { useState, useMemo } from "react";
-import { cn } from "@/lib/utils";
+import { cn, getOrderIdentifier } from "@/lib/utils";
 import { format } from "date-fns";
 import { es } from "date-fns/locale";
 
@@ -341,14 +341,12 @@ export default function HistorialMeserosPage() {
                                   <TableRow key={o.id} className="border-border/50 hover:bg-background/80 transition-colors">
                                     <TableCell>
                                       <div className="flex flex-col gap-1">
-                                        <Badge variant="secondary" className="bg-primary/10 text-primary border-primary/20 shadow-sm w-fit">
-                                          {o.mesaId >= 101 ? `Pedido PLL-${o.mesaId - 100}` : `Mesa ${o.mesaId}`}
+                                        <Badge variant="secondary" className="bg-primary/10 text-primary border-primary/20 shadow-sm w-fit font-black tracking-wider px-2 py-0.5">
+                                          {getOrderIdentifier({ mesaId: o.mesaId, consecutivo: o.consecutivo, id: o.id })}
                                         </Badge>
-                                        {o.consecutivo && (
-                                          <span className="text-[9px] font-mono text-muted-foreground font-bold">
-                                            ORD-{o.consecutivo}
-                                          </span>
-                                        )}
+                                        <span className="text-[9px] font-mono text-muted-foreground uppercase">
+                                          {o.mesaId >= 101 ? `Llevar ${o.mesaId - 100}` : `Mesa ${o.mesaId}`}
+                                        </span>
                                       </div>
                                     </TableCell>
                                     <TableCell>
