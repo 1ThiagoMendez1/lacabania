@@ -963,7 +963,28 @@ export const usePOSStore = create<POSState>((set, get) => ({
   connectQz: async () => {
     const qz = getQz();
     if (!qz) throw new Error("QZ Tray no está disponible en este entorno.");
-    
+
+    // Configurar firma digital para evitar el popup de "Untrusted website"
+    qz.security.setCertificatePromise((_resolve: (cert: string) => void, reject: (err: any) => void) => {
+      fetch('/qz-certificate.pem')
+        .then(r => r.text())
+        .then(_resolve)
+        .catch(reject);
+    });
+    qz.security.setSignatureAlgorithm('SHA512');
+    qz.security.setSignaturePromise((toSign: string) => {
+      return (_resolve: (sig: string) => void, reject: (err: any) => void) => {
+        fetch('/api/qz-sign', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ data: toSign }),
+        })
+          .then(r => r.json())
+          .then(json => _resolve(json.signature))
+          .catch(reject);
+      };
+    });
+
     set({ isQzConnecting: true });
     try {
       if (!qz.websocket.isActive()) {
