@@ -59,9 +59,10 @@ async function publishPrinters() {
 // ─── Imprimir datos RAW via PowerShell ────────────────────────────────────────
 function printRaw(printerName, data) {
   return new Promise((resolve, reject) => {
-    // Reconstruir el buffer binario desde el array de strings ESC/POS
-    const buffers = data.map(s => Buffer.from(s, 'latin1'));
-    const combined = Buffer.concat(buffers);
+    // data puede ser un string base64 (nuevo) o un array de strings ESC/POS (legacy)
+    const combined = typeof data === 'string'
+      ? Buffer.from(data, 'base64')
+      : Buffer.concat(data.map(s => Buffer.from(s, 'latin1')));
 
     // Escribir en archivo temporal
     const tmpFile = path.join(os.tmpdir(), `lacabana_${Date.now()}.bin`);

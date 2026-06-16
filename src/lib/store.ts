@@ -1017,10 +1017,19 @@ export const usePOSStore = create<POSState>((set, get) => ({
       throw new Error(`No hay impresora asignada para la estación ${stationId}`);
     }
 
+    // Los strings ESC/POS contienen bytes binarios que JSONB de Postgres rechaza.
+    // Concatenamos todo y lo codificamos en base64 antes de insertar.
+    const combined = (data as string[]).join('');
+    const bytes: number[] = [];
+    for (let i = 0; i < combined.length; i++) {
+      bytes.push(combined.charCodeAt(i) & 0xFF);
+    }
+    const base64 = btoa(bytes.map(b => String.fromCharCode(b)).join(''));
+
     const { error } = await supabase.from('print_queue').insert({
       station_id: stationId,
       printer_name: printer,
-      data: data,
+      data: base64,
       status: 'pending'
     });
 
