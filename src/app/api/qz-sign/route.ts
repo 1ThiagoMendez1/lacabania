@@ -5,7 +5,7 @@ export const dynamic = 'force-dynamic';
 
 export async function POST(req: NextRequest) {
   const { data } = await req.json();
-  const privateKey = process.env.QZ_PRIVATE_KEY;
+  const privateKey = process.env.QZ_PRIVATE_KEY?.replace(/\\n/g, '\n');
 
   if (!privateKey) {
     return NextResponse.json({ error: 'QZ private key not configured' }, { status: 500 });
