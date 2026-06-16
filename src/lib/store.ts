@@ -3,41 +3,7 @@ import { Mesa, Producto, MenuItem, Orden, Usuario, ItemOrden, EstadoComanda, Met
 import { supabase } from './supabase';
 import { uuidv4 } from './utils';
 
-// Helper seguro para importar QZ Tray únicamente en el cliente (evita errores SSR)
-const getQz = () => {
-  if (typeof window === 'undefined') return null;
-  try {
-    return require('qz-tray');
-  } catch (e) {
-    console.error("Error cargando QZ Tray dinámicamente:", e);
-    return null;
-  }
-};
-
-let qzSecurityConfigured = false;
-const setupQzSecurity = (qz: any) => {
-  if (qzSecurityConfigured) return;
-  qzSecurityConfigured = true;
-  qz.security.setCertificatePromise((_resolve: (cert: string) => void, reject: (err: any) => void) => {
-    fetch('/qz-certificate.pem')
-      .then(r => r.text())
-      .then(_resolve)
-      .catch(reject);
-  });
-  qz.security.setSignatureAlgorithm('SHA512');
-  qz.security.setSignaturePromise((toSign: string) => {
-    return (_resolve: (sig: string) => void, reject: (err: any) => void) => {
-      fetch('/api/qz-sign', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ data: toSign }),
-      })
-        .then(r => r.json())
-        .then(json => _resolve(json.signature))
-        .catch(reject);
-    };
-  });
-};
+// (QZ Tray eliminado - impresión vía servicio Node.js local + cola Supabase)
 
 interface POSState {
   user: Usuario | null;
@@ -310,9 +276,11 @@ export const usePOSStore = create<POSState>((set, get) => ({
 
     let savedMappings: Record<string, string> = {};
     let ipServidor = 'localhost';
+    let savedAvailablePrinters: string[] = [];
     if (configImpresorasRes.data) {
       ipServidor = configImpresorasRes.data.ip_servidor || 'localhost';
       savedMappings = configImpresorasRes.data.mappings || {};
+      savedAvailablePrinters = configImpresorasRes.data.available_printers || [];
     } else {
       if (typeof window !== 'undefined') {
         const raw = localStorage.getItem('printer_mappings');
@@ -342,11 +310,13 @@ export const usePOSStore = create<POSState>((set, get) => ({
       isCajaCerrada: isClosed,
       printerMappings: savedMappings,
       ipServidorImpresion: ipServidor,
+      availablePrinters: savedAvailablePrinters,
+      isQzConnected: savedAvailablePrinters.length > 0,
       gastos: gastosRes.data || []
     });
     
     get().setupRealtime();
-    get().checkQzConnection().catch(e => console.warn("QZ Tray auto-connect skipped:", e));
+    get().checkQzConnection().catch(e => console.warn("Print service check skipped:", e));
   },
 
   refreshOrdenesYMesas: async () => {
@@ -492,9 +462,12 @@ export const usePOSStore = create<POSState>((set, get) => ({
           const { eventType, new: newRecord } = payload;
           if (eventType === 'INSERT' || eventType === 'UPDATE') {
             if (newRecord.id === 'default') {
+              const printers = newRecord.available_printers || [];
               set({
                 ipServidorImpresion: newRecord.ip_servidor || 'localhost',
-                printerMappings: newRecord.mappings || {}
+                printerMappings: newRecord.mappings || {},
+                availablePrinters: printers,
+                isQzConnected: printers.length > 0
               });
               if (typeof window !== 'undefined') {
                 localStorage.setItem('printer_mappings', JSON.stringify(newRecord.mappings || {}));
@@ -986,39 +959,22 @@ export const usePOSStore = create<POSState>((set, get) => ({
     if (error) console.error("Error al guardar permisos en Supabase:", error);
   },
   connectQz: async () => {
-    const qz = getQz();
-    if (!qz) throw new Error("QZ Tray no está disponible en este entorno.");
-
-    setupQzSecurity(qz);
+    // Lee la lista de impresoras publicada por el servicio Node.js local
     set({ isQzConnecting: true });
     try {
-      if (!qz.websocket.isActive()) {
-        try {
-          // Intentar conectar a localhost primero (para la computadora misma)
-          await qz.websocket.connect({ retries: 1, delay: 1 });
-        } catch (localErr: any) {
-          // Si falla, probar con el ipServidorImpresion configurado en la base de datos
-          const dbIp = get().ipServidorImpresion;
-          const host = typeof window !== 'undefined' ? window.location.hostname : '';
-          
-          if (dbIp && dbIp !== 'localhost' && dbIp !== '127.0.0.1') {
-            try {
-              await qz.websocket.connect({ retries: 2, delay: 1, host: dbIp });
-            } catch (remoteErr: any) {
-              throw new Error(`Fallo al conectar con servidor de impresión en IP ${dbIp}: ${remoteErr.message || remoteErr}`);
-            }
-          } else if (host && host !== 'localhost' && host !== '127.0.0.1') {
-            try {
-              await qz.websocket.connect({ retries: 2, delay: 1, host });
-            } catch (remoteErr: any) {
-              throw new Error(`Fallo al conectar con servidor de impresión en host ${host}: ${remoteErr.message || remoteErr}`);
-            }
-          } else {
-            throw new Error(`QZ Tray no está corriendo localmente: ${localErr.message || localErr}`);
-          }
-        }
+      const { data, error } = await supabase
+        .from('configuracion_impresoras')
+        .select('available_printers')
+        .eq('id', 'default')
+        .maybeSingle();
+
+      if (error) throw new Error(error.message);
+
+      const printers: string[] = data?.available_printers || [];
+      if (printers.length === 0) {
+        throw new Error('El servicio de impresión no reportó impresoras. Asegúrate de que el servicio (iniciar.bat) esté corriendo en la PC con las impresoras.');
       }
-      const printers = await qz.printers.find();
+
       set({ isQzConnected: true, availablePrinters: printers, isQzConnecting: false });
     } catch (e: any) {
       set({ isQzConnected: false, isQzConnecting: false });
@@ -1056,92 +1012,33 @@ export const usePOSStore = create<POSState>((set, get) => ({
     if (error) console.error("Error al guardar IP de servidor en Supabase:", error);
   },
   printTicket: async (stationId, data) => {
-    const qz = getQz();
-    if (!qz) throw new Error("QZ Tray no está disponible en este entorno.");
-
     const printer = get().printerMappings[stationId];
     if (!printer) {
       throw new Error(`No hay impresora asignada para la estación ${stationId}`);
     }
-    
-    const connectIfNeeded = async () => {
-      if (!qz.websocket.isActive()) {
-        try {
-          await qz.websocket.connect({ retries: 1, delay: 1 });
-        } catch (localErr: any) {
-          const dbIp = get().ipServidorImpresion;
-          const host = typeof window !== 'undefined' ? window.location.hostname : '';
-          if (dbIp && dbIp !== 'localhost' && dbIp !== '127.0.0.1') {
-            try {
-              await qz.websocket.connect({ retries: 2, delay: 1, host: dbIp });
-            } catch (remoteErr: any) {
-              throw new Error(`No se pudo conectar a la PC impresora en IP ${dbIp}: ${remoteErr.message || remoteErr}`);
-            }
-          } else if (host && host !== 'localhost' && host !== '127.0.0.1') {
-            try {
-              await qz.websocket.connect({ retries: 2, delay: 1, host });
-            } catch (remoteErr: any) {
-              throw new Error(`No se pudo conectar a la PC impresora en host ${host}: ${remoteErr.message || remoteErr}`);
-            }
-          } else {
-            throw new Error(`QZ Tray local inactivo y no hay IP externa configurada: ${localErr.message || localErr}`);
-          }
-        }
-        set({ isQzConnected: true });
-      }
-    };
 
-    await connectIfNeeded();
-    
-    try {
-      const config = qz.configs.create(printer);
-      await qz.print(config, data);
-    } catch (printErr: any) {
-      // Si el error es que la conexión no se ha establecido, forzamos desconexión y reintento
-      if (printErr.message && printErr.message.includes("not been established yet")) {
-        console.warn("Conexión perdida con QZ Tray, intentando reconectar y reintentar...");
-        try {
-          try {
-            await qz.websocket.disconnect();
-          } catch (e) {}
-          await connectIfNeeded();
-          const config = qz.configs.create(printer);
-          await qz.print(config, data);
-          return;
-        } catch (retryErr: any) {
-          throw new Error(`Reconexión fallida: ${retryErr.message || retryErr}`);
-        }
-      }
-      throw new Error(`QZ Tray conectado, pero falló la impresión física en "${printer}": ${printErr.message || printErr}`);
+    const { error } = await supabase.from('print_queue').insert({
+      station_id: stationId,
+      printer_name: printer,
+      data: data,
+      status: 'pending'
+    });
+
+    if (error) {
+      throw new Error(`Error al encolar trabajo de impresión: ${error.message}`);
     }
   },
   checkQzConnection: async () => {
-    const qz = getQz();
-    if (!qz) return;
-    setupQzSecurity(qz);
     try {
-      if (qz.websocket.isActive()) {
-        const printers = await qz.printers.find();
-        set({ isQzConnected: true, availablePrinters: printers });
-      } else {
-        set({ isQzConnecting: true });
-        try {
-          await qz.websocket.connect({ retries: 1, delay: 1 });
-        } catch (localErr) {
-          const dbIp = get().ipServidorImpresion;
-          const host = typeof window !== 'undefined' ? window.location.hostname : '';
-          if (dbIp && dbIp !== 'localhost' && dbIp !== '127.0.0.1') {
-            await qz.websocket.connect({ retries: 1, delay: 1, host: dbIp });
-          } else if (host && host !== 'localhost' && host !== '127.0.0.1') {
-            await qz.websocket.connect({ retries: 1, delay: 1, host });
-          } else {
-            throw localErr;
-          }
-        }
-        const printers = await qz.printers.find();
-        set({ isQzConnected: true, availablePrinters: printers, isQzConnecting: false });
-      }
-    } catch (e) {
+      const { data } = await supabase
+        .from('configuracion_impresoras')
+        .select('available_printers')
+        .eq('id', 'default')
+        .maybeSingle();
+
+      const printers: string[] = data?.available_printers || [];
+      set({ isQzConnected: printers.length > 0, availablePrinters: printers, isQzConnecting: false });
+    } catch (_) {
       set({ isQzConnected: false, isQzConnecting: false });
     }
   },

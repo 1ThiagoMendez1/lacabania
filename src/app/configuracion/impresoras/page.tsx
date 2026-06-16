@@ -83,15 +83,15 @@ export default function ImpresorasPage() {
     try {
       await connectQz();
       toast({
-        title: "QZ Tray Conectado",
-        description: "Servidor de impresión local detectado exitosamente.",
+        title: "Servicio de Impresión Activo",
+        description: "Impresoras detectadas correctamente.",
       });
-    } catch (error) {
-      console.error("Error conectando a QZ Tray:", error);
+    } catch (error: any) {
+      console.error("Error detectando servicio de impresión:", error);
       toast({
         variant: "destructive",
-        title: "QZ Tray no detectado",
-        description: "Asegúrate de tener la aplicación QZ Tray instalada y abierta en tu computadora.",
+        title: "Servicio no detectado",
+        description: error?.message || "Asegúrate de que el servicio de impresión (iniciar.bat) esté corriendo en la PC.",
       });
     }
   };
@@ -153,7 +153,7 @@ export default function ImpresorasPage() {
             </div>
             <h2 className="text-3xl font-headline text-foreground">Configuración de Impresión</h2>
           </div>
-          <p className="text-muted-foreground">Gestión de periféricos mediante QZ Tray 🤠</p>
+          <p className="text-muted-foreground">Gestión de periféricos mediante servicio de impresión local</p>
         </div>
 
         <div className="w-full md:w-auto">
@@ -172,7 +172,7 @@ export default function ImpresorasPage() {
             ) : (
               <WifiOff className="w-5 h-5" />
             )}
-            {isQzConnected ? "QZ TRAY CONECTADO" : "CONECTAR QZ TRAY"}
+            {isQzConnected ? "SERVICIO ACTIVO" : "DETECTAR IMPRESORAS"}
           </Button>
         </div>
       </header>
@@ -184,13 +184,13 @@ export default function ImpresorasPage() {
               <HardDrive className="w-12 h-12 text-muted-foreground opacity-20" />
             </div>
             <div className="max-w-md">
-              <h3 className="text-xl font-headline mb-2">Servidor de impresión inactivo</h3>
+              <h3 className="text-xl font-headline mb-2">Servicio de impresión inactivo</h3>
               <p className="text-sm text-muted-foreground">
-                Asegúrate de que la aplicación <strong>QZ Tray</strong> esté ejecutándose en esta computadora para poder gestionar las impresoras térmicas.
+                Abre <strong>iniciar.bat</strong> en la carpeta <code>print-service</code> de la PC con las impresoras, luego haz clic en &quot;Detectar Impresoras&quot;.
               </p>
             </div>
             <Button variant="outline" onClick={handleConnect} className="rounded-xl px-8 h-12">
-              Reintentar Conexión
+              Detectar Impresoras
             </Button>
           </Card>
 
@@ -335,7 +335,7 @@ export default function ImpresorasPage() {
                 </div>
                 <div className="flex justify-between items-center p-4 bg-accent/20 rounded-2xl border border-border/50">
                   <span className="text-sm font-medium">Protocolo</span>
-                  <span className="text-xs font-mono text-muted-foreground">WebSocket (Secure)</span>
+                  <span className="text-xs font-mono text-muted-foreground">Supabase Realtime</span>
                 </div>
                 <div className="flex justify-between items-center p-4 bg-accent/20 rounded-2xl border border-border/50">
                   <span className="text-sm font-medium">Impresoras Listadas</span>
@@ -351,14 +351,15 @@ export default function ImpresorasPage() {
                     <AlertCircle className="w-5 h-5 text-secondary" />
                   </div>
                   <div className="space-y-2">
-                    <h4 className="font-bold text-sm text-secondary">¿Cómo funciona QZ Tray?</h4>
+                    <h4 className="font-bold text-sm text-secondary">¿Cómo funciona el servicio?</h4>
                     <p className="text-xs text-muted-foreground leading-relaxed">
-                      Este módulo permite que la aplicación web se comunique directamente con las impresoras térmicas de tu local. 
-                      Para que funcione, debes descargar e instalar <strong>QZ Tray</strong> en las computadoras que tengan las impresoras conectadas físicamente.
+                      El servicio de impresión es un programa Node.js que corre en la PC con las impresoras.
+                      Cuando se genera una comanda, la app la encola en Supabase y el servicio la imprime automáticamente.
+                      Funciona desde cualquier dispositivo (celulares, tablets) sin configuración adicional.
                     </p>
                   </div>
                 </div>
-                <Button variant="link" className="text-secondary p-0 text-xs font-bold h-auto">Descargar QZ Tray (Sitio Oficial)</Button>
+                <p className="text-xs text-muted-foreground">Carpeta del servicio: <code className="bg-muted px-1 rounded">print-service/iniciar.bat</code></p>
               </CardContent>
             </Card>
           </div>
