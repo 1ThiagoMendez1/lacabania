@@ -4,7 +4,7 @@
 import { usePOSStore } from "@/lib/store";
 import { Badge } from "@/components/ui/badge";
 import { cn, getOrderIdentifier } from "@/lib/utils";
-import { Clock, Users, UtensilsCrossed, PlusCircle, Edit, Ban, CheckCircle, Layers, AlertCircle, MapPin, Activity, Info, Map, Trash2, ShoppingBag, Star, Lock } from "lucide-react";
+import { Clock, Users, UtensilsCrossed, PlusCircle, Edit, Ban, CheckCircle, Layers, AlertCircle, MapPin, Activity, Info, Map, Trash2, ShoppingBag, Star, Lock, UserCircle } from "lucide-react";
 import { 
   Dialog, 
   DialogContent, 
@@ -240,13 +240,20 @@ export default function MesasPage() {
     }
   };
 
-  const handleDeleteMesa = (mesaId: number) => {
-    deleteMesa(mesaId);
-    toast({
-      variant: "destructive",
-      title: "Mesa Eliminada",
-      description: `La Mesa ${mesaId} ha sido eliminada del sistema.`
-    });
+  const handleDeleteMesa = async (mesaId: number) => {
+    try {
+      await deleteMesa(mesaId);
+      toast({
+        title: "Mesa Eliminada",
+        description: `La Mesa ${mesaId} ha sido eliminada del sistema.`
+      });
+    } catch (error: any) {
+      toast({
+        variant: "destructive",
+        title: "No se pudo eliminar",
+        description: error.message || "Error al eliminar la mesa."
+      });
+    }
   };
 
   const mesasPlanta1 = mesas.filter(m => m.zona === 'Primer Piso');
@@ -455,6 +462,15 @@ export default function MesasPage() {
                     </Select>
                   </div>
                   <div className="space-y-2">
+                    <Label>Número Visible</Label>
+                    <Input 
+                      type="number" 
+                      value={editMesa.numero ?? ""} 
+                      onChange={(e) => setEditMesa({ ...editMesa, numero: e.target.value === "" ? undefined : parseInt(e.target.value) })} 
+                      placeholder="Ej: 5"
+                    />
+                  </div>
+                  <div className="space-y-2">
                     <Label>Capacidad</Label>
                     <Input 
                       type="number" 
@@ -481,10 +497,6 @@ function MesaCard({ mesa, user, onOpenMesa, onVerPedido, onStartEdit, onToggleFu
     const isMesaOwnedByOther = user?.rol === 'MESERO' && mesa.meseroId && mesa.meseroId !== user.id;
     const ownerMeseroNombre = (mesa.meseroId && usuarios.find((u: any) => u.id === mesa.meseroId)?.nombre) || "otro mesero";
     const [isOpen, setIsOpen] = useState(false);
-    const [isRatingOpen, setIsRatingOpen] = useState(false);
-    const [isRatingSuccess, setIsRatingSuccess] = useState(false);
-    const [ratingObservation, setRatingObservation] = useState("");
-    const [selectedRating, setSelectedRating] = useState<number>(0);
 
     const isLlevar = mesa.zona === 'Para Llevar';
     const orderNum = mesa.id >= 101 ? mesa.id - 100 : mesa.id;
@@ -561,6 +573,11 @@ function MesaCard({ mesa, user, onOpenMesa, onVerPedido, onStartEdit, onToggleFu
                         <Lock className="w-2.5 h-2.5" /> <span>BLOQ</span>
                       </span>
                     )}
+                    {(user?.rol === 'MESERO' && mesa.meseroId === user.id) && (
+                      <span className="text-[8px] md:text-[9px] font-mono font-black px-1.5 py-0.5 md:px-2 md:py-0.5 rounded-lg bg-green-500/20 border border-green-500/30 text-green-500 flex items-center gap-1 shadow-sm">
+                        <UserCircle className="w-2.5 h-2.5" /> <span>TU MESA</span>
+                      </span>
+                    )}
                   </div>
                   <div className="flex items-center gap-1.5">
                     {activeOrder && activeOrder.consecutivo && (
@@ -572,7 +589,7 @@ function MesaCard({ mesa, user, onOpenMesa, onVerPedido, onStartEdit, onToggleFu
                 </div>
 
                 <div className="flex flex-col items-center gap-0 md:gap-1 z-10">
-                  <span className="text-4xl md:text-6xl font-headline font-black tracking-tighter">{mesa.id}</span>
+                  <span className="text-4xl md:text-6xl font-headline font-black tracking-tighter">{mesa.numero || mesa.id}</span>
                   <div className="flex items-center gap-1 opacity-60">
                     <Users className="w-3 h-3 md:w-3.5 md:h-3.5" />
                     <span className="text-[9px] md:text-[10px] font-bold uppercase tracking-widest">{mesa.capacidad} P</span>
@@ -677,26 +694,6 @@ function MesaCard({ mesa, user, onOpenMesa, onVerPedido, onStartEdit, onToggleFu
                       <UtensilsCrossed className="w-6 h-6 mr-2 transition-transform group-hover:scale-110" />
                       {isCajaCerrada ? "CAJA CERRADA" : "GESTIONAR PEDIDO"}
                     </Button>
-
-                    {activeOrder && (
-                      <Button 
-                        className={cn("w-full h-16 font-bold text-xl rounded-[1.25rem] transition-all shadow-xl group gap-2", 
-                          activeOrder.rating 
-                            ? "bg-muted text-muted-foreground cursor-not-allowed"
-                            : "bg-yellow-500 hover:bg-yellow-600 text-black hover:scale-[1.02]"
-                        )} 
-                        onClick={() => {
-                          if (activeOrder.rating) return;
-                          setIsOpen(false);
-                          setTimeout(() => {
-                            setIsRatingOpen(true);
-                          }, 300); // Retraso para evitar bug de Radix UI con el pointer-events del body
-                        }}
-                        disabled={!!activeOrder.rating}
-                      >
-                        ⭐ {activeOrder.rating ? "ATENCIÓN YA CALIFICADA" : "CALIFICAR ATENCIÓN"}
-                      </Button>
-                    )}
                   </div>
                 )}
                 
@@ -715,6 +712,7 @@ function MesaCard({ mesa, user, onOpenMesa, onVerPedido, onStartEdit, onToggleFu
                         className="h-14 border-border/50 bg-background/50 hover:bg-destructive/10 text-muted-foreground hover:text-destructive gap-2 rounded-2xl transition-all" 
                         onClick={() => {
                           if (confirm("¿Estás seguro de eliminar esta mesa?")) {
+                            setIsOpen(false);
                             onDeleteMesa(mesa.id);
                           }
                         }}
@@ -753,131 +751,6 @@ function MesaCard({ mesa, user, onOpenMesa, onVerPedido, onStartEdit, onToggleFu
           </DialogContent>
         </Dialog>
 
-        <Dialog open={isRatingOpen} onOpenChange={(open) => {
-          setIsRatingOpen(open);
-          if (!open) {
-            setIsRatingSuccess(false);
-            setSelectedRating(0);
-            setRatingObservation("");
-          }
-        }}>
-          <DialogContent aria-describedby="rating-desc" className="bg-card border-border text-foreground paper-texture max-w-[95vw] sm:max-w-[450px] rounded-[2.5rem] p-8 text-center overflow-hidden">
-            <DialogDescription id="rating-desc" className="hidden">
-              Ventana para calificar la atención del mesero
-            </DialogDescription>
-            <div className="absolute inset-0 wood-texture opacity-5 pointer-events-none rounded-[2.5rem]" />
-            
-            {activeOrder ? (
-              isRatingSuccess ? (
-                <div className="space-y-6 relative z-10 w-full animate-in fade-in zoom-in-95 duration-300">
-                  <div className="flex flex-col items-center gap-2">
-                    <div className="p-4 bg-green-500/10 rounded-full text-green-500 shadow-inner mb-2 border border-green-500/20">
-                      <Star className="w-8 h-8 fill-green-500 text-green-500 animate-pulse" />
-                    </div>
-                    <h3 className="text-xl font-headline font-black tracking-tight text-foreground">
-                      ¡Calificación Recibida!
-                    </h3>
-                    <p className="text-xs text-muted-foreground max-w-xs mx-auto">
-                      Agradecemos mucho que te hayas tomado el tiempo para valorar nuestra atención hoy. 🤠
-                    </p>
-                  </div>
-
-                  {(() => {
-                    const mesero = usuarios.find((u: any) => u.id === activeOrder.meseroId);
-                    return mesero && (
-                      <div className="bg-accent/20 border border-border/40 p-4 rounded-2xl flex flex-col items-center gap-2 shadow-inner">
-                        <span className="text-[10px] text-muted-foreground uppercase font-black tracking-wider">Te atendió hoy:</span>
-                        <span className="text-base font-black text-secondary flex items-center gap-1.5">
-                          🤵 {mesero.nombre}
-                        </span>
-                      </div>
-                    );
-                  })()}
-
-                  <div className="bg-green-500/10 border border-green-500/20 p-3 rounded-2xl">
-                    <p className="text-xs text-green-400 font-bold text-center">
-                      Tu opinión ha sido registrada de forma segura.
-                    </p>
-                  </div>
-                </div>
-              ) : (
-                <div className="space-y-6 relative z-10 w-full">
-                  <div className="flex flex-col items-center gap-2">
-                    <div className="p-4 bg-primary/10 rounded-full text-primary shadow-inner mb-2 border border-primary/20">
-                      <Star className="w-8 h-8 fill-primary text-primary animate-pulse" />
-                    </div>
-                    <h3 className="text-xl font-headline font-black tracking-tight text-foreground">
-                      Califica nuestra atención
-                    </h3>
-                    <p className="text-xs text-muted-foreground max-w-xs">
-                      Tu opinión es muy importante para ayudarnos a mejorar cada día 🤠
-                    </p>
-                  </div>
-
-                  {(() => {
-                    const mesero = usuarios.find((u: any) => u.id === activeOrder.meseroId);
-                    return mesero && (
-                      <div className="bg-accent/20 border border-border/40 p-4 rounded-2xl flex flex-col items-center gap-2 shadow-inner">
-                        <span className="text-[10px] text-muted-foreground uppercase font-black tracking-wider">Te atendió hoy:</span>
-                        <span className="text-base font-black text-secondary flex items-center gap-1.5">
-                          🤵 {mesero.nombre}
-                        </span>
-                      </div>
-                    );
-                  })()}
-
-                  <div className="flex justify-center items-center gap-2 py-4">
-                    {[1, 2, 3, 4, 5].map((star) => (
-                      <button
-                        key={star}
-                        onClick={() => setSelectedRating(star)}
-                        className="p-1 hover:scale-125 transition-transform duration-200 focus:outline-none"
-                      >
-                        <Star className={cn("w-10 h-10 transition-colors duration-200", star <= selectedRating ? "fill-yellow-500 text-yellow-500" : "text-muted-foreground/40 hover:text-yellow-500/70")} />
-                      </button>
-                    ))}
-                  </div>
-
-                  <div className="w-full mt-2">
-                    <Label htmlFor="obs" className="text-[10px] text-muted-foreground uppercase font-black tracking-wider block mb-1.5 text-left">
-                      ¿Alguna observación adicional? (Opcional)
-                    </Label>
-                    <Textarea 
-                      id="obs"
-                      placeholder="Déjanos un comentario sobre tu experiencia..."
-                      value={ratingObservation}
-                      onChange={(e) => setRatingObservation(e.target.value)}
-                      className="bg-background/50 border-border/50 text-xs min-h-[60px] resize-none rounded-xl"
-                    />
-                  </div>
-
-                  <div className="w-full mt-6">
-                    <Button 
-                      className="w-full bg-yellow-500 hover:bg-yellow-600 text-black font-bold h-12 rounded-xl transition-all shadow-md"
-                      disabled={selectedRating === 0}
-                      onClick={async () => {
-                        await updateOrden(activeOrder.id, { rating: selectedRating, ratingObservacion: ratingObservation || undefined });
-                        setIsRatingSuccess(true);
-                        setTimeout(() => {
-                          setIsRatingOpen(false);
-                          setSelectedRating(0);
-                          setRatingObservation("");
-                        }, 2500);
-                      }}
-                    >
-                      {selectedRating === 0 ? "SELECCIONA LAS ESTRELLAS" : "CONFIRMAR Y ENVIAR"}
-                    </Button>
-                  </div>
-                </div>
-              )
-            ) : (
-              <div className="py-10 opacity-70">
-                <span className="text-3xl">🍽️</span>
-                <h3 className="text-base font-black uppercase tracking-wider text-muted-foreground/80 mt-4">No hay orden activa</h3>
-              </div>
-            )}
-          </DialogContent>
-        </Dialog>
       </>
     )
 }

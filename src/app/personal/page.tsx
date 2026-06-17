@@ -169,13 +169,13 @@ export default function PersonalPage() {
   };
 
   const handleCreateStaff = async () => {
-    if (!newStaff.nombre || !newStaff.cedula || !newStaff.rol) {
-      toast({ variant: "destructive", title: "Campos Incompletos", description: "Por favor diligencia todos los campos obligatorios antes de guardar." });
+    if (!newStaff.nombre || !newStaff.rol) {
+      toast({ variant: "destructive", title: "Campos Incompletos", description: "Por favor ingresa al menos el nombre y el rol." });
       return;
     }
 
-    const cedula = newStaff.cedula!;
-    const pin = cedula.length >= 4 ? cedula.slice(-4) : cedula;
+    const cedula = newStaff.cedula || "";
+    const pin = cedula.length >= 4 ? cedula.slice(-4) : "0000";
 
     const staff: Usuario = {
       id: `u-${Date.now()}`,
@@ -206,13 +206,13 @@ export default function PersonalPage() {
   };
 
   const handleEditStaff = async () => {
-    if (!staffToEdit.id || !staffToEdit.nombre || !staffToEdit.cedula || !staffToEdit.rol) {
-      toast({ variant: "destructive", title: "Campos Incompletos", description: "Por favor diligencia todos los campos obligatorios antes de guardar." });
+    if (!staffToEdit.id || !staffToEdit.nombre || !staffToEdit.rol) {
+      toast({ variant: "destructive", title: "Campos Incompletos", description: "Por favor ingresa al menos el nombre y el rol." });
       return;
     }
 
-    const cedula = staffToEdit.cedula;
-    const pin = cedula.length >= 4 ? cedula.slice(-4) : cedula;
+    const cedula = staffToEdit.cedula || "";
+    const pin = cedula.length >= 4 ? cedula.slice(-4) : "0000";
 
     try {
       await updateUsuario(staffToEdit.id, {
@@ -373,18 +373,7 @@ export default function PersonalPage() {
                           <Label>Teléfono / Celular</Label>
                           <Input value={newStaff.telefono || ""} onChange={(e) => setNewStaff({...newStaff, telefono: e.target.value})} placeholder="Ej: 3001234567" />
                         </div>
-                        <div className="space-y-2">
-                          <Label>Sueldo Mensual</Label>
-                          <div className="relative">
-                            <span className="absolute left-3 top-1/2 -translate-y-1/2 text-sm text-muted-foreground">$</span>
-                            <Input 
-                              className="pl-7 bg-background"
-                              value={formatCurrencyInput(newStaff.sueldo)} 
-                              onChange={(e) => setNewStaff({...newStaff, sueldo: parseCurrencyInput(e.target.value) || undefined})} 
-                              placeholder="Ej: 1.300.000" 
-                            />
-                          </div>
-                        </div>
+
                       </div>
 
                       <div className="space-y-4">
@@ -444,18 +433,7 @@ export default function PersonalPage() {
                           <Label>Teléfono / Celular</Label>
                           <Input value={staffToEdit.telefono || ""} onChange={(e) => setStaffToEdit({...staffToEdit, telefono: e.target.value})} placeholder="Ej: 3001234567" />
                         </div>
-                        <div className="space-y-2">
-                          <Label>Sueldo Mensual</Label>
-                          <div className="relative">
-                            <span className="absolute left-3 top-1/2 -translate-y-1/2 text-sm text-muted-foreground">$</span>
-                            <Input 
-                              className="pl-7 bg-background"
-                              value={formatCurrencyInput(staffToEdit.sueldo)} 
-                              onChange={(e) => setStaffToEdit({...staffToEdit, sueldo: parseCurrencyInput(e.target.value) || undefined})} 
-                              placeholder="Ej: 1.300.000" 
-                            />
-                          </div>
-                        </div>
+
                       </div>
 
                       <div className="space-y-4">
@@ -648,7 +626,7 @@ export default function PersonalPage() {
                             )}
                           </div>
                           <div className="space-y-2 bg-card p-4 rounded-xl border border-border/50 shadow-inner">
-                            <h5 className="text-xs font-black uppercase text-green-500 mb-2 flex items-center gap-2"><CircleDollarSign className="w-4 h-4"/> Pagos y Adelantos</h5>
+                            <h5 className="text-xs font-black uppercase text-green-500 mb-2 flex items-center gap-2"><CircleDollarSign className="w-4 h-4"/> Pagos de Nómina</h5>
                             {pagos.length > 0 ? (
                               <div className="space-y-2 max-h-32 overflow-y-auto pr-1">
                                 {pagos.map(p => (

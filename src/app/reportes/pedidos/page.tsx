@@ -29,7 +29,7 @@ import { format } from "date-fns";
 import { es } from "date-fns/locale";
 
 export default function HistorialPedidosPage() {
-  const { ordenes, usuarios, fechaOperativa, mesas } = usePOSStore();
+  const { ordenes, usuarios, fechaOperativa, mesas, user } = usePOSStore();
   const [searchTerm, setSearchTerm] = useState("");
   const [expandedOrderId, setExpandedOrderId] = useState<string | null>(null);
 
@@ -38,10 +38,10 @@ export default function HistorialPedidosPage() {
   };
 
   const closedOrders = useMemo(() => {
-    return ordenes.filter(o => o.estado === 'CERRADA').sort((a, b) => 
-      new Date(b.updatedAt).getTime() - new Date(a.updatedAt).getTime()
-    );
-  }, [ordenes]);
+    return ordenes
+      .filter(o => o.estado === 'CERRADA' && (user?.rol === 'ADMINISTRADOR' || user?.rol === 'CAJERO' || o.meseroId === user?.id))
+      .sort((a, b) => new Date(b.updatedAt).getTime() - new Date(a.updatedAt).getTime());
+  }, [ordenes, user]);
 
   const filteredOrders = useMemo(() => {
     const search = searchTerm.toLowerCase();

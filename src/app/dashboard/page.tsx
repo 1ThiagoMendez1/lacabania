@@ -804,44 +804,6 @@ ${tableRows}${cleanNotas}`;
     },
   ];
 
-  const stations = [
-    { 
-      name: "Asado", 
-      icon: Flame, 
-      pending: ordenes
-        .filter(o => o.estado === 'ABIERTA')
-        .reduce((acc, o) => acc + o.items.filter(i => i.estacion === 'ASADO' && i.estado !== 'LISTO' && i.estado !== 'ENTREGADO').length, 0), 
-      color: "bg-primary",
-      href: "/estaciones/asado"
-    },
-    { 
-      name: "Parrilla", 
-      icon: Utensils, 
-      pending: ordenes
-        .filter(o => o.estado === 'ABIERTA')
-        .reduce((acc, o) => acc + o.items.filter(i => i.estacion === 'PARRILLA' && i.estado !== 'LISTO' && i.estado !== 'ENTREGADO').length, 0), 
-      color: "bg-orange-600",
-      href: "/estaciones/parrilla"
-    },
-    { 
-      name: "Cocina", 
-      icon: ChefHat, 
-      pending: ordenes
-        .filter(o => o.estado === 'ABIERTA')
-        .reduce((acc, o) => acc + o.items.filter(i => i.estacion === 'COCINA' && i.estado !== 'LISTO' && i.estado !== 'ENTREGADO').length, 0), 
-      color: "bg-secondary",
-      href: "/estaciones/cocina"
-    },
-    { 
-      name: "Bar", 
-      icon: Beer, 
-      pending: ordenes
-        .filter(o => o.estado === 'ABIERTA')
-        .reduce((acc, o) => acc + o.items.filter(i => i.estacion === 'BAR' && i.estado !== 'LISTO' && i.estado !== 'ENTREGADO').length, 0), 
-      color: "bg-blue-600",
-      href: "/estaciones/bar"
-    },
-  ];
 
   const getShortDateLabel = (dateStr: string) => {
     if (!dateStr) return "";
@@ -1286,7 +1248,7 @@ ${tableRows}${cleanNotas}`;
                           >
                             <option value="">-- Seleccionar Personal --</option>
                             {usuarios.filter(u => u.estado === 'ACTIVO').map(u => (
-                              <option key={u.id} value={`Adelanto/Nómina: ${u.nombre}`}>{u.nombre} ({u.rol})</option>
+                              <option key={u.id} value={`Nómina: ${u.nombre}`}>{u.nombre} ({u.rol})</option>
                             ))}
                           </select>
                         ) : (
@@ -1619,7 +1581,7 @@ ${tableRows}${cleanNotas}`;
                             >
                               <option value="">-- Seleccionar Personal --</option>
                               {usuarios.filter(u => u.estado === 'ACTIVO').map(u => (
-                                <option key={u.id} value={`Adelanto/Nómina: ${u.nombre}`}>{u.nombre} ({u.rol})</option>
+                                <option key={u.id} value={`Nómina: ${u.nombre}`}>{u.nombre} ({u.rol})</option>
                               ))}
                             </select>
                           ) : (
@@ -2017,34 +1979,6 @@ ${tableRows}${cleanNotas}`;
 
             <div className="space-y-6">
               {/* Kitchen Stations status */}
-              <Card className="bg-card border-border border-l-4 border-l-secondary shadow-lg rounded-2xl overflow-hidden">
-                <CardHeader className="bg-accent/10 p-4">
-                  <CardTitle className="text-base font-headline font-black tracking-tight flex items-center gap-2 text-foreground">
-                    <Flame className="w-5 h-5 text-secondary" />
-                    Estado de Estaciones
-                  </CardTitle>
-                </CardHeader>
-                <CardContent className="p-4 space-y-3">
-                  {stations.map((s, i) => (
-                    <Link
-                      key={i}
-                      href={s.href}
-                      className="flex items-center justify-between p-3 bg-accent/30 rounded-xl border border-border/50 hover:bg-accent/40 hover:border-primary/30 transition-all duration-200 cursor-pointer group"
-                    >
-                      <div className="flex items-center gap-3">
-                        <div className={cn("p-2 rounded-lg shadow-inner transition-transform group-hover:scale-105", s.color)}>
-                          <s.icon className="w-4 h-4 text-white" />
-                        </div>
-                        <span className="font-semibold text-sm group-hover:text-primary transition-colors">{s.name}</span>
-                      </div>
-                      <div className="flex items-center gap-2">
-                        <span className="text-lg font-black transition-transform group-hover:scale-110">{s.pending}</span>
-                        <span className="text-[9px] text-muted-foreground uppercase font-black font-mono">Pend.</span>
-                      </div>
-                    </Link>
-                  ))}
-                </CardContent>
-              </Card>
 
               {/* Critical Alerts */}
               <Card className="bg-card border-border border-l-4 border-l-primary shadow-lg rounded-2xl overflow-hidden">
@@ -2216,7 +2150,7 @@ ${tableRows}${cleanNotas}`;
                         >
                           <option value="Insumos">🛒 Insumos</option>
                           <option value="Servicios">⚡ Servicios</option>
-                          <option value="Nómina">👤 Nómina / Adelanto</option>
+                          <option value="Nómina">👤 Nómina</option>
                           <option value="Mantenimiento">🔧 Mantenimiento</option>
                           <option value="Diversos">📦 Diversos / Otros</option>
                         </select>
@@ -2235,7 +2169,7 @@ ${tableRows}${cleanNotas}`;
                           >
                             <option value="">-- Seleccionar --</option>
                             {usuarios.filter(u => u.estado === 'ACTIVO').map(u => (
-                              <option key={u.id} value={`Adelanto/Nómina: ${u.nombre}`}>{u.nombre} ({u.rol})</option>
+                              <option key={u.id} value={`Nómina: ${u.nombre}`}>{u.nombre} ({u.rol})</option>
                             ))}
                           </select>
                         ) : (

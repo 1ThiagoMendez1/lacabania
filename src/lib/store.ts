@@ -655,9 +655,12 @@ export const usePOSStore = create<POSState>((set, get) => ({
     }
   },
   deleteMesa: async (mesaId) => {
-    set((state) => ({ mesas: state.mesas.filter(m => m.id !== mesaId) }));
     const { error } = await supabase.from('mesas').delete().eq('id', mesaId);
-    if (error) console.error("Error al eliminar mesa de Supabase:", error);
+    if (error) {
+      console.error("Error al eliminar mesa de Supabase:", error);
+      throw new Error("No se puede eliminar la mesa porque tiene pedidos o historial asociado. Ponla en 'FUERA SERVICIO' si ya no la vas a usar.");
+    }
+    set((state) => ({ mesas: state.mesas.filter(m => m.id !== mesaId) }));
   },
   addOrden: async (orden) => {
     const isParaLlevar = orden.mesaId >= 101;

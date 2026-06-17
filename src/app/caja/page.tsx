@@ -20,8 +20,11 @@ import {
   MapPin,
   Phone,
   ShieldCheck,
-  Ban
+  Ban,
+  Star,
+  Search
 } from "lucide-react";
+import { Textarea } from "@/components/ui/textarea";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
@@ -51,9 +54,10 @@ import {
 } from "@/components/ui/select";
 
 export default function CajaPage() {
-  const { ordenes, mesas, closeOrden, isCajaCerrada, usuarios, addGasto, fechaOperativa } = usePOSStore();
+  const { ordenes, mesas, closeOrden, isCajaCerrada, usuarios, updateOrden } = usePOSStore();
   const { toast } = useToast();
   const [selectedMesaId, setSelectedMesaId] = useState<number | null>(null);
+  const [searchQuery, setSearchQuery] = useState("");
   const [metodoPago, setMetodoPago] = useState<MetodoPago | null>(null);
   const [showReceipt, setShowReceipt] = useState(false);
   const [lastClosedOrden, setLastClosedOrden] = useState<Orden | null>(null);
@@ -63,6 +67,10 @@ export default function CajaPage() {
   const [gastoCategoria, setGastoCategoria] = useState("Insumos");
   const [gastoDescripcion, setGastoDescripcion] = useState("");
   const [gastoValor, setGastoValor] = useState("");
+
+  const [selectedRating, setSelectedRating] = useState<number>(0);
+  const [ratingObservation, setRatingObservation] = useState("");
+  const [isSubmittingRating, setIsSubmittingRating] = useState(false);
   
   useEffect(() => {
     if (typeof window !== 'undefined') {
@@ -95,6 +103,9 @@ export default function CajaPage() {
 
   useEffect(() => {
     setIncluirPropina(true);
+    setSelectedRating(0);
+    setRatingObservation("");
+    setIsSubmittingRating(false);
   }, [selectedMesaId]);
   
   // Facturación Electrónica State
@@ -210,18 +221,47 @@ export default function CajaPage() {
 
       <div className="flex-1 flex flex-col lg:flex-row gap-8 overflow-hidden print:hidden">
         <div className="w-full lg:w-80 flex flex-col gap-4">
-          <h3 className="text-sm font-bold uppercase tracking-wider text-muted-foreground flex items-center gap-2">
-            <Calculator className="w-4 h-4" /> Mesas Pendientes
-          </h3>
+          <div className="flex flex-col gap-3">
+            <h3 className="text-sm font-bold uppercase tracking-wider text-muted-foreground flex items-center gap-2">
+              <Calculator className="w-4 h-4" /> Mesas Pendientes
+            </h3>
+            <div className="relative">
+              <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
+              <Input 
+                className="pl-10 h-11 bg-card border-border/50 shadow-sm rounded-xl text-sm" 
+                placeholder="Buscar orden o mesa..." 
+                value={searchQuery}
+                onChange={(e) => setSearchQuery(e.target.value)}
+              />
+            </div>
+          </div>
           <ScrollArea className="flex-1 h-[200px] lg:h-full">
             <div className="space-y-3 pr-4">
-              {mesasConOrden.length === 0 ? (
+              {(() => {
+                const filteredMesas = mesasConOrden.filter(mesa => {
+                  if (!searchQuery) return true;
+                  const activeOrder = ordenes.find(o => String(o.mesaId) === String(mesa.id) && o.estado === 'ABIERTA');
+                  const searchTerm = searchQuery.toLowerCase();
+                  
+                  const mesaIdStr = String(mesa.id);
+                  const mesaVisibleStr = mesa.numeroVisible ? String(mesa.numeroVisible).toLowerCase() : '';
+                  const orderStr = activeOrder ? getOrderIdentifier({ mesaId: mesa.id, consecutivo: activeOrder.consecutivo, id: activeOrder.id }).toLowerCase() : '';
+                  
+                  return mesaIdStr.includes(searchTerm) || 
+                         mesaVisibleStr.includes(searchTerm) || 
+                         orderStr.includes(searchTerm);
+                });
+
+                if (filteredMesas.length === 0) {
+                  return (
                 <div className="text-center py-10 lg:py-20 opacity-30">
                   <CheckCircle2 className="w-12 h-12 mx-auto mb-4" />
-                  <p className="font-headline">Sin cuentas</p>
+                  <p className="font-headline">{searchQuery ? "Sin resultados" : "Sin cuentas"}</p>
                 </div>
-              ) : (
-                mesasConOrden.map((mesa) => {
+                  );
+                }
+
+                return filteredMesas.map((mesa) => {
                   const activeOrder = ordenes.find(o => String(o.mesaId) === String(mesa.id) && o.estado === 'ABIERTA');
                   return (
                     <button
@@ -233,45 +273,58 @@ export default function CajaPage() {
                       )}
                     >
                       <div className="flex justify-between mb-2">
-                        <span className="text-xl font-black flex items-center gap-2">
+                        <span className="text-xl font-black flex flex-wrap items-center gap-2">
                           {activeOrder ? getOrderIdentifier({ mesaId: mesa.id, consecutivo: activeOrder.consecutivo, id: activeOrder.id }) : (mesa.zona === 'Para Llevar' ? `PLL-${mesa.id}` : `Mesa ${mesa.id}`)}
                           {mesa.id < 101 && activeOrder && (
-                            <span className="text-[9px] bg-background/50 px-1.5 py-0.5 rounded text-muted-foreground uppercase tracking-widest font-bold">Mesa {mesa.id}</span>
+                            <span className="text-xs bg-primary/10 text-primary px-2 py-0.5 rounded-md uppercase tracking-widest font-bold border border-primary/20">
+                              {mesa.numeroVisible ? `Mesa ${mesa.numeroVisible}` : `Mesa ${mesa.id}`}
+                            </span>
                           )}
                         </span>
                       </div>
                       <div className="flex items-center gap-2 text-xs text-muted-foreground"><Clock className="w-3 h-3" /><span>Cuenta Activa</span></div>
                     </button>
                   );
-                })
-              )}
+                });
+              })()}
             </div>
           </ScrollArea>
         </div>
 
-        <div className="flex-1 overflow-hidden h-full">
+        <div className="flex-1 overflow-hidden max-h-full flex flex-col">
           {activeOrden ? (
-            <Card className="h-full bg-card border-border paper-texture flex flex-col overflow-hidden">
-              <CardHeader className="bg-accent/20 border-b border-border flex flex-row items-center justify-between">
-                <div className="flex items-center gap-4">
-                  <Receipt className="w-6 h-6 text-primary" />
-                  <div>
-                    <CardTitle className="font-headline text-xl text-foreground flex items-center gap-2">
-                      {(() => {
-                        return getOrderIdentifier({ mesaId: selectedMesaId!, consecutivo: activeOrden.consecutivo, id: activeOrden.id });
-                      })()}
-                      {selectedMesaId! < 101 && (
-                        <span className="text-[10px] bg-primary/10 text-primary px-2 py-0.5 rounded uppercase tracking-wider font-bold">Mesa {selectedMesaId}</span>
-                      )}
-                    </CardTitle>
-                    <p className="text-[10px] uppercase text-muted-foreground font-mono">Orden: {activeOrden.id}</p>
+            <div className="max-h-full flex flex-col lg:flex-row gap-6 overflow-hidden">
+              {/* Left Panel: Consumo */}
+              <Card className="flex-1 flex flex-col bg-card border-border/50 paper-texture rounded-[2rem] overflow-hidden shadow-2xl">
+                <CardHeader className="bg-accent/20 border-b border-border/30 flex flex-row items-center justify-between p-6">
+                  <div className="flex items-center gap-5">
+                    <Receipt className="w-8 h-8 text-primary" />
+                    <div>
+                      <CardTitle className="font-headline text-3xl text-foreground flex flex-wrap items-center gap-4">
+                        {(() => {
+                          return getOrderIdentifier({ mesaId: selectedMesaId!, consecutivo: activeOrden.consecutivo, id: activeOrden.id });
+                        })()}
+                        {selectedMesaId! < 101 && (
+                          <span className="text-xl bg-primary/20 text-primary px-4 py-1.5 rounded-xl uppercase tracking-widest font-black shadow-inner border border-primary/30">
+                            {(() => {
+                              const mesaInfo = mesas.find(m => m.id === selectedMesaId);
+                              return mesaInfo?.numeroVisible ? `MESA ${mesaInfo.numeroVisible}` : `MESA ${selectedMesaId}`;
+                            })()}
+                          </span>
+                        )}
+                      </CardTitle>
+                      <p className="text-xs uppercase text-muted-foreground font-mono mt-1">Orden ID: {activeOrden.id}</p>
+                    </div>
                   </div>
-                </div>
-              </CardHeader>
-              <CardContent className="flex-1 flex flex-col p-0 overflow-hidden">
-                <div className="flex-1 flex flex-col lg:flex-row overflow-hidden">
-                  <ScrollArea className="flex-1 p-6 border-r border-border/30">
-                    <h3 className="text-xs font-black uppercase tracking-widest text-muted-foreground mb-4">Consumo</h3>
+                </CardHeader>
+                <CardContent className="flex-1 flex flex-col p-0 overflow-hidden">
+                  <div className="p-4 bg-background/50 border-b border-border/20 flex justify-between items-center">
+                    <h3 className="text-xs font-black uppercase tracking-widest text-muted-foreground flex items-center gap-2">
+                      <Receipt className="w-4 h-4" /> Consumo
+                    </h3>
+                    <Badge variant="outline" className="bg-background">{(activeOrden.items || []).length} items</Badge>
+                  </div>
+                  <ScrollArea className="flex-1 p-4 lg:p-6">
                     <table className="w-full text-sm">
                       <tbody>
                         {(activeOrden.items || []).map((item) => {
@@ -292,196 +345,188 @@ export default function CajaPage() {
                       </tbody>
                     </table>
                   </ScrollArea>
+                </CardContent>
+              </Card>
 
-                  <div className="w-full lg:w-96 p-6 bg-accent/10 space-y-4">
-                    <div className="flex items-center justify-between mb-4">
-                      <div className="flex items-center gap-2">
-                        <FileText className="w-5 h-5 text-secondary" />
-                        <Label htmlFor="fe-toggle" className="font-bold cursor-pointer">Factura Electrónica</Label>
-                      </div>
-                      <Switch 
-                        id="fe-toggle" 
-                        checked={requireFE} 
-                        onCheckedChange={setRequireFE} 
-                      />
-                    </div>
+              {/* Right Panel: Checkout Sidebar */}
+              <div className="w-full lg:w-[30rem] xl:w-[35rem] flex flex-col relative z-10">
+                  <ScrollArea className="h-full w-full">
+                    <div className="p-6 lg:p-8 space-y-6 lg:space-y-8 pb-12">
+                      
+                      {/* Factura Electronica */}
+                      <div className="p-5 rounded-2xl border border-border/50 bg-card shadow-sm transition-all">
+                        <div className="flex items-center justify-between">
+                          <div className="flex items-center gap-2">
+                            <FileText className="w-5 h-5 text-secondary" />
+                            <Label htmlFor="fe-toggle" className="text-sm font-bold uppercase tracking-wider cursor-pointer">Factura DIAN</Label>
+                          </div>
+                          <Switch 
+                            id="fe-toggle" 
+                            checked={requireFE} 
+                            onCheckedChange={setRequireFE} 
+                          />
+                        </div>
 
-                    {requireFE ? (
-                      <div className="space-y-4 animate-in fade-in slide-in-from-right-4 duration-300">
-                        <div className="grid grid-cols-2 gap-2">
-                          <div className="space-y-1.5">
-                            <Label className="text-[10px] uppercase font-bold">Tipo Doc.</Label>
-                            <Select 
-                              value={clienteFE.tipoDocumento} 
-                              onValueChange={(val) => setClienteFE({...clienteFE, tipoDocumento: val as TipoDocumentoFE})}
-                            >
-                              <SelectTrigger className="h-9 text-xs bg-background">
-                                <SelectValue />
-                              </SelectTrigger>
-                              <SelectContent>
-                                <SelectItem value="13">C.C.</SelectItem>
-                                <SelectItem value="31">NIT</SelectItem>
-                                <SelectItem value="11">R.C.</SelectItem>
-                                <SelectItem value="12">T.I.</SelectItem>
-                                <SelectItem value="22">C.E.</SelectItem>
-                                <SelectItem value="41">Pasaporte</SelectItem>
-                              </SelectContent>
-                            </Select>
+                        {requireFE && (
+                          <div className="mt-5 space-y-4 animate-in fade-in slide-in-from-top-2 duration-300">
+                            <div className="grid grid-cols-2 gap-3">
+                              <div className="space-y-1.5">
+                                <Label className="text-[10px] uppercase font-bold text-muted-foreground">Tipo Doc.</Label>
+                                <Select value={clienteFE.tipoDocumento} onValueChange={(val) => setClienteFE({...clienteFE, tipoDocumento: val as TipoDocumentoFE})}>
+                                  <SelectTrigger className="h-9 text-xs bg-background"><SelectValue /></SelectTrigger>
+                                  <SelectContent>
+                                    <SelectItem value="13">C.C.</SelectItem>
+                                    <SelectItem value="31">NIT</SelectItem>
+                                    <SelectItem value="11">R.C.</SelectItem>
+                                    <SelectItem value="12">T.I.</SelectItem>
+                                    <SelectItem value="22">C.E.</SelectItem>
+                                    <SelectItem value="41">Pasaporte</SelectItem>
+                                  </SelectContent>
+                                </Select>
+                              </div>
+                              <div className="space-y-1.5">
+                                <Label className="text-[10px] uppercase font-bold text-muted-foreground">Número</Label>
+                                <Input className="h-9 text-xs bg-background" value={clienteFE.numeroDocumento} onChange={(e) => setClienteFE({...clienteFE, numeroDocumento: e.target.value})} placeholder="123456789" />
+                              </div>
+                            </div>
+                            <div className="space-y-1.5">
+                              <Label className="text-[10px] uppercase font-bold text-muted-foreground">Razón Social</Label>
+                              <div className="relative">
+                                <User className="absolute left-2.5 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
+                                <Input className="h-9 pl-9 text-xs bg-background" value={clienteFE.nombre} onChange={(e) => setClienteFE({...clienteFE, nombre: e.target.value})} placeholder="Ej. Juan Pérez" />
+                              </div>
+                            </div>
+                            <div className="space-y-1.5">
+                              <Label className="text-[10px] uppercase font-bold text-muted-foreground">Email</Label>
+                              <div className="relative">
+                                <Mail className="absolute left-2.5 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
+                                <Input className="h-9 pl-9 text-xs bg-background" value={clienteFE.email} onChange={(e) => setClienteFE({...clienteFE, email: e.target.value})} placeholder="correo@ejemplo.com" type="email" />
+                              </div>
+                            </div>
                           </div>
-                          <div className="space-y-1.5">
-                            <Label className="text-[10px] uppercase font-bold">Número</Label>
-                            <Input 
-                              className="h-9 text-xs bg-background" 
-                              value={clienteFE.numeroDocumento}
-                              onChange={(e) => setClienteFE({...clienteFE, numeroDocumento: e.target.value})}
-                              placeholder="123456789"
-                            />
-                          </div>
-                        </div>
-                        <div className="space-y-1.5">
-                          <Label className="text-[10px] uppercase font-bold">Nombre / Razón Social</Label>
-                          <div className="relative">
-                            <User className="absolute left-2.5 top-1/2 -translate-y-1/2 w-3.5 h-3.5 text-muted-foreground" />
-                            <Input 
-                              className="h-9 pl-8 text-xs bg-background" 
-                              value={clienteFE.nombre}
-                              onChange={(e) => setClienteFE({...clienteFE, nombre: e.target.value})}
-                              placeholder="Juan Pérez SAS"
-                            />
-                          </div>
-                        </div>
-                        <div className="space-y-1.5">
-                          <Label className="text-[10px] uppercase font-bold">Correo Electrónico</Label>
-                          <div className="relative">
-                            <Mail className="absolute left-2.5 top-1/2 -translate-y-1/2 w-3.5 h-3.5 text-muted-foreground" />
-                            <Input 
-                              className="h-9 pl-8 text-xs bg-background" 
-                              value={clienteFE.email}
-                              onChange={(e) => setClienteFE({...clienteFE, email: e.target.value})}
-                              placeholder="correo@ejemplo.com"
-                              type="email"
-                            />
-                          </div>
-                        </div>
-                        <div className="space-y-1.5">
-                          <Label className="text-[10px] uppercase font-bold">Teléfono</Label>
-                          <div className="relative">
-                            <Phone className="absolute left-2.5 top-1/2 -translate-y-1/2 w-3.5 h-3.5 text-muted-foreground" />
-                            <Input 
-                              className="h-9 pl-8 text-xs bg-background" 
-                              value={clienteFE.telefono}
-                              onChange={(e) => setClienteFE({...clienteFE, telefono: e.target.value})}
-                              placeholder="300 123 4567"
-                            />
-                          </div>
-                        </div>
+                        )}
                       </div>
-                    ) : (
-                      <div className="h-full flex flex-col items-center justify-center opacity-40 text-center py-10 border-2 border-dashed border-border rounded-2xl">
-                        <ShieldCheck className="w-12 h-12 mb-2" />
-                        <p className="text-xs font-bold uppercase tracking-widest">Factura POS</p>
-                      </div>
-                    )}
-                  </div>
-                </div>
-                
-                <div className="bg-accent/40 p-4 md:p-8 border-t border-border">
-                  <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
-                    <div className="space-y-4">
-                      <p className="text-xs font-bold text-muted-foreground uppercase tracking-widest">Método de Pago</p>
-                      <div className="grid grid-cols-3 gap-3">
-                        <Button 
-                          variant="outline" 
-                          onClick={() => setMetodoPago('EFECTIVO')} 
-                          className={cn(
-                            "h-20 flex-col gap-2 transition-all border-border hover:bg-secondary/10", 
-                            metodoPago === 'EFECTIVO' && "border-secondary ring-2 bg-secondary/20 text-secondary ring-secondary/50"
-                          )}
-                        >
-                          <Banknote className="w-6 h-6" />
-                          <span className="text-xs font-bold">Efectivo</span>
-                        </Button>
-                        <Button 
-                          variant="outline" 
-                          onClick={() => setMetodoPago('TARJETA')} 
-                          className={cn(
-                            "h-20 flex-col gap-2 transition-all border-border hover:bg-secondary/10", 
-                            metodoPago === 'TARJETA' && "border-secondary ring-2 bg-secondary/20 text-secondary ring-secondary/50"
-                          )}
-                        >
-                          <CreditCard className="w-6 h-6" />
-                          <span className="text-xs font-bold">Tarjeta</span>
-                        </Button>
-                        <Button 
-                          variant="outline" 
-                          onClick={() => setMetodoPago('TRANSFERENCIA')} 
-                          className={cn(
-                            "h-20 flex-col gap-2 transition-all border-border hover:bg-secondary/10", 
-                            metodoPago === 'TRANSFERENCIA' && "border-secondary ring-2 bg-secondary/20 text-secondary ring-secondary/50"
-                          )}
-                        >
-                          <Smartphone className="w-6 h-6" />
-                          <span className="text-xs font-bold">Transfer</span>
-                        </Button>
-                      </div>
-                    </div>
 
-                    <div className="space-y-3">
-                      {activeOrden?.meseroId && (
-                        <div className="flex justify-between text-sm text-muted-foreground border-b border-border/30 pb-2 mb-2">
-                          <span>Mesero:</span>
-                          <span className="font-bold text-foreground flex items-center gap-1.5">
+                      {/* Metodos de pago */}
+                      <div>
+                        <p className="text-[11px] font-black text-muted-foreground uppercase tracking-widest mb-3 px-1">Método de Pago</p>
+                        <div className="grid grid-cols-3 gap-3">
+                          <Button variant="outline" onClick={() => setMetodoPago('EFECTIVO')} className={cn("h-20 flex-col gap-2 transition-all bg-card border-border hover:bg-secondary/10 hover:border-secondary/50", metodoPago === 'EFECTIVO' && "border-secondary ring-2 bg-secondary/20 text-secondary ring-secondary/50 shadow-md")}>
+                            <Banknote className="w-6 h-6" />
+                            <span className="text-xs font-bold uppercase">Efectivo</span>
+                          </Button>
+                          <Button variant="outline" onClick={() => setMetodoPago('TARJETA')} className={cn("h-20 flex-col gap-2 transition-all bg-card border-border hover:bg-secondary/10 hover:border-secondary/50", metodoPago === 'TARJETA' && "border-secondary ring-2 bg-secondary/20 text-secondary ring-secondary/50 shadow-md")}>
+                            <CreditCard className="w-6 h-6" />
+                            <span className="text-xs font-bold uppercase">Tarjeta</span>
+                          </Button>
+                          <Button variant="outline" onClick={() => setMetodoPago('TRANSFERENCIA')} className={cn("h-20 flex-col gap-2 transition-all bg-card border-border hover:bg-secondary/10 hover:border-secondary/50", metodoPago === 'TRANSFERENCIA' && "border-secondary ring-2 bg-secondary/20 text-secondary ring-secondary/50 shadow-md")}>
+                            <Smartphone className="w-6 h-6" />
+                            <span className="text-xs font-bold uppercase">Transfer</span>
+                          </Button>
+                        </div>
+                      </div>
+
+                      {/* Rating Mesero */}
+                      {ratingPendiente && (
+                        <div className="bg-yellow-500/10 border border-yellow-500/30 p-5 rounded-2xl space-y-4 animate-in fade-in duration-300">
+                          <div className="flex items-center justify-between border-b border-yellow-500/20 pb-3">
+                            <p className="text-xs font-black uppercase tracking-wider text-yellow-600">Calificar Atención</p>
+                            <span className="text-[10px] font-bold bg-yellow-500/20 text-yellow-700 px-3 py-1 rounded-full uppercase">🤵 {usuarios.find(u => u.id === activeOrden.meseroId)?.nombre || 'N/A'}</span>
+                          </div>
+                          <div className="flex justify-center items-center gap-2 py-2">
+                            {[1, 2, 3, 4, 5].map((star) => (
+                              <button
+                                key={star}
+                                onClick={() => setSelectedRating(star)}
+                                disabled={isSubmittingRating}
+                                className="p-1 hover:scale-125 transition-transform duration-200 focus:outline-none"
+                              >
+                                <Star className={cn("w-9 h-9 transition-colors duration-200", star <= selectedRating ? "fill-yellow-500 text-yellow-500" : "text-yellow-500/20 hover:text-yellow-500/70")} />
+                              </button>
+                            ))}
+                          </div>
+                          
+                          {selectedRating > 0 && (
+                            <div className="space-y-3 animate-in zoom-in-95 duration-200 pt-2">
+                              <Textarea 
+                                placeholder="Observaciones de la atención (opcional)"
+                                value={ratingObservation}
+                                onChange={(e) => setRatingObservation(e.target.value)}
+                                disabled={isSubmittingRating}
+                                className="h-14 min-h-0 text-xs resize-none bg-background/50 rounded-xl border-yellow-500/30"
+                              />
+                              <Button 
+                                className="w-full bg-yellow-500 hover:bg-yellow-600 text-black font-bold h-12 text-xs rounded-xl shadow-md uppercase tracking-wider"
+                                disabled={isSubmittingRating}
+                                onClick={async () => {
+                                  if (!activeOrden) return;
+                                  setIsSubmittingRating(true);
+                                  await updateOrden(activeOrden.id, { 
+                                    rating: selectedRating, 
+                                    ratingObservacion: ratingObservation || undefined 
+                                  });
+                                  toast({ title: "Calificación guardada", description: "Ahora puedes proceder con el pago." });
+                                  setIsSubmittingRating(false);
+                                }}
+                              >
+                                {isSubmittingRating ? "GUARDANDO..." : "GUARDAR CALIFICACIÓN Y PAGAR"}
+                              </Button>
+                            </div>
+                          )}
+                        </div>
+                      )}
+
+                      {!ratingPendiente && activeOrden?.meseroId && activeOrden.rating && activeOrden.rating > 0 && (
+                        <div className="p-4 bg-card border border-border/50 rounded-2xl flex justify-between items-center shadow-sm">
+                          <span className="text-[11px] uppercase font-bold text-muted-foreground flex items-center gap-2">
                             🤵 {usuarios.find(u => u.id === activeOrden.meseroId)?.nombre || 'N/A'}
-                            {activeOrden.rating && activeOrden.rating > 0 ? (
-                              <span className="text-yellow-500 font-bold flex items-center gap-0.5 ml-1">
-                                ⭐ {activeOrden.rating}
-                              </span>
-                            ) : (
-                              <span className="text-[10px] text-muted-foreground font-normal italic ml-1">(Sin calificar)</span>
-                            )}
+                          </span>
+                          <span className="text-yellow-500 font-bold text-sm flex items-center gap-1.5 bg-yellow-500/10 px-2 py-0.5 rounded-full">
+                            ⭐ {activeOrden.rating}
                           </span>
                         </div>
                       )}
-                      <div className="flex justify-between text-sm text-muted-foreground">
-                        <span>Subtotal:</span>
-                        <span className="font-bold text-foreground">${subtotal.toLocaleString('es-CO')}</span>
-                      </div>
-                      <div className="flex justify-between items-center text-sm text-muted-foreground">
-                        <div className="flex items-center gap-2">
-                          <span>Servicio (10%):</span>
-                          <Switch 
-                            id="propina-toggle" 
-                            checked={incluirPropina} 
-                            onCheckedChange={setIncluirPropina}
-                            className="scale-75"
-                          />
-                        </div>
-                        <span className="font-bold text-foreground">${propinaSugerida.toLocaleString('es-CO')}</span>
-                      </div>
-                      <Separator className="bg-border/50" />
-                      <div className="flex justify-between items-end py-2">
-                        <span className="text-lg font-headline text-foreground">TOTAL:</span>
-                        <span className="text-4xl font-black text-secondary glow-gold-text">${total.toLocaleString('es-CO')}</span>
-                      </div>
-                      
-                      {ratingPendiente && (
-                        <div className="bg-yellow-500/10 border border-yellow-500/30 text-yellow-500 text-xs p-3 rounded-xl text-center font-bold animate-pulse">
-                          ⚠️ Requiere calificación del mesero antes de pagar.
-                        </div>
-                      )}
 
-                      <Button 
-                        className="w-full h-14 text-lg font-bold rounded-xl mt-4 shadow-lg hover:glow-orange transition-all" 
-                        disabled={!metodoPago || isCajaCerrada || ratingPendiente} 
-                        onClick={handleCerrarCuenta}
-                      >
-                        {isCajaCerrada ? "CAJA CERRADA" : (ratingPendiente ? "PENDIENTE CALIFICAR" : (metodoPago ? (requireFE ? 'EMITIR FACTURA DIAN' : `CONFIRMAR PAGO EN ${metodoPago}`) : 'SELECCIONA PAGO'))}
-                      </Button>
+                      {/* Payment Summary Box */}
+                      <div className="bg-card border border-border/50 rounded-[2rem] p-6 lg:p-8 shadow-xl mt-4 space-y-6 relative overflow-hidden">
+                        <div className="absolute top-0 left-0 w-full h-1 bg-gradient-to-r from-transparent via-secondary to-transparent opacity-50" />
+                        
+                        <div className="space-y-3 relative z-10">
+                          <div className="flex justify-between text-muted-foreground text-sm">
+                            <span className="font-bold">Subtotal</span>
+                            <span className="font-mono font-bold">${subtotal.toLocaleString('es-CO')}</span>
+                          </div>
+                          <div className="flex justify-between text-muted-foreground text-sm items-center">
+                            <div className="flex items-center gap-2">
+                              <span className="font-bold">Servicio (10%)</span>
+                              <Switch checked={incluirPropina} onCheckedChange={setIncluirPropina} className="scale-75" />
+                            </div>
+                            <span className="font-mono font-bold">${propinaSugerida.toLocaleString('es-CO')}</span>
+                          </div>
+                        </div>
+
+                        <Separator className="bg-border/50" />
+
+                        <div className="space-y-5 relative z-10">
+                          <div className="flex flex-col items-end gap-1">
+                            <span className="text-xs font-black uppercase tracking-widest text-muted-foreground/70">Total a Pagar</span>
+                            <span className="text-5xl lg:text-[3.5rem] font-black text-secondary glow-gold-text leading-none tracking-tighter">${total.toLocaleString('es-CO')}</span>
+                          </div>
+                          
+                          <Button 
+                            className="w-full h-16 text-sm lg:text-base font-bold rounded-2xl shadow-lg hover:glow-orange transition-all uppercase tracking-widest bg-primary hover:bg-primary/90 text-primary-foreground" 
+                            disabled={!metodoPago || isCajaCerrada || ratingPendiente} 
+                            onClick={handleCerrarCuenta}
+                          >
+                            {isCajaCerrada ? "CAJA CERRADA" : (ratingPendiente ? "PENDIENTE CALIFICAR" : (metodoPago ? (requireFE ? 'EMITIR FACTURA DIAN' : `CONFIRMAR PAGO EN ${metodoPago}`) : 'SELECCIONA MÉTODO DE PAGO'))}
+                          </Button>
+                        </div>
+                      </div>
+
                     </div>
-                  </div>
-                </div>
-              </CardContent>
-            </Card>
+                  </ScrollArea>
+              </div>
+            </div>
           ) : selectedMesaId ? (
             <div className="h-full border-2 border-dashed border-border rounded-3xl flex flex-col items-center justify-center text-muted-foreground bg-accent/5 p-8 text-center">
               <Receipt className="w-16 h-16 mb-4 opacity-20" />

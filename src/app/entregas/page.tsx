@@ -44,7 +44,7 @@ export default function EntregasPage() {
   const pendingItems = userOrders.flatMap(o => 
     o.items
       .filter(item => item.estado !== 'ENTREGADO' && item.estado !== 'CANCELADO')
-      .map(item => ({ ...item, mesaId: o.mesaId, orderId: o.id, meseroId: o.meseroId }))
+      .map(item => ({ ...item, mesaId: o.mesaId, orderId: o.id, meseroId: o.meseroId, consecutivo: o.consecutivo }))
   ).sort((a, b) => {
     // Ordenar primero los que están LISTOS
     if (a.estado === 'LISTO' && b.estado !== 'LISTO') return -1;
@@ -80,7 +80,7 @@ export default function EntregasPage() {
                   <ChefHat className="w-6 h-6 text-primary" />
                 </div>
                 <div>
-                  <p className="text-[10px] font-black uppercase tracking-widest text-muted-foreground leading-none mb-1">En Cocina</p>
+                  <p className="text-[10px] font-black uppercase tracking-widest text-muted-foreground leading-none mb-1">En Preparación</p>
                   <p className="text-2xl font-black leading-none">{inKitchenCount} platos</p>
                 </div>
               </CardContent>
@@ -115,53 +115,57 @@ export default function EntregasPage() {
                   >
                     <CardContent className="p-0">
                       <div className={cn(
-                        "p-3 border-b border-border/20 flex justify-between items-start",
+                        "p-4 border-b border-border/20 flex flex-col gap-3",
                         isReady ? "bg-green-500/10" : "bg-accent/10"
                       )}>
-                        <div className="flex gap-3">
+                        <div className="flex justify-between items-start w-full">
+                           <div className="flex items-center gap-2">
+                             {(() => {
+                               const m = mesas.find(x => x.id === item.mesaId);
+                               const isLlevar = m?.zona === 'Para Llevar' || item.mesaId >= 101;
+                               const label = isLlevar ? `PLL-${item.consecutivo || (item.mesaId >= 101 ? item.mesaId - 100 : item.mesaId)}` : `MESA ${m?.numero || item.mesaId}`;
+                               
+                               return (
+                                 <h3 className="font-black text-3xl md:text-4xl tracking-tighter text-primary bg-primary/10 px-3 py-1 rounded-xl border border-primary/20 shadow-sm">
+                                   {label}
+                                 </h3>
+                               );
+                             })()}
+                           </div>
+                           <div className="flex flex-col items-end gap-2">
+                             {isReady ? (
+                               <Badge className="bg-green-600 text-white animate-pulse text-xs md:text-sm uppercase font-black px-3 py-1 border-none shadow-md">¡LISTO!</Badge>
+                             ) : (
+                               <Badge className={cn(
+                                 "text-[10px] md:text-xs uppercase font-black px-3 py-1 border-none shadow-sm text-white",
+                                 item.estacion === 'ASADO' ? "bg-red-600" :
+                                 item.estacion === 'PARRILLA' ? "bg-orange-600" :
+                                 item.estacion === 'COCINA' ? "bg-amber-600" :
+                                 item.estacion === 'BAR' ? "bg-blue-600" : "bg-primary"
+                               )}>
+                                 EN {item.estacion}
+                               </Badge>
+                             )}
+                             <span className="text-[10px] font-bold text-muted-foreground/80 flex items-center gap-1 bg-background/50 px-2 py-0.5 rounded-lg border border-border/50">
+                               👨‍🍳 {usuarios.find(u => u.id === item.meseroId)?.nombre || "Desconocido"}
+                             </span>
+                           </div>
+                        </div>
+
+                        <div className="flex gap-3 items-center bg-background/50 p-2 rounded-xl border border-border/30">
                           <div className={cn(
-                            "w-12 h-12 rounded-xl flex items-center justify-center font-black text-2xl shadow-lg border",
+                            "w-12 h-12 rounded-xl flex items-center justify-center font-black text-2xl shadow-md border shrink-0",
                             isReady ? "bg-green-500 text-white border-green-400" : "bg-accent text-muted-foreground border-border"
                           )}>
                             {item.cantidad}
                           </div>
-                          <div className="min-w-0 pr-2 pt-0.5">
-                            <p className="font-bold text-base leading-tight truncate text-foreground">{item.nombre}</p>
-                            <div className="flex items-center gap-2 mt-1.5">
-                              {isReady ? (
-                                <Badge className="bg-green-600 text-white animate-pulse text-[8px] uppercase font-black px-2 py-0 border-none">¡LISTO!</Badge>
-                              ) : (
-                                <Badge variant="outline" className="text-[8px] uppercase font-bold opacity-60 bg-background/30 px-2 py-0">En Cocina</Badge>
-                              )}
-                              <span className="text-[9px] text-muted-foreground flex items-center gap-1 font-bold uppercase tracking-wider">
-                                {(() => {
-                                  const m = mesas.find(x => x.id === item.mesaId);
-                                  return m ? (m.zona === 'Para Llevar' ? 'Llevar' : `Mesa ${m.numero}`) : `Mesa ${item.mesaId}`;
-                                })()}
-                              </span>
-                            </div>
+                          <div className="min-w-0 pr-2">
+                            <p className="font-black text-lg md:text-xl leading-tight text-foreground">{item.nombre}</p>
                           </div>
                         </div>
                       </div>
                       
                       <div className="p-4 space-y-3">
-                        <div className="flex flex-col rounded-lg border border-border/50 overflow-hidden">
-                          <div className="flex justify-between items-center bg-background/50 p-2 border-b border-border/50">
-                            <span className="text-[10px] font-black uppercase text-muted-foreground">Mesa Destino:</span>
-                            <span className="text-lg font-headline font-black text-primary">
-                              {(() => {
-                                const m = mesas.find(x => x.id === item.mesaId);
-                                return m ? (m.zona === 'Para Llevar' ? 'LLEVAR' : `MESA ${m.numero}`) : `MESA ${item.mesaId}`;
-                              })()}
-                            </span>
-                          </div>
-                          <div className="flex justify-between items-center bg-accent/10 p-2">
-                            <span className="text-[9px] font-bold uppercase text-muted-foreground">Mesero:</span>
-                            <span className="text-[10px] font-bold text-foreground">
-                              {usuarios.find(u => u.id === item.meseroId)?.nombre || "Desconocido"}
-                            </span>
-                          </div>
-                        </div>
 
                         {item.notas && (
                           <div className="text-[10px] text-primary italic bg-primary/5 p-2 rounded-lg border border-primary/10">

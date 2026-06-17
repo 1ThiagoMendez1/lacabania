@@ -53,12 +53,14 @@ export async function printKitchenTickets(
       data.push('\x1B\x40'); // Inicializar impresora
       data.push('\x1B\x61\x01'); // Centrar texto
       
+      data.push('\x1B\x21\x38'); // Doble ancho + Doble alto + Negrita
       if (isParaLlevar) {
-        data.push('\x1B\x21\x38'); // Doble ancho + Doble alto + Negrita
         data.push('*** PARA LLEVAR ***\n\n');
-        data.push('\x1B\x21\x00'); // Volver a tamaño normal
-        data.push('\x1B\x61\x01'); // Centrar
+      } else {
+        data.push(`*** MESA ${mesaNumero} ***\n\n`);
       }
+      data.push('\x1B\x21\x00'); // Volver a tamaño normal
+      data.push('\x1B\x61\x01'); // Centrar
 
       data.push('\x1B\x21\x18'); // Doble altura + Negrita
       data.push(`PEDIDO ${orderIdStr}\n`);
@@ -165,6 +167,15 @@ export async function printModificacionTicket(
       data.push(' MODIFICACION \n\n');
       data.push('\x1B\x21\x00');
       data.push('\x1D\x42\x00'); // Invertido OFF
+
+      data.push('\x1B\x61\x01'); // Centrar texto
+      data.push('\x1B\x21\x38'); // Doble ancho + Doble alto + Negrita
+      if (isParaLlevar) {
+        data.push('*** PARA LLEVAR ***\n\n');
+      } else {
+        data.push(`*** MESA ${mesaNumero} ***\n\n`);
+      }
+      data.push('\x1B\x21\x00'); // Volver a tamaño normal
 
       data.push('\x1B\x61\x00'); // Izquierda
       data.push('\x1B\x21\x18'); // Doble altura + Negrita

@@ -43,10 +43,7 @@ export const ALL_MENU_ITEMS = [
   { icon: Lock, label: "Cierre Diario", href: "/cierre" },
   { icon: Map, label: "Mesas", href: "/mesas" },
   { icon: UtensilsCrossed, label: "Entregas", href: "/entregas" },
-  { icon: Flame, label: "Asado", href: "/estaciones/asado" },
-  { icon: Utensils, label: "Parrilla", href: "/estaciones/parrilla" },
-  { icon: ChefHat, label: "Cocina", href: "/estaciones/cocina" },
-  { icon: Beer, label: "Bar", href: "/estaciones/bar" },
+
   { icon: CircleDollarSign, label: "Caja", href: "/caja" },
   { icon: ClipboardList, label: "Menú Carta", href: "/menu" },
   { icon: Package, label: "Inventario", href: "/inventario" },
