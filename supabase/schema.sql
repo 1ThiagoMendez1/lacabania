@@ -101,6 +101,7 @@ CREATE TABLE public.ordenes (
     factura_electronica_id TEXT,
     cliente_nombre TEXT,
     cliente_documento TEXT,
+    propina NUMERIC DEFAULT 0,
     consecutivo SERIAL,
     created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
     updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW()

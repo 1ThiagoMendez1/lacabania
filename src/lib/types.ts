@@ -84,6 +84,7 @@ export interface Orden {
   clienteFE?: ClienteFE;
   facturaElectronicaId?: string;
   clienteNombre?: string;
+  propina?: number;
   rating?: number;
   ratingObservacion?: string;
   createdAt: string;

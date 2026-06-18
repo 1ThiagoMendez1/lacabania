@@ -245,3 +245,100 @@ export async function printModificacionTicket(
     }
   }
 }
+
+export async function printReceiptTicket(
+  orden: any,
+  meseroNombre: string
+): Promise<void> {
+  const store = usePOSStore.getState();
+  const { printTicket, printerMappings } = store;
+
+  const printerName = printerMappings['CAJA'];
+  if (!printerName) {
+    throw new Error('No hay impresora configurada para la CAJA. Por favor configúrala en "Configuración > Impresoras".');
+  }
+
+  try {
+    const data: any[] = [];
+    const orderIdStr = getOrderIdentifier({ mesaId: orden.mesaId, consecutivo: orden.consecutivo, id: orden.id });
+    const dateStr = new Date(orden.updatedAt).toLocaleDateString('es-CO');
+    const timeStr = new Date(orden.updatedAt).toLocaleTimeString('es-CO', { hour: '2-digit', minute: '2-digit' });
+
+    data.push('\x1B\x40'); // Init
+    data.push('\x1B\x61\x01'); // Center
+    
+    // Header
+    data.push('\x1B\x21\x18'); // Doble altura + Negrita
+    data.push('ASADERO Y RESTAURANTE\nLA CABANA\n');
+    data.push('\x1B\x21\x00'); // Normal
+    data.push('--------------------------------\n');
+    data.push(`PEDIDO: ${orderIdStr}\n`);
+    data.push('--------------------------------\n');
+    data.push('NIT: 1070386281\n');
+    data.push('Calle 6 #4-71\n');
+
+    if (orden.clienteFE) {
+       data.push('\x1B\x21\x08'); // Negrita
+       data.push('\nFACTURA ELECTRONICA\n');
+       data.push('\x1B\x21\x00');
+       data.push(`CLIENTE: ${orden.clienteFE.nombre}\n`);
+       data.push(`NIT/CC: ${orden.clienteFE.numeroDocumento}\n`);
+    }
+
+    data.push('\x1B\x61\x00'); // Left align
+    data.push('\n--------------------------------\n');
+    data.push(`FECHA:  ${dateStr} ${timeStr}\n`);
+    data.push(`MESERO: ${meseroNombre}\n`);
+    data.push('--------------------------------\n');
+
+    // Items
+    data.push('\x1B\x45\x01'); // Bold
+    data.push('CANT PRODUCTO             TOTAL\n');
+    data.push('\x1B\x45\x00'); // Unbold
+    data.push('--------------------------------\n');
+
+    let subtotal = 0;
+    for (const item of orden.items) {
+      if (item.estado === 'CANCELADO') continue;
+      const totalItem = item.cantidad * item.precioUnitario;
+      subtotal += totalItem;
+
+      const qtyStr = item.cantidad.toString().padEnd(3, ' ');
+      // truncate name to 18 chars, pad right
+      const nameStr = item.nombre.substring(0, 18).padEnd(18, ' ');
+      // pad price to left
+      const priceStr = `$${totalItem.toLocaleString('es-CO')}`.padStart(9, ' ');
+      
+      data.push(`${qtyStr} ${nameStr} ${priceStr}\n`);
+    }
+
+    data.push('--------------------------------\n');
+    data.push('\x1B\x61\x02'); // Right align
+    data.push(`SUBTOTAL: $${subtotal.toLocaleString('es-CO')}\n`);
+    if (orden.propina) {
+      data.push(`SERVICIO (PROPINA): $${orden.propina.toLocaleString('es-CO')}\n`);
+    }
+    
+    data.push('\x1B\x21\x18'); // Doble altura + Negrita
+    const totalFinal = subtotal + (orden.propina || 0);
+    data.push(`TOTAL: $${totalFinal.toLocaleString('es-CO')}\n`);
+    data.push('\x1B\x21\x00'); // Normal
+
+    data.push('\x1B\x61\x01'); // Center
+    data.push('\n--------------------------------\n');
+    data.push(`PAGADO: ${orden.metodoPago || 'N/A'}\n\n`);
+    
+    data.push('\x1B\x45\x01'); // Bold
+    data.push('"Gracias por preferir el sabor\ndel barril"\n');
+    data.push('\x1B\x45\x00'); // Unbold
+
+    // Avance y corte
+    data.push('\n\n\n\n\x1D\x56\x41\x10');
+
+    await printTicket('CAJA', data);
+    console.log(`[Impresión] Factura ${orderIdStr} enviada exitosamente a la impresora CAJA (${printerName}).`);
+  } catch (error) {
+    console.error(`Error al imprimir factura en CAJA:`, error);
+    throw error;
+  }
+}

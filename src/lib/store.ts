@@ -52,7 +52,7 @@ interface POSState {
   addMenuItem: (item: MenuItem) => Promise<void>;
   updateMenuItem: (id: string, updates: Partial<MenuItem>) => Promise<void>;
   deleteMenuItem: (id: string) => Promise<void>;
-  closeOrden: (ordenId: string, mesaId: number, metodoPago: MetodoPago, incluyePropina?: boolean) => Promise<void>;
+  closeOrden: (ordenId: string, mesaId: number, metodoPago: MetodoPago, propina?: number) => Promise<void>;
   togglePermiso: (rol: Rol, menuLabel: string) => Promise<void>;
   setCajaCerrada: (cerrada: boolean) => void;
   setFechaOperativa: (fecha: string) => void;
@@ -907,7 +907,7 @@ export const usePOSStore = create<POSState>((set, get) => ({
     const { error } = await supabase.from('menu_items').delete().eq('id', id);
     if (error) console.error("Error al eliminar menu item de Supabase:", error);
   },
-  closeOrden: async (ordenId, mesaId, metodoPago, incluyePropina) => {
+  closeOrden: async (ordenId, mesaId, metodoPago, propina) => {
     const activeFecha = get().fechaOperativa;
     
     // Construct local timestamp matching the active operational date
@@ -925,17 +925,15 @@ export const usePOSStore = create<POSState>((set, get) => ({
       ? `${activeFecha}T${timePart}.${ms}${timezoneOffsetStr}`
       : new Date().toISOString();
 
-    const tipMeta = incluyePropina === false ? 'SIN_PROPINA' : 'CON_PROPINA';
-
     set((state) => ({
-      ordenes: state.ordenes.map(o => o.id === ordenId ? { ...o, estado: 'CERRADA', metodoPago, clienteNombre: tipMeta, updatedAt: operationalTimestamp } : o),
+      ordenes: state.ordenes.map(o => o.id === ordenId ? { ...o, estado: 'CERRADA', metodoPago, propina, updatedAt: operationalTimestamp } : o),
       mesas: state.mesas.map(m => m.id === mesaId ? { ...m, estado: 'LIBRE', meseroId: undefined, ordenActivaId: undefined } : m)
     }));
     const [orderRes, mesaRes] = await Promise.all([
       supabase.from('ordenes').update({ 
         estado: 'CERRADA', 
         metodo_pago: metodoPago, 
-        cliente_nombre: tipMeta,
+        propina: propina || 0,
         updated_at: operationalTimestamp 
       }).eq('id', ordenId),
       supabase.from('mesas').update({ estado: 'LIBRE', mesero_id: null, orden_activa_id: null }).eq('id', mesaId)

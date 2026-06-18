@@ -31,6 +31,9 @@ import { Badge } from "@/components/ui/badge";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { useState, useEffect } from "react";
 import { cn, getOrderIdentifier, parseCurrencyInput, formatCurrencyInput } from "@/lib/utils";
+import { format } from "date-fns";
+import { es } from "date-fns/locale";
+import { printReceiptTicket } from "@/lib/printHelper";
 import { useToast } from "@/hooks/use-toast";
 import { Separator } from "@/components/ui/separator";
 import { MetodoPago, Orden, ClienteFE, TipoDocumentoFE } from "@/lib/types";
@@ -61,7 +64,8 @@ export default function CajaPage() {
   const [metodoPago, setMetodoPago] = useState<MetodoPago | null>(null);
   const [showReceipt, setShowReceipt] = useState(false);
   const [lastClosedOrden, setLastClosedOrden] = useState<Orden | null>(null);
-  const [incluirPropina, setIncluirPropina] = useState(true);
+  const [propinaPersonalizada, setPropinaPersonalizada] = useState<string>("");
+  const [hasPrinted, setHasPrinted] = useState(false);
   
   const [isGastoDialogOpen, setIsGastoDialogOpen] = useState(false);
   const [gastoCategoria, setGastoCategoria] = useState("Insumos");
@@ -102,7 +106,7 @@ export default function CajaPage() {
   }, []);
 
   useEffect(() => {
-    setIncluirPropina(true);
+    setPropinaPersonalizada("");
     setSelectedRating(0);
     setRatingObservation("");
     setIsSubmittingRating(false);
@@ -128,8 +132,8 @@ export default function CajaPage() {
   const subtotal = (activeOrden?.items || [])
     .filter(item => item.estado !== 'CANCELADO')
     .reduce((acc, item) => acc + (item.precioUnitario * item.cantidad), 0);
-  const propinaSugerida = incluirPropina ? subtotal * 0.10 : 0;
-  const total = subtotal + propinaSugerida;
+  const propinaAplicada = Number(propinaPersonalizada) || 0;
+  const total = subtotal + propinaAplicada;
 
   const selectedMesa = mesas.find(m => m.id === selectedMesaId);
   const isParaLlevar = selectedMesa?.zona === 'Para Llevar';
@@ -169,7 +173,7 @@ export default function CajaPage() {
       metodoPago, 
       estado: 'CERRADA' as const,
       clienteFE: requireFE ? clienteFE : undefined,
-      clienteNombre: incluirPropina ? 'CON_PROPINA' : 'SIN_PROPINA'
+      propina: propinaAplicada
     };
     
     const mesaLabel = getOrderIdentifier({ 
@@ -179,8 +183,9 @@ export default function CajaPage() {
     });
 
     setLastClosedOrden(ordenToClose);
-    closeOrden(activeOrden.id, selectedMesaId, metodoPago, incluirPropina);
+    closeOrden(activeOrden.id, selectedMesaId, metodoPago, propinaAplicada);
     
+    setHasPrinted(false);
     setSelectedMesaId(null);
     setMetodoPago(null);
     setRequireFE(false);
@@ -192,9 +197,16 @@ export default function CajaPage() {
     });
   };
 
-  const handlePrint = () => {
-    window.print();
-    toast({ title: "Imprimiendo...", description: "Enviando ticket a la impresora configurada." });
+  const handlePrint = async () => {
+    if (!lastClosedOrden) return;
+    try {
+      const mesero = usuarios.find(u => u.id === lastClosedOrden.meseroId)?.nombre || 'N/A';
+      await printReceiptTicket(lastClosedOrden, mesero);
+      setHasPrinted(true);
+      toast({ title: "Factura impresa", description: "El recibo se envió a la impresora de CAJA correctamente." });
+    } catch (err: any) {
+      toast({ variant: "destructive", title: "Error de Impresión", description: err.message || "Revisa la configuración de la impresora." });
+    }
   };
 
   return (
@@ -498,10 +510,20 @@ export default function CajaPage() {
                           </div>
                           <div className="flex justify-between text-muted-foreground text-sm items-center">
                             <div className="flex items-center gap-2">
-                              <span className="font-bold">Servicio (10%)</span>
-                              <Switch checked={incluirPropina} onCheckedChange={setIncluirPropina} className="scale-75" />
+                              <span className="font-bold">Servicio (Propina)</span>
                             </div>
-                            <span className="font-mono font-bold">${propinaSugerida.toLocaleString('es-CO')}</span>
+                            <div className="flex items-center">
+                              <span className="mr-1 text-muted-foreground">$</span>
+                              <Input 
+                                className="w-24 h-8 text-right font-mono font-bold text-sm bg-background/50 border-border/50" 
+                                value={propinaPersonalizada ? formatCurrencyInput(Number(propinaPersonalizada)) : ""} 
+                                placeholder="0"
+                                onChange={(e) => {
+                                  const val = parseCurrencyInput(e.target.value);
+                                  setPropinaPersonalizada(val === 0 && e.target.value === '' ? '' : val.toString());
+                                }}
+                              />
+                            </div>
                           </div>
                         </div>
 
@@ -554,7 +576,13 @@ export default function CajaPage() {
         </div>
       </div>
 
-      <Dialog open={showReceipt} onOpenChange={setShowReceipt}>
+      <Dialog open={showReceipt} onOpenChange={(open) => {
+        if (!open && !hasPrinted) {
+          toast({ variant: "destructive", title: "Acción Requerida", description: "Debes imprimir la factura para poder continuar." });
+          return;
+        }
+        setShowReceipt(open);
+      }}>
         <DialogContent className="max-w-[400px] p-0 overflow-hidden bg-white text-black border-none rounded-none sm:rounded-none font-mono">
           <DialogTitle className="sr-only">Recibo de Caja</DialogTitle>
           <div className="p-8 space-y-4">
@@ -637,14 +665,11 @@ export default function CajaPage() {
                   })()}
                 </span>
               </div>
-              {lastClosedOrden?.clienteNombre !== 'SIN_PROPINA' && (
+              {lastClosedOrden?.propina !== undefined && lastClosedOrden.propina > 0 && (
                 <div className="flex justify-between text-[10px]">
-                  <span>SERVICIO (10%):</span>
+                  <span>SERVICIO (PROPINA):</span>
                   <span>
-                    ${(() => {
-                      const sub = lastClosedOrden?.items.filter(i => i.estado !== 'CANCELADO').reduce((acc, i) => acc + (i.precioUnitario * i.cantidad), 0) || 0;
-                      return (sub * 0.10).toLocaleString('es-CO');
-                    })()}
+                    ${lastClosedOrden.propina.toLocaleString('es-CO')}
                   </span>
                 </div>
               )}
@@ -653,8 +678,8 @@ export default function CajaPage() {
                 <span>
                   ${(() => {
                     const sub = lastClosedOrden?.items.filter(i => i.estado !== 'CANCELADO').reduce((acc, i) => acc + (i.precioUnitario * i.cantidad), 0) || 0;
-                    const tienePropina = lastClosedOrden?.clienteNombre !== 'SIN_PROPINA';
-                    return (sub * (tienePropina ? 1.10 : 1.00)).toLocaleString('es-CO');
+                    const tienePropina = lastClosedOrden?.propina || 0;
+                    return (sub + tienePropina).toLocaleString('es-CO');
                   })()}
                 </span>
               </div>
@@ -671,7 +696,17 @@ export default function CajaPage() {
               <Button onClick={handlePrint} className="w-full bg-black text-white hover:bg-zinc-800 gap-2 font-bold">
                 <Printer className="w-4 h-4" /> IMPRIMIR
               </Button>
-              <Button variant="outline" className="border-black text-black gap-2 text-xs" onClick={() => setShowReceipt(false)}>
+              <Button 
+                variant="outline" 
+                className="border-black text-black gap-2 text-xs" 
+                onClick={() => {
+                  if (!hasPrinted) {
+                    toast({ variant: "destructive", title: "Acción Requerida", description: "Debes imprimir la factura para poder continuar." });
+                    return;
+                  }
+                  setShowReceipt(false);
+                }}
+              >
                 CERRAR
               </Button>
             </div>
