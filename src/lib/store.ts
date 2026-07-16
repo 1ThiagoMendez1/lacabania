@@ -925,16 +925,27 @@ export const usePOSStore = create<POSState>((set, get) => ({
       ? `${activeFecha}T${timePart}.${ms}${timezoneOffsetStr}`
       : new Date().toISOString();
 
-    set((state) => ({
-      ordenes: state.ordenes.map(o => o.id === ordenId ? { ...o, estado: 'CERRADA', metodoPago, propina, updatedAt: operationalTimestamp } : o),
-      mesas: state.mesas.map(m => m.id === mesaId ? { ...m, estado: 'LIBRE', meseroId: undefined, ordenActivaId: undefined } : m)
-    }));
+    set((state) => {
+      const targetOrden = state.ordenes.find(o => o.id === ordenId);
+      const updatedItems = targetOrden 
+        ? targetOrden.items.map(i => i.estado !== 'CANCELADO' ? { ...i, estado: 'ENTREGADO' as const } : i) 
+        : [];
+        
+      return {
+        ordenes: state.ordenes.map(o => o.id === ordenId ? { ...o, estado: 'CERRADA', metodoPago, propina, updatedAt: operationalTimestamp, items: updatedItems } : o),
+        mesas: state.mesas.map(m => m.id === mesaId ? { ...m, estado: 'LIBRE', meseroId: undefined, ordenActivaId: undefined } : m)
+      };
+    });
+
+    const targetOrden = get().ordenes.find(o => o.id === ordenId);
+
     const [orderRes, mesaRes] = await Promise.all([
       supabase.from('ordenes').update({ 
         estado: 'CERRADA', 
         metodo_pago: metodoPago, 
         propina: propina || 0,
-        updated_at: operationalTimestamp 
+        updated_at: operationalTimestamp,
+        items: targetOrden?.items
       }).eq('id', ordenId),
       supabase.from('mesas').update({ estado: 'LIBRE', mesero_id: null, orden_activa_id: null }).eq('id', mesaId)
     ]);

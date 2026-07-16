@@ -100,102 +100,100 @@ export default function EntregasPage() {
           </div>
         ) : (
           <ScrollArea className="flex-1">
-            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4 pb-8 pr-4">
-              {pendingItems.map((item) => {
-                const isReady = item.estado === 'LISTO';
-                const elapsed = Math.floor((new Date().getTime() - new Date(item.createdAt).getTime()) / 1000 / 60);
-
+            <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-6 pb-8 pr-4">
+              {Object.entries(
+                pendingItems.reduce((acc, item) => {
+                  if (!acc[item.mesaId]) {
+                    acc[item.mesaId] = [];
+                  }
+                  acc[item.mesaId].push(item);
+                  return acc;
+                }, {} as Record<number, typeof pendingItems>)
+              ).map(([mesaId, items]) => {
+                const mesaIdNum = parseInt(mesaId);
+                const m = mesas.find(x => x.id === mesaIdNum);
+                const isLlevar = m?.zona === 'Para Llevar' || mesaIdNum >= 101;
+                const label = isLlevar ? `PLL-${items[0]?.consecutivo || (mesaIdNum >= 101 ? mesaIdNum - 100 : mesaIdNum)}` : `MESA ${m?.numero || mesaIdNum}`;
+                
                 return (
-                  <Card 
-                    key={item.id} 
-                    className={cn(
-                      "border-none paper-texture transition-all duration-300 overflow-hidden group hover:scale-[1.02]",
-                      isReady ? "ring-2 ring-green-500 shadow-[0_0_20px_rgba(34,197,94,0.15)] bg-green-500/5" : "bg-card/40 border border-border/50"
-                    )}
-                  >
-                    <CardContent className="p-0">
-                      <div className={cn(
-                        "p-4 border-b border-border/20 flex flex-col gap-3",
-                        isReady ? "bg-green-500/10" : "bg-accent/10"
-                      )}>
-                        <div className="flex justify-between items-start w-full">
-                           <div className="flex items-center gap-2">
-                             {(() => {
-                               const m = mesas.find(x => x.id === item.mesaId);
-                               const isLlevar = m?.zona === 'Para Llevar' || item.mesaId >= 101;
-                               const label = isLlevar ? `PLL-${item.consecutivo || (item.mesaId >= 101 ? item.mesaId - 100 : item.mesaId)}` : `MESA ${m?.numero || item.mesaId}`;
-                               
-                               return (
-                                 <h3 className="font-black text-3xl md:text-4xl tracking-tighter text-primary bg-primary/10 px-3 py-1 rounded-xl border border-primary/20 shadow-sm">
-                                   {label}
-                                 </h3>
-                               );
-                             })()}
-                           </div>
-                           <div className="flex flex-col items-end gap-2">
-                             {isReady ? (
-                               <Badge className="bg-green-600 text-white animate-pulse text-xs md:text-sm uppercase font-black px-3 py-1 border-none shadow-md">¡LISTO!</Badge>
-                             ) : (
-                               <Badge className={cn(
-                                 "text-[10px] md:text-xs uppercase font-black px-3 py-1 border-none shadow-sm text-white",
-                                 item.estacion === 'ASADO' ? "bg-red-600" :
-                                 item.estacion === 'PARRILLA' ? "bg-orange-600" :
-                                 item.estacion === 'COCINA' ? "bg-amber-600" :
-                                 item.estacion === 'BAR' ? "bg-blue-600" : "bg-primary"
-                               )}>
-                                 EN {item.estacion}
-                               </Badge>
-                             )}
-                             <span className="text-[10px] font-bold text-muted-foreground/80 flex items-center gap-1 bg-background/50 px-2 py-0.5 rounded-lg border border-border/50">
-                               👨‍🍳 {usuarios.find(u => u.id === item.meseroId)?.nombre || "Desconocido"}
-                             </span>
-                           </div>
+                  <Card key={mesaId} className="bg-card/40 backdrop-blur-xl border border-white/5 rounded-[2rem] overflow-hidden h-fit flex flex-col shadow-lg">
+                    <CardHeader className="bg-accent/20 border-b border-border/20 py-4 px-5">
+                      <CardTitle className="flex justify-between items-center">
+                        <div className="flex items-center gap-3">
+                          <span className="font-black text-2xl text-primary bg-primary/10 px-4 py-1.5 rounded-xl border border-primary/20 shadow-sm">{label}</span>
                         </div>
-
-                        <div className="flex gap-3 items-center bg-background/50 p-2 rounded-xl border border-border/30">
-                          <div className={cn(
-                            "w-12 h-12 rounded-xl flex items-center justify-center font-black text-2xl shadow-md border shrink-0",
-                            isReady ? "bg-green-500 text-white border-green-400" : "bg-accent text-muted-foreground border-border"
-                          )}>
-                            {item.cantidad}
-                          </div>
-                          <div className="min-w-0 pr-2">
-                            <p className="font-black text-lg md:text-xl leading-tight text-foreground">{item.nombre}</p>
-                          </div>
+                        <div className="text-right flex flex-col items-end">
+                          <span className="text-sm font-bold text-muted-foreground bg-background/50 px-3 py-1 rounded-lg border border-border/50">
+                            {items.length} platos
+                          </span>
                         </div>
-                      </div>
-                      
-                      <div className="p-4 space-y-3">
-
-                        {item.notas && (
-                          <div className="text-[10px] text-primary italic bg-primary/5 p-2 rounded-lg border border-primary/10">
-                            "{item.notas}"
-                          </div>
-                        )}
-                        
-                        <div className="flex gap-2 pt-1">
-                          <Button 
-                            className={cn(
-                              "flex-1 h-12 font-black rounded-xl transition-all shadow-lg active:scale-95 text-base",
-                              isReady ? "bg-green-600 hover:bg-green-700 text-white glow-gold" : "bg-secondary text-secondary-foreground"
-                            )}
-                            onClick={() => updateItemEstado(item.orderId, item.id, 'ENTREGADO')}
-                          >
-                            ENTREGAR 🤠
-                          </Button>
-                          <Button
-                            variant="outline"
-                            className="h-12 w-12 shrink-0 rounded-xl border-red-500/30 text-red-500 hover:bg-red-500/10 flex items-center justify-center"
-                            onClick={() => {
-                              setCancelItemDialog(item);
-                              setCancelMotivo("");
-                              setCancelReplacementId("none");
-                            }}
-                          >
-                            <Ban className="w-5 h-5" />
-                          </Button>
-                        </div>
-                      </div>
+                      </CardTitle>
+                    </CardHeader>
+                    <CardContent className="p-3 sm:p-4 bg-black/10">
+                      <ul className="flex flex-col gap-3">
+                        {items.map(item => {
+                          const isReady = item.estado === 'LISTO';
+                          return (
+                            <li key={item.id} className="relative bg-background/50 rounded-[1.5rem] p-3.5 shadow-sm border border-white/5 transition-all flex flex-col gap-3">
+                              <div className="flex justify-between items-start gap-2">
+                                <div className="flex gap-3 items-center">
+                                  <div className={cn(
+                                    "w-11 h-11 rounded-2xl flex items-center justify-center font-black text-xl shadow-inner border shrink-0",
+                                    isReady ? "bg-green-500 text-white border-green-400" : "bg-accent/40 text-muted-foreground border-border/50"
+                                  )}>
+                                    {item.cantidad}
+                                  </div>
+                                  <div>
+                                    <p className="font-bold text-[15px] leading-tight text-foreground">{item.nombre}</p>
+                                    <div className="flex flex-wrap items-center gap-1.5 mt-1.5 text-[10px]">
+                                      <span className="font-bold bg-background/80 px-2 py-0.5 rounded border border-border/50 text-muted-foreground shadow-sm">
+                                        Cmd: {item.consecutivo || 'S/N'}
+                                      </span>
+                                      <span className={cn(
+                                        "font-black px-2 py-0.5 rounded text-white shadow-sm tracking-wider uppercase",
+                                        isReady ? "bg-green-600 animate-pulse" : 
+                                        item.estacion === 'ASADO' ? "bg-red-600" :
+                                        item.estacion === 'PARRILLA' ? "bg-orange-600" :
+                                        item.estacion === 'COCINA' ? "bg-amber-600" :
+                                        item.estacion === 'BAR' ? "bg-blue-600" : "bg-primary"
+                                      )}>
+                                        {isReady ? "LISTO" : item.estacion}
+                                      </span>
+                                    </div>
+                                  </div>
+                                </div>
+                                <button
+                                  className="p-2.5 text-red-400 hover:text-red-500 bg-red-500/10 hover:bg-red-500/20 rounded-full transition-colors shrink-0 active:scale-95"
+                                  onClick={() => {
+                                    setCancelItemDialog(item);
+                                    setCancelMotivo("");
+                                    setCancelReplacementId("none");
+                                  }}
+                                  title="Cancelar producto"
+                                >
+                                  <Ban className="w-4 h-4" />
+                                </button>
+                              </div>
+                              
+                              {item.notas && (
+                                <p className="text-[11px] text-primary font-medium italic bg-primary/10 px-3 py-1.5 rounded-lg border border-primary/10">
+                                  "{item.notas}"
+                                </p>
+                              )}
+                              
+                              <button
+                                onClick={() => updateItemEstado(item.orderId, item.id, 'ENTREGADO')}
+                                className={cn(
+                                  "w-full h-11 sm:h-12 rounded-xl font-black text-xs sm:text-sm uppercase tracking-widest transition-all shadow-sm active:scale-95 flex items-center justify-center gap-2",
+                                  isReady ? "bg-green-600 hover:bg-green-500 text-white shadow-green-900/50 glow-gold" : "bg-primary/20 text-primary hover:bg-primary/30 border border-primary/20"
+                                )}
+                              >
+                                <CheckCircle2 className="w-4 h-4 sm:w-5 sm:h-5" /> Entregar
+                              </button>
+                            </li>
+                          );
+                        })}
+                      </ul>
                     </CardContent>
                   </Card>
                 );

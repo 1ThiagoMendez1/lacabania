@@ -513,9 +513,9 @@ function MesaCard({ mesa, user, onOpenMesa, onVerPedido, onStartEdit, onToggleFu
     return (
       <>
         <Dialog open={isOpen} onOpenChange={setIsOpen}>
-          <DialogTrigger asChild>
             {isLlevar ? (
               <button
+                onClick={() => setIsOpen(true)}
                 className={cn(
                   "relative group h-32 md:h-40 rounded-3xl border transition-all duration-500 p-4 md:p-5 flex flex-col items-center justify-between overflow-hidden active:scale-95 w-full",
                   mesa.estado === 'LIBRE' 
@@ -561,6 +561,13 @@ function MesaCard({ mesa, user, onOpenMesa, onVerPedido, onStartEdit, onToggleFu
               </button>
             ) : (
               <button
+                onClick={(e) => {
+                  if (mesa.estado === 'LIBRE') {
+                    onOpenMesa(mesa.id);
+                  } else {
+                    setIsOpen(true);
+                  }
+                }}
                 className={cn(
                   "relative group h-32 md:h-40 rounded-3xl border-2 transition-all duration-500 p-4 md:p-5 flex flex-col items-center justify-between wood-texture overflow-hidden active:scale-95",
                   getStatusColor(mesa.estado),
@@ -621,7 +628,6 @@ function MesaCard({ mesa, user, onOpenMesa, onVerPedido, onStartEdit, onToggleFu
                 </div>
               </button>
             )}
-          </DialogTrigger>
           <DialogContent className="bg-card border-border text-foreground paper-texture max-w-[95vw] sm:max-w-[450px] rounded-[2.5rem] overflow-y-auto max-h-[90vh] p-0">
             <div className="relative p-4 sm:p-8 space-y-4 sm:space-y-6">
               <div className="absolute top-0 right-0 p-8 opacity-5 pointer-events-none">

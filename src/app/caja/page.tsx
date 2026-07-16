@@ -62,10 +62,8 @@ export default function CajaPage() {
   const [selectedMesaId, setSelectedMesaId] = useState<number | null>(null);
   const [searchQuery, setSearchQuery] = useState("");
   const [metodoPago, setMetodoPago] = useState<MetodoPago | null>(null);
-  const [showReceipt, setShowReceipt] = useState(false);
   const [lastClosedOrden, setLastClosedOrden] = useState<Orden | null>(null);
   const [propinaPersonalizada, setPropinaPersonalizada] = useState<string>("");
-  const [hasPrinted, setHasPrinted] = useState(false);
   
   const [isGastoDialogOpen, setIsGastoDialogOpen] = useState(false);
   const [gastoCategoria, setGastoCategoria] = useState("Insumos");
@@ -185,7 +183,6 @@ export default function CajaPage() {
     setLastClosedOrden(ordenToClose);
     closeOrden(activeOrden.id, selectedMesaId, metodoPago, propinaAplicada);
     
-    setHasPrinted(false);
     setSelectedMesaId(null);
     setMetodoPago(null);
     
@@ -205,18 +202,6 @@ export default function CajaPage() {
       title: tipoSeleccionado === 'ELECTRONICA' ? "Venta y Factura Exitosa" : "Pago Confirmado",  
       description: `${mesaLabel} procesado con éxito.` 
     });
-  };
-
-  const handlePrint = async () => {
-    if (!lastClosedOrden) return;
-    try {
-      const mesero = usuarios.find(u => u.id === lastClosedOrden.meseroId)?.nombre || 'N/A';
-      await printReceiptTicket(lastClosedOrden, mesero);
-      setHasPrinted(true);
-      toast({ title: "Factura impresa", description: "El recibo se envió a la impresora de CAJA correctamente." });
-    } catch (err: any) {
-      toast({ variant: "destructive", title: "Error de Impresión", description: err.message || "Revisa la configuración de la impresora." });
-    }
   };
 
   return (
@@ -590,144 +575,6 @@ export default function CajaPage() {
           )}
         </div>
       </div>
-
-      <Dialog open={showReceipt} onOpenChange={(open) => {
-        if (!open && !hasPrinted) {
-          toast({ variant: "destructive", title: "Acción Requerida", description: "Debes imprimir la factura para poder continuar." });
-          return;
-        }
-        setShowReceipt(open);
-      }}>
-        <DialogContent className="max-w-[400px] p-0 overflow-hidden bg-white text-black border-none rounded-none sm:rounded-none font-mono">
-          <DialogTitle className="sr-only">Recibo de Caja</DialogTitle>
-          <div className="p-8 space-y-4">
-            <div className="text-center space-y-1">
-              <div className="text-3xl mb-2">🤠</div>
-              <h1 className="text-xl font-black uppercase tracking-tighter">Asadero y Restaurante <br /> La Cabaña</h1>
-              {lastClosedOrden?.consecutivo && (
-                <div className="my-2 border border-black py-1">
-                  <p className="text-sm font-bold uppercase tracking-widest">
-                    {lastClosedOrden ? getOrderIdentifier({ mesaId: lastClosedOrden.mesaId, consecutivo: lastClosedOrden.consecutivo, id: lastClosedOrden.id }) : ''}
-                  </p>
-                </div>
-              )}
-              <p className="text-[9px]">NIT: 1070386281</p>
-              <p className="text-[9px]">Calle 6 #4-71</p>
-              
-              {lastClosedOrden?.clienteFE && (
-                <div className="mt-4 border-y border-black/10 py-2">
-                  <p className="text-[11px] font-black uppercase">Factura Electrónica</p>
-                </div>
-              )}
-            </div>
-
-            <div className="border-t border-dashed border-black/30 pt-4 space-y-1 text-[10px]">
-              <div className="flex justify-between">
-                <span>FECHA: {new Date().toLocaleDateString()}</span>
-                <span>
-                  PEDIDO: {lastClosedOrden ? getOrderIdentifier({ mesaId: lastClosedOrden.mesaId, consecutivo: lastClosedOrden.consecutivo, id: lastClosedOrden.id }) : ''}
-                </span>
-              </div>
-              {lastClosedOrden?.meseroId && (
-                <div className="flex justify-between">
-                  <span>MESERO:</span>
-                  <span className="font-bold">{usuarios.find(u => u.id === lastClosedOrden.meseroId)?.nombre || 'N/A'}</span>
-                </div>
-              )}
-              {lastClosedOrden?.clienteFE && (
-                <div className="mt-2 pt-2 border-t border-black/5">
-                  <p className="font-bold">CLIENTE: {lastClosedOrden.clienteFE.nombre}</p>
-                  <p>NIT/CC: {lastClosedOrden.clienteFE.numeroDocumento}</p>
-                </div>
-              )}
-            </div>
-
-            <div className="border-t border-dashed border-black/30 pt-4">
-              <table className="w-full text-[10px]">
-                <thead>
-                  <tr className="text-left border-b border-dashed border-black/20">
-                    <th className="pb-1 font-bold">CANT</th>
-                    <th className="pb-1 font-bold">PRODUCTO</th>
-                    <th className="pb-1 text-right font-bold">TOTAL</th>
-                  </tr>
-                </thead>
-                <tbody className="divide-y divide-dashed divide-black/10">
-                  {lastClosedOrden?.items.map((item) => {
-                    const isCancelado = item.estado === 'CANCELADO';
-                    return (
-                      <tr key={item.id} className={isCancelado ? "opacity-60 text-muted-foreground" : ""}>
-                        <td className="py-2 align-top">{item.cantidad}</td>
-                        <td className="py-2 pr-2">
-                          {isCancelado ? `(CANCELADO) ${item.nombre}` : item.nombre}
-                        </td>
-                        <td className="py-2 text-right align-top">
-                          {isCancelado ? "$0" : `$${(item.precioUnitario * item.cantidad).toLocaleString('es-CO')}`}
-                        </td>
-                      </tr>
-                    );
-                  })}
-                </tbody>
-              </table>
-            </div>
-
-            <div className="border-t border-dashed border-black/30 pt-4 space-y-1 text-xs">
-              <div className="flex justify-between text-[10px]">
-                <span>SUBTOTAL:</span>
-                <span>
-                  ${(() => {
-                    const sub = lastClosedOrden?.items.filter(i => i.estado !== 'CANCELADO').reduce((acc, i) => acc + (i.precioUnitario * i.cantidad), 0) || 0;
-                    return sub.toLocaleString('es-CO');
-                  })()}
-                </span>
-              </div>
-              {lastClosedOrden?.propina !== undefined && lastClosedOrden.propina > 0 && (
-                <div className="flex justify-between text-[10px]">
-                  <span>SERVICIO (PROPINA):</span>
-                  <span>
-                    ${lastClosedOrden.propina.toLocaleString('es-CO')}
-                  </span>
-                </div>
-              )}
-              <div className="flex justify-between font-black text-sm pt-2 border-t border-black/10">
-                <span>TOTAL:</span>
-                <span>
-                  ${(() => {
-                    const sub = lastClosedOrden?.items.filter(i => i.estado !== 'CANCELADO').reduce((acc, i) => acc + (i.precioUnitario * i.cantidad), 0) || 0;
-                    const tienePropina = lastClosedOrden?.propina || 0;
-                    return (sub + tienePropina).toLocaleString('es-CO');
-                  })()}
-                </span>
-              </div>
-            </div>
-
-            <div className="pt-4 text-center space-y-2">
-              <div className="inline-block border border-black px-4 py-1 text-[10px] font-black uppercase">
-                PAGADO: {lastClosedOrden?.metodoPago}
-              </div>
-              <p className="text-[9px] italic mt-4">"Gracias por preferir el sabor del barril"</p>
-            </div>
-
-            <div className="flex flex-col gap-2 pt-6 print:hidden">
-              <Button onClick={handlePrint} className="w-full bg-black text-white hover:bg-zinc-800 gap-2 font-bold">
-                <Printer className="w-4 h-4" /> IMPRIMIR
-              </Button>
-              <Button 
-                variant="outline" 
-                className="border-black text-black gap-2 text-xs" 
-                onClick={() => {
-                  if (!hasPrinted) {
-                    toast({ variant: "destructive", title: "Acción Requerida", description: "Debes imprimir la factura para poder continuar." });
-                    return;
-                  }
-                  setShowReceipt(false);
-                }}
-              >
-                CERRAR
-              </Button>
-            </div>
-          </div>
-        </DialogContent>
-      </Dialog>
     </main>
   );
 }
