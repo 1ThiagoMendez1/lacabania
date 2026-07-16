@@ -188,11 +188,21 @@ export default function CajaPage() {
     setHasPrinted(false);
     setSelectedMesaId(null);
     setMetodoPago(null);
+    
+    const tipoSeleccionado = tipoFactura;
     setTipoFactura('NO');
-    setShowReceipt(true);
+    
+    if (tipoSeleccionado !== 'NO') {
+      const mesero = usePOSStore.getState().usuarios.find(u => u.id === activeOrden.meseroId)?.nombre || 'N/A';
+      printReceiptTicket(ordenToClose, mesero).then(() => {
+        toast({ title: "Factura impresa", description: "El recibo se envió a la impresora." });
+      }).catch(err => {
+        toast({ variant: "destructive", title: "Error de Impresión", description: err.message || "Revisa la configuración de la impresora." });
+      });
+    }
     
     toast({ 
-      title: tipoFactura === 'ELECTRONICA' ? "Venta y Factura Exitosa" : "Pago Confirmado",  
+      title: tipoSeleccionado === 'ELECTRONICA' ? "Venta y Factura Exitosa" : "Pago Confirmado",  
       description: `${mesaLabel} procesado con éxito.` 
     });
   };
