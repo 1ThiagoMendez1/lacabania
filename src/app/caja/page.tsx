@@ -113,7 +113,7 @@ export default function CajaPage() {
   }, [selectedMesaId]);
   
   // Facturación State
-  const [tipoFactura, setTipoFactura] = useState<'NO' | 'NORMAL' | 'ELECTRONICA'>('NO');
+  const [tipoFactura, setTipoFactura] = useState<'NO' | 'RECIBO' | 'ELECTRONICA'>('NO');
   const [clienteFE, setClienteFE] = useState<ClienteFE>({
     tipoDocumento: '13',
     numeroDocumento: '',
@@ -172,7 +172,7 @@ export default function CajaPage() {
       ...activeOrden, 
       metodoPago, 
       estado: 'CERRADA' as const,
-      clienteFE: tipoFactura !== 'NO' ? clienteFE : undefined,
+      clienteFE: (tipoFactura !== 'NO' && tipoFactura !== 'RECIBO') ? clienteFE : undefined,
       propina: propinaAplicada
     };
     
@@ -192,7 +192,7 @@ export default function CajaPage() {
     setShowReceipt(true);
     
     toast({ 
-      title: tipoFactura !== 'NO' ? "Venta y Factura Exitosa" : "Pago Confirmado",  
+      title: tipoFactura === 'ELECTRONICA' ? "Venta y Factura Exitosa" : "Pago Confirmado",  
       description: `${mesaLabel} procesado con éxito.` 
     });
   };
@@ -376,12 +376,13 @@ export default function CajaPage() {
                             <SelectValue placeholder="Seleccionar tipo de factura" />
                           </SelectTrigger>
                           <SelectContent>
-                            <SelectItem value="NO">Sin Factura (Solo Recibo)</SelectItem>
+                            <SelectItem value="RECIBO">Sin Factura (Solo Recibo)</SelectItem>
                             <SelectItem value="ELECTRONICA">Factura Electrónica (DIAN)</SelectItem>
+                            <SelectItem value="NO">No requiere factura</SelectItem>
                           </SelectContent>
                         </Select>
 
-                        {tipoFactura !== 'NO' && (
+                        {tipoFactura === 'ELECTRONICA' && (
                           <div className="mt-5 space-y-4 animate-in fade-in slide-in-from-top-2 duration-300 border-t border-border/50 pt-4">
                             <div className="grid grid-cols-2 gap-3">
                               <div className="space-y-1.5">
