@@ -112,8 +112,8 @@ export default function CajaPage() {
     setIsSubmittingRating(false);
   }, [selectedMesaId]);
   
-  // Facturación Electrónica State
-  const [requireFE, setRequireFE] = useState(false);
+  // Facturación State
+  const [tipoFactura, setTipoFactura] = useState<'NO' | 'NORMAL' | 'ELECTRONICA'>('NO');
   const [clienteFE, setClienteFE] = useState<ClienteFE>({
     tipoDocumento: '13',
     numeroDocumento: '',
@@ -159,7 +159,7 @@ export default function CajaPage() {
       return;
     }
     
-    if (requireFE && (!clienteFE.numeroDocumento || !clienteFE.nombre || !clienteFE.email)) {
+    if (tipoFactura === 'ELECTRONICA' && (!clienteFE.numeroDocumento || !clienteFE.nombre || !clienteFE.email)) {
       toast({
         variant: "destructive",
         title: "Datos F.E. Incompletos",
@@ -172,7 +172,7 @@ export default function CajaPage() {
       ...activeOrden, 
       metodoPago, 
       estado: 'CERRADA' as const,
-      clienteFE: requireFE ? clienteFE : undefined,
+      clienteFE: tipoFactura !== 'NO' ? clienteFE : undefined,
       propina: propinaAplicada
     };
     
@@ -188,11 +188,11 @@ export default function CajaPage() {
     setHasPrinted(false);
     setSelectedMesaId(null);
     setMetodoPago(null);
-    setRequireFE(false);
+    setTipoFactura('NO');
     setShowReceipt(true);
     
     toast({ 
-      title: requireFE ? "Venta y Factura Exitosa" : "Pago Confirmado", 
+      title: tipoFactura !== 'NO' ? "Venta y Factura Exitosa" : "Pago Confirmado",  
       description: `${mesaLabel} procesado con éxito.` 
     });
   };
@@ -278,7 +278,7 @@ export default function CajaPage() {
                   return (
                     <button
                       key={mesa.id}
-                      onClick={() => {setSelectedMesaId(mesa.id); setMetodoPago(null); setRequireFE(false);}}
+                      onClick={() => {setSelectedMesaId(mesa.id); setMetodoPago(null); setTipoFactura('NO');}}
                       className={cn(
                         "w-full text-left p-4 rounded-xl border transition-all wood-texture group",
                         selectedMesaId === mesa.id ? "bg-secondary/20 border-secondary ring-1 ring-secondary" : "bg-card border-border hover:border-secondary/50"
@@ -365,22 +365,24 @@ export default function CajaPage() {
                   <ScrollArea className="h-full w-full">
                     <div className="p-6 lg:p-8 space-y-6 lg:space-y-8 pb-12">
                       
-                      {/* Factura Electronica */}
-                      <div className="p-5 rounded-2xl border border-border/50 bg-card shadow-sm transition-all">
-                        <div className="flex items-center justify-between">
-                          <div className="flex items-center gap-2">
-                            <FileText className="w-5 h-5 text-secondary" />
-                            <Label htmlFor="fe-toggle" className="text-sm font-bold uppercase tracking-wider cursor-pointer">Factura DIAN</Label>
-                          </div>
-                          <Switch 
-                            id="fe-toggle" 
-                            checked={requireFE} 
-                            onCheckedChange={setRequireFE} 
-                          />
+                      {/* Facturación */}
+                      <div className="p-5 rounded-2xl border border-border/50 bg-card shadow-sm transition-all space-y-4">
+                        <div className="flex items-center gap-2 mb-2">
+                          <FileText className="w-5 h-5 text-secondary" />
+                          <Label className="text-sm font-bold uppercase tracking-wider">Facturación</Label>
                         </div>
+                        <Select value={tipoFactura} onValueChange={(val) => setTipoFactura(val as any)}>
+                          <SelectTrigger className="w-full bg-background h-12 rounded-xl">
+                            <SelectValue placeholder="Seleccionar tipo de factura" />
+                          </SelectTrigger>
+                          <SelectContent>
+                            <SelectItem value="NO">Sin Factura (Solo Recibo)</SelectItem>
+                            <SelectItem value="ELECTRONICA">Factura Electrónica (DIAN)</SelectItem>
+                          </SelectContent>
+                        </Select>
 
-                        {requireFE && (
-                          <div className="mt-5 space-y-4 animate-in fade-in slide-in-from-top-2 duration-300">
+                        {tipoFactura !== 'NO' && (
+                          <div className="mt-5 space-y-4 animate-in fade-in slide-in-from-top-2 duration-300 border-t border-border/50 pt-4">
                             <div className="grid grid-cols-2 gap-3">
                               <div className="space-y-1.5">
                                 <Label className="text-[10px] uppercase font-bold text-muted-foreground">Tipo Doc.</Label>
@@ -402,19 +404,21 @@ export default function CajaPage() {
                               </div>
                             </div>
                             <div className="space-y-1.5">
-                              <Label className="text-[10px] uppercase font-bold text-muted-foreground">Razón Social</Label>
+                              <Label className="text-[10px] uppercase font-bold text-muted-foreground">Razón Social / Nombre</Label>
                               <div className="relative">
                                 <User className="absolute left-2.5 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
                                 <Input className="h-9 pl-9 text-xs bg-background" value={clienteFE.nombre} onChange={(e) => setClienteFE({...clienteFE, nombre: e.target.value})} placeholder="Ej. Juan Pérez" />
                               </div>
                             </div>
-                            <div className="space-y-1.5">
-                              <Label className="text-[10px] uppercase font-bold text-muted-foreground">Email</Label>
-                              <div className="relative">
-                                <Mail className="absolute left-2.5 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
-                                <Input className="h-9 pl-9 text-xs bg-background" value={clienteFE.email} onChange={(e) => setClienteFE({...clienteFE, email: e.target.value})} placeholder="correo@ejemplo.com" type="email" />
+                            {tipoFactura === 'ELECTRONICA' && (
+                              <div className="space-y-1.5">
+                                <Label className="text-[10px] uppercase font-bold text-muted-foreground">Email</Label>
+                                <div className="relative">
+                                  <Mail className="absolute left-2.5 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
+                                  <Input className="h-9 pl-9 text-xs bg-background" value={clienteFE.email} onChange={(e) => setClienteFE({...clienteFE, email: e.target.value})} placeholder="correo@ejemplo.com" type="email" />
+                                </div>
                               </div>
-                            </div>
+                            )}
                           </div>
                         )}
                       </div>
@@ -540,7 +544,7 @@ export default function CajaPage() {
                             disabled={!metodoPago || isCajaCerrada || ratingPendiente} 
                             onClick={handleCerrarCuenta}
                           >
-                            {isCajaCerrada ? "CAJA CERRADA" : (ratingPendiente ? "PENDIENTE CALIFICAR" : (metodoPago ? (requireFE ? 'EMITIR FACTURA DIAN' : `CONFIRMAR PAGO EN ${metodoPago}`) : 'SELECCIONA MÉTODO DE PAGO'))}
+                            {isCajaCerrada ? "CAJA CERRADA" : (ratingPendiente ? "PENDIENTE CALIFICAR" : (metodoPago ? (tipoFactura === 'ELECTRONICA' ? 'EMITIR FACTURA DIAN' : `CONFIRMAR PAGO EN ${metodoPago}`) : 'SELECCIONA MÉTODO DE PAGO'))}
                           </Button>
                         </div>
                       </div>

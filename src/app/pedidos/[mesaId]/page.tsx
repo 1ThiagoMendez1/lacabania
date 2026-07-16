@@ -107,7 +107,6 @@ export default function OrderPage() {
   const [cart, setCart] = useState<CartItem[]>([]);
   const [showConfirmDialog, setShowConfirmDialog] = useState(false);
   const [payImmediately, setPayImmediately] = useState(false);
-  const [requiereFactura, setRequiereFactura] = useState(false);
   
   const [noteEditingItem, setNoteEditingItem] = useState<CartItem | null>(null);
   const [tempNote, setTempNote] = useState("");
@@ -585,17 +584,6 @@ export default function OrderPage() {
           <div className="flex justify-between items-center mb-4 px-1">
             <span className="text-xs font-black uppercase text-muted-foreground">Total</span>
             <span className="text-2xl font-black text-secondary">${cartTotal.toLocaleString()}</span>
-          </div>
-
-          <div className="flex items-center justify-between px-3 py-3 mb-4 bg-accent/20 rounded-xl border border-border/50">
-            <Label htmlFor="factura-switch" className="text-sm font-bold flex flex-col gap-1 cursor-pointer">
-              <span>¿Requiere factura?</span>
-            </Label>
-            <Switch 
-              id="factura-switch" 
-              checked={requiereFactura}
-              onCheckedChange={setRequiereFactura}
-            />
           </div>
 
           <AlertDialogFooter className="gap-2 sm:gap-3">

@@ -9,6 +9,13 @@ export const metadata: Metadata = {
   description: 'Sistema POS especializado para La Cabaña - Carne al Barril y Parrilla',
 };
 
+export const viewport = {
+  width: 'device-width',
+  initialScale: 1,
+  maximumScale: 1,
+  userScalable: false,
+};
+
 export default function RootLayout({
   children,
 }: Readonly<{

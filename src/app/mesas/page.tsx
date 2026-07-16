@@ -344,22 +344,22 @@ export default function MesasPage() {
       )}
 
       <Tabs defaultValue={user?.rol === 'CAJERO' ? "paraLlevar" : "piso1"} className="w-full">
-        <TabsList className="bg-accent/30 border border-border p-1 h-12 mb-6 w-full sm:w-auto overflow-x-auto overflow-y-hidden">
+        <TabsList className="bg-accent/30 border border-border p-1 h-auto min-h-[3rem] mb-6 w-full sm:w-auto flex flex-nowrap overflow-x-auto overflow-y-hidden justify-start sm:justify-center [&::-webkit-scrollbar]:hidden">
           {user?.rol !== 'CAJERO' && (
             <>
-              <TabsTrigger value="piso1" className="flex-1 sm:flex-none data-[state=active]:bg-primary data-[state=active]:text-white gap-2 px-6">
-                <Layers className="w-4 h-4" />
+              <TabsTrigger value="piso1" className="flex-1 sm:flex-none min-w-max data-[state=active]:bg-primary data-[state=active]:text-white gap-2 px-6">
+                <Layers className="w-4 h-4 shrink-0" />
                 1er Piso
               </TabsTrigger>
-              <TabsTrigger value="piso2" className="flex-1 sm:flex-none data-[state=active]:bg-secondary data-[state=active]:text-secondary-foreground gap-2 px-6">
-                <Layers className="w-4 h-4" />
+              <TabsTrigger value="piso2" className="flex-1 sm:flex-none min-w-max data-[state=active]:bg-secondary data-[state=active]:text-secondary-foreground gap-2 px-6">
+                <Layers className="w-4 h-4 shrink-0" />
                 2do Piso
               </TabsTrigger>
             </>
           )}
           {user?.rol !== 'MESERO' && (
-            <TabsTrigger value="paraLlevar" className="flex-1 sm:flex-none data-[state=active]:bg-amber-600 data-[state=active]:text-white gap-2 px-6">
-              <Layers className="w-4 h-4" />
+            <TabsTrigger value="paraLlevar" className="flex-1 sm:flex-none min-w-max data-[state=active]:bg-amber-600 data-[state=active]:text-white gap-2 px-6">
+              <Layers className="w-4 h-4 shrink-0" />
               Para Llevar
             </TabsTrigger>
           )}
@@ -530,16 +530,15 @@ function MesaCard({ mesa, user, onOpenMesa, onVerPedido, onStartEdit, onToggleFu
                   <ShoppingBag className="w-20 h-20 md:w-28 md:h-28 text-current" />
                 </div>
 
-                {actualMeseroNombre && mesa.estado !== 'LIBRE' && mesa.estado !== 'FUERA SERVICIO' && (
-                  <div className="absolute top-3 left-1/2 -translate-x-1/2 z-20 flex items-center gap-1 bg-emerald-500 text-white px-2 py-0.5 md:px-3 md:py-1 rounded-full text-[9px] md:text-xs font-black shadow-lg shadow-emerald-500/30 ring-1 ring-white/20 whitespace-nowrap">
-                    <UserCircle className="w-3 h-3 md:w-3.5 md:h-3.5" /> <span className="truncate max-w-[100px] md:max-w-[120px]">{actualMeseroNombre}</span>
-                  </div>
-                )}
-                
-                <div className="w-full flex justify-between items-start z-10">
+                <div className="w-full flex flex-wrap justify-between items-start z-10 gap-1">
                   <span className="text-[7px] md:text-[8px] font-mono font-black px-2 py-0.5 rounded-lg bg-amber-500/15 border border-amber-500/20 text-amber-500 uppercase tracking-widest">
                     LLEVAR
                   </span>
+                  {actualMeseroNombre && mesa.estado !== 'LIBRE' && mesa.estado !== 'FUERA SERVICIO' && (
+                    <span className="text-[7px] md:text-[8px] font-mono font-black px-1.5 py-0.5 rounded-lg bg-emerald-500/20 border border-emerald-500/30 text-emerald-500 flex items-center gap-1 shadow-sm">
+                      <UserCircle className="w-2.5 h-2.5" /> <span className="truncate max-w-[60px] md:max-w-[80px]">{actualMeseroNombre.split(' ')[0]}</span>
+                    </span>
+                  )}
                 </div>
 
                 <div className="flex flex-col items-center gap-0.5 md:gap-1 z-10">
@@ -578,14 +577,8 @@ function MesaCard({ mesa, user, onOpenMesa, onVerPedido, onStartEdit, onToggleFu
                   )}
                 </div>
 
-                {actualMeseroNombre && mesa.estado !== 'LIBRE' && mesa.estado !== 'FUERA SERVICIO' && (
-                  <div className="absolute top-3 left-1/2 -translate-x-1/2 z-20 flex items-center gap-1 bg-emerald-500 text-white px-2 py-0.5 md:px-3 md:py-1 rounded-full text-[9px] md:text-xs font-black shadow-lg shadow-emerald-500/30 ring-1 ring-white/20 whitespace-nowrap">
-                    <UserCircle className="w-3 h-3 md:w-3.5 md:h-3.5" /> <span className="truncate max-w-[100px] md:max-w-[120px]">{actualMeseroNombre}</span>
-                  </div>
-                )}
-                
                 <div className="w-full flex justify-between items-start z-10">
-                  <div className="flex items-center gap-1">
+                  <div className="flex flex-wrap items-center gap-1">
                     <span className="text-[8px] md:text-[9px] font-mono font-black px-2 py-0.5 md:px-2.5 md:py-1 rounded-lg bg-background/40 backdrop-blur-sm border border-current/20">
                       {mesa.zona === 'Primer Piso' ? '1er' : '2do'}
                     </span>
@@ -594,11 +587,15 @@ function MesaCard({ mesa, user, onOpenMesa, onVerPedido, onStartEdit, onToggleFu
                         <Lock className="w-2.5 h-2.5" /> <span>BLOQ</span>
                       </span>
                     )}
-                    {(user?.rol === 'MESERO' && mesa.meseroId === user.id) && (
+                    {(user?.rol === 'MESERO' && mesa.meseroId === user.id) ? (
                       <span className="text-[8px] md:text-[9px] font-mono font-black px-1.5 py-0.5 md:px-2 md:py-0.5 rounded-lg bg-green-500/20 border border-green-500/30 text-green-500 flex items-center gap-1 shadow-sm">
                         <UserCircle className="w-2.5 h-2.5" /> <span>TU MESA</span>
                       </span>
-                    )}
+                    ) : (actualMeseroNombre && mesa.estado !== 'LIBRE' && mesa.estado !== 'FUERA SERVICIO') ? (
+                      <span className="text-[8px] md:text-[9px] font-mono font-black px-1.5 py-0.5 md:px-2 md:py-0.5 rounded-lg bg-emerald-500/20 border border-emerald-500/30 text-emerald-500 flex items-center gap-1 shadow-sm">
+                        <UserCircle className="w-2.5 h-2.5" /> <span className="truncate max-w-[60px] md:max-w-[80px]">{actualMeseroNombre.split(' ')[0]}</span>
+                      </span>
+                    ) : null}
                   </div>
                   <div className="flex items-center gap-1.5">
                     {activeOrder && activeOrder.consecutivo && (
@@ -625,8 +622,8 @@ function MesaCard({ mesa, user, onOpenMesa, onVerPedido, onStartEdit, onToggleFu
               </button>
             )}
           </DialogTrigger>
-          <DialogContent className="bg-card border-border text-foreground paper-texture max-w-[95vw] sm:max-w-[450px] rounded-[2.5rem] overflow-hidden p-0">
-            <div className="relative p-6 sm:p-8 space-y-6">
+          <DialogContent className="bg-card border-border text-foreground paper-texture max-w-[95vw] sm:max-w-[450px] rounded-[2.5rem] overflow-y-auto max-h-[90vh] p-0">
+            <div className="relative p-4 sm:p-8 space-y-4 sm:space-y-6">
               <div className="absolute top-0 right-0 p-8 opacity-5 pointer-events-none">
                 <UtensilsCrossed className="w-32 h-32" />
               </div>
@@ -689,7 +686,7 @@ function MesaCard({ mesa, user, onOpenMesa, onVerPedido, onStartEdit, onToggleFu
                   </div>
                   
                   {/* Contenido Desplazable sin barra de scroll */}
-                  <div className="max-h-[350px] overflow-y-auto p-4 sm:px-5 sm:py-4 [&::-webkit-scrollbar]:hidden [-ms-overflow-style:none] [scrollbar-width:none]">
+                  <div className="max-h-[35vh] overflow-y-auto p-4 sm:px-5 sm:py-4 [&::-webkit-scrollbar]:hidden [-ms-overflow-style:none] [scrollbar-width:none]">
                     <ul className="space-y-4">
                       {activeOrder.items.map((item: any, index: number) => (
                         <li key={item.id || index} 
