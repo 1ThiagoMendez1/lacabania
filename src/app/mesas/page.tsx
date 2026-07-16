@@ -3,8 +3,10 @@
 
 import { usePOSStore } from "@/lib/store";
 import { Badge } from "@/components/ui/badge";
-import { cn, getOrderIdentifier } from "@/lib/utils";
+import { cn, getOrderIdentifier, uuidv4 } from "@/lib/utils";
 import { Clock, Users, UtensilsCrossed, PlusCircle, Edit, Ban, CheckCircle, Layers, AlertCircle, MapPin, Activity, Info, Map, Trash2, ShoppingBag, Star, Lock, UserCircle } from "lucide-react";
+import { printModificacionTicket } from "@/lib/printHelper";
+import { SearchableSelect } from "@/components/ui/searchable-select";
 import { 
   Dialog, 
   DialogContent, 
@@ -491,12 +493,19 @@ export default function MesasPage() {
 }
 
 function MesaCard({ mesa, user, onOpenMesa, onVerPedido, onStartEdit, onToggleFueraServicio, onDeleteMesa, getStatusColor, ordenes }: any) {
-    const { isCajaCerrada, updateOrden, usuarios } = usePOSStore();
+    const { isCajaCerrada, updateOrden, usuarios, cancelarItemOrden, menuItems, fechaOperativa } = usePOSStore();
     const router = useRouter();
+    const { toast } = useToast();
     const activeOrder = ordenes.find((o: Orden) => o.mesaId === mesa.id && o.estado === 'ABIERTA');
     const isMesaOwnedByOther = user?.rol === 'MESERO' && mesa.meseroId && mesa.meseroId !== user.id;
-    const ownerMeseroNombre = (mesa.meseroId && usuarios.find((u: any) => u.id === mesa.meseroId)?.nombre) || "otro mesero";
+    const meseroEncontrado = mesa.meseroId ? usuarios.find((u: any) => u.id === mesa.meseroId) : null;
+    const ownerMeseroNombre = meseroEncontrado?.nombre || "otro mesero";
+    const actualMeseroNombre = meseroEncontrado?.nombre;
     const [isOpen, setIsOpen] = useState(false);
+    const [isModifying, setIsModifying] = useState(false);
+    const [cancelItemDialog, setCancelItemDialog] = useState<ItemOrden | null>(null);
+    const [cancelMotivo, setCancelMotivo] = useState("");
+    const [cancelReplacementId, setCancelReplacementId] = useState<string>("none");
 
     const isLlevar = mesa.zona === 'Para Llevar';
     const orderNum = mesa.id >= 101 ? mesa.id - 100 : mesa.id;
@@ -520,6 +529,12 @@ function MesaCard({ mesa, user, onOpenMesa, onVerPedido, onStartEdit, onToggleFu
                 <div className="absolute -bottom-4 -right-4 p-3 opacity-[0.06] group-hover:scale-110 group-hover:opacity-10 transition-all duration-500 pointer-events-none">
                   <ShoppingBag className="w-20 h-20 md:w-28 md:h-28 text-current" />
                 </div>
+
+                {actualMeseroNombre && mesa.estado !== 'LIBRE' && mesa.estado !== 'FUERA SERVICIO' && (
+                  <div className="absolute top-3 left-1/2 -translate-x-1/2 z-20 flex items-center gap-1 bg-emerald-500 text-white px-2 py-0.5 md:px-3 md:py-1 rounded-full text-[9px] md:text-xs font-black shadow-lg shadow-emerald-500/30 ring-1 ring-white/20 whitespace-nowrap">
+                    <UserCircle className="w-3 h-3 md:w-3.5 md:h-3.5" /> <span className="truncate max-w-[100px] md:max-w-[120px]">{actualMeseroNombre}</span>
+                  </div>
+                )}
                 
                 <div className="w-full flex justify-between items-start z-10">
                   <span className="text-[7px] md:text-[8px] font-mono font-black px-2 py-0.5 rounded-lg bg-amber-500/15 border border-amber-500/20 text-amber-500 uppercase tracking-widest">
@@ -562,6 +577,12 @@ function MesaCard({ mesa, user, onOpenMesa, onVerPedido, onStartEdit, onToggleFu
                     <UtensilsCrossed className="w-10 h-10 md:w-14 md:h-14" />
                   )}
                 </div>
+
+                {actualMeseroNombre && mesa.estado !== 'LIBRE' && mesa.estado !== 'FUERA SERVICIO' && (
+                  <div className="absolute top-3 left-1/2 -translate-x-1/2 z-20 flex items-center gap-1 bg-emerald-500 text-white px-2 py-0.5 md:px-3 md:py-1 rounded-full text-[9px] md:text-xs font-black shadow-lg shadow-emerald-500/30 ring-1 ring-white/20 whitespace-nowrap">
+                    <UserCircle className="w-3 h-3 md:w-3.5 md:h-3.5" /> <span className="truncate max-w-[100px] md:max-w-[120px]">{actualMeseroNombre}</span>
+                  </div>
+                )}
                 
                 <div className="w-full flex justify-between items-start z-10">
                   <div className="flex items-center gap-1">
@@ -649,6 +670,80 @@ function MesaCard({ mesa, user, onOpenMesa, onVerPedido, onStartEdit, onToggleFu
                   </p>
                 </div>
               </div>
+
+              {activeOrder && activeOrder.items && activeOrder.items.length > 0 && (
+                <div className="relative z-10 bg-gradient-to-b from-background/80 to-background/40 backdrop-blur-xl rounded-[2rem] border border-white/5 shadow-2xl overflow-hidden flex flex-col">
+                  {/* Encabezado Fijo */}
+                  <div className="flex justify-between items-center p-4 sm:px-5 sm:py-3.5 border-b border-white/10 bg-background/95 z-20 shadow-sm">
+                    <div className="flex items-center gap-2.5">
+                      <div className="p-1.5 bg-amber-500/10 rounded-lg">
+                        <ShoppingBag className="w-4 h-4 text-amber-500" />
+                      </div>
+                      <h4 className="text-[10px] sm:text-xs uppercase font-black tracking-widest bg-gradient-to-r from-amber-200 to-amber-500 bg-clip-text text-transparent">
+                        Pedido Actual
+                      </h4>
+                    </div>
+                    <Badge variant="secondary" className="text-[9px] bg-amber-500/10 text-amber-500 border border-amber-500/20 font-black px-2.5 py-0.5 rounded-full shadow-inner">
+                      {activeOrder.items.length} {activeOrder.items.length === 1 ? 'ÍTEM' : 'ÍTEMS'}
+                    </Badge>
+                  </div>
+                  
+                  {/* Contenido Desplazable sin barra de scroll */}
+                  <div className="max-h-[350px] overflow-y-auto p-4 sm:px-5 sm:py-4 [&::-webkit-scrollbar]:hidden [-ms-overflow-style:none] [scrollbar-width:none]">
+                    <ul className="space-y-4">
+                      {activeOrder.items.map((item: any, index: number) => (
+                        <li key={item.id || index} 
+                          className={cn(
+                            "flex justify-between items-center text-sm sm:text-base group relative transition-all duration-300 rounded-xl",
+                            isModifying ? "px-2 py-1.5 -mx-2 bg-red-500/5 cursor-pointer hover:bg-red-500/10 ring-1 ring-inset ring-red-500/20 active:scale-[0.98]" : ""
+                          )}
+                          onClick={() => {
+                            if (isModifying) {
+                              setCancelItemDialog(item);
+                            }
+                          }}
+                        >
+                          <div className={cn("flex gap-3 flex-1", "pr-4")}>
+                            <div className="flex-shrink-0 flex items-center justify-center w-7 h-7 bg-amber-500/15 border border-amber-500/20 text-amber-500 rounded-xl font-black text-xs shadow-sm">
+                              {item.cantidad}
+                            </div>
+                            <div className="flex flex-col justify-center">
+                              <span className="font-bold text-foreground/90 group-hover:text-amber-400 transition-colors tracking-tight">{item.nombre}</span>
+                              {item.notas && (
+                                <span className="text-[10px] text-muted-foreground italic leading-tight mt-0.5 line-clamp-2 bg-background/50 p-1.5 rounded-md border border-white/5">
+                                  {item.notas}
+                                </span>
+                              )}
+                            </div>
+                          </div>
+                          <div className="flex flex-col items-end gap-1.5 justify-center mt-1">
+                            <span className="font-black font-mono text-foreground/80 text-xs sm:text-sm">
+                              ${(item.cantidad * item.precioUnitario).toLocaleString()}
+                            </span>
+                            {isModifying ? (
+                              <div className="flex items-center gap-1 text-red-500/90 bg-red-500/10 px-2 py-1 rounded-full border border-red-500/20 shadow-sm pointer-events-none">
+                                <Edit className="w-3 h-3" /> <span className="text-[7px] font-black uppercase tracking-widest">Cambiar</span>
+                              </div>
+                            ) : (
+                              <span className={cn(
+                                "text-[7px] uppercase font-black tracking-widest px-2 py-0.5 rounded-full shadow-sm",
+                                item.estado === 'PENDIENTE' ? "bg-amber-500/20 text-amber-400 border border-amber-500/30" :
+                                item.estado === 'EN PREPARACION' ? "bg-blue-500/20 text-blue-400 border border-blue-500/30" :
+                                item.estado === 'LISTO' ? "bg-green-500/20 text-green-400 border border-green-500/30" :
+                                item.estado === 'ENTREGADO' ? "bg-slate-500/20 text-slate-400 border border-slate-500/30" :
+                                "bg-red-500/20 text-red-400 border border-red-500/30"
+                              )}>
+                                {item.estado || 'PENDIENTE'}
+                              </span>
+                            )}
+                          </div>
+                        </li>
+                      ))}
+                    </ul>
+                  </div>
+                </div>
+              )}
+
               <div className="space-y-4 pt-2 relative z-10">
                 {isMesaOwnedByOther ? (
                   <div className="bg-destructive/10 border border-destructive/20 p-6 rounded-3xl text-center space-y-2">
@@ -661,7 +756,7 @@ function MesaCard({ mesa, user, onOpenMesa, onVerPedido, onStartEdit, onToggleFu
                   </div>
                 ) : mesa.estado === 'LIBRE' ? (
                   <Button 
-                    className="w-full h-16 text-xl bg-primary hover:glow-orange font-bold rounded-[1.25rem] transition-all hover:scale-[1.02] shadow-xl group" 
+                    className="w-full h-12 text-lg bg-primary hover:glow-orange font-bold rounded-[1.25rem] transition-all hover:scale-[1.02] shadow-xl group" 
                     onClick={() => {
                       setIsOpen(false);
                       setTimeout(() => {
@@ -680,19 +775,30 @@ function MesaCard({ mesa, user, onOpenMesa, onVerPedido, onStartEdit, onToggleFu
                      <p className="text-[10px] text-muted-foreground">Esta mesa no puede recibir pedidos actualmente.</p>
                   </div>
                 ) : (
-                  <div className="space-y-3 w-full">
+                  <div className="grid grid-cols-2 gap-2 w-full">
                     <Button 
-                      className="w-full h-16 bg-secondary text-secondary-foreground hover:glow-gold font-bold text-xl rounded-[1.25rem] transition-all hover:scale-[1.02] shadow-xl group" 
+                      className="h-12 bg-primary/20 text-primary hover:bg-primary hover:text-primary-foreground border border-primary/30 hover:border-primary font-black text-[9px] sm:text-[10px] uppercase tracking-widest rounded-[1.25rem] transition-all hover:scale-[1.02] shadow-sm flex flex-col items-center justify-center gap-1" 
                       onClick={() => {
                         setIsOpen(false);
-                        setTimeout(() => {
-                          onVerPedido(mesa.id);
-                        }, 100);
+                        setTimeout(() => onVerPedido(mesa.id), 100);
                       }}
                       disabled={isCajaCerrada}
                     >
-                      <UtensilsCrossed className="w-6 h-6 mr-2 transition-transform group-hover:scale-110" />
-                      {isCajaCerrada ? "CAJA CERRADA" : "GESTIONAR PEDIDO"}
+                      <PlusCircle className="w-5 h-5" />
+                      <span>NUEVO</span>
+                    </Button>
+                    <Button 
+                      className={cn(
+                        "h-12 font-black text-[9px] sm:text-[10px] uppercase tracking-widest rounded-[1.25rem] transition-all hover:scale-[1.02] shadow-sm flex flex-col items-center justify-center gap-1",
+                        isModifying 
+                          ? "bg-red-500/20 text-red-500 hover:bg-red-500 hover:text-white border border-red-500/30"
+                          : "bg-blue-500/10 text-blue-500 hover:bg-blue-500 hover:text-white border border-blue-500/20 hover:border-blue-500"
+                      )} 
+                      onClick={() => setIsModifying(!isModifying)}
+                      disabled={isCajaCerrada}
+                    >
+                      {isModifying ? <Ban className="w-5 h-5" /> : <Edit className="w-5 h-5" />}
+                      <span>{isModifying ? 'CANCELAR EDICIÓN' : 'MODIFICAR PEDIDO'}</span>
                     </Button>
                   </div>
                 )}
@@ -702,14 +808,14 @@ function MesaCard({ mesa, user, onOpenMesa, onVerPedido, onStartEdit, onToggleFu
                     <>
                       <Button 
                         variant="outline" 
-                        className="h-14 border-border/50 bg-background/50 hover:bg-accent/50 text-muted-foreground hover:text-foreground gap-2 rounded-2xl transition-all" 
+                        className="h-10 border-border/50 bg-background/50 hover:bg-accent/50 text-muted-foreground hover:text-foreground gap-2 rounded-2xl transition-all" 
                         onClick={() => onStartEdit(mesa)}
                       >
                         <Edit className="w-4 h-4" /> 
                       </Button>
                       <Button 
                         variant="outline" 
-                        className="h-14 border-border/50 bg-background/50 hover:bg-destructive/10 text-muted-foreground hover:text-destructive gap-2 rounded-2xl transition-all" 
+                        className="h-10 border-border/50 bg-background/50 hover:bg-destructive/10 text-muted-foreground hover:text-destructive gap-2 rounded-2xl transition-all" 
                         onClick={() => {
                           if (confirm("¿Estás seguro de eliminar esta mesa?")) {
                             setIsOpen(false);
@@ -727,7 +833,7 @@ function MesaCard({ mesa, user, onOpenMesa, onVerPedido, onStartEdit, onToggleFu
                     <Button 
                       variant="outline" 
                       className={cn(
-                        "h-14 gap-2 rounded-2xl transition-all border-border/50 bg-background/50",
+                        "h-10 gap-2 rounded-2xl transition-all border-border/50 bg-background/50",
                         mesa.estado === 'FUERA SERVICIO' ? "hover:border-green-500 hover:text-green-500" : "hover:border-destructive/50 hover:text-destructive"
                       )} 
                       onClick={() => onToggleFueraServicio(mesa)} 
@@ -751,6 +857,126 @@ function MesaCard({ mesa, user, onOpenMesa, onVerPedido, onStartEdit, onToggleFu
           </DialogContent>
         </Dialog>
 
+        <Dialog open={!!cancelItemDialog} onOpenChange={(open) => !open && setCancelItemDialog(null)}>
+          <DialogContent className="max-w-[90vw] md:max-w-md bg-card border-border paper-texture rounded-[2rem] z-[100]">
+            <DialogHeader>
+              <DialogTitle className="font-headline text-red-500 flex items-center gap-2">
+                <Ban className="w-5 h-5" /> Cancelar / Cambiar Producto
+              </DialogTitle>
+            </DialogHeader>
+            <div className="space-y-4 py-4">
+              <p className="text-sm">
+                Vas a modificar: <strong className="text-primary">{cancelItemDialog?.cantidad}x {cancelItemDialog?.nombre}</strong>.
+              </p>
+              <div className="space-y-2">
+                <Label>Motivo de cancelación (opcional)</Label>
+                <Input 
+                  value={cancelMotivo}
+                  onChange={(e) => setCancelMotivo(e.target.value)}
+                  placeholder="Ej: Cliente cambió de opinión"
+                  className="bg-background"
+                />
+              </div>
+              
+              <div className="space-y-3 bg-primary/5 p-4 rounded-xl border border-primary/20 mt-4">
+                <Label className="text-primary font-bold text-sm">¿Cambiar por otro producto?</Label>
+                <p className="text-xs text-muted-foreground mb-2 leading-tight">Si el cliente solicitó un cambio, selecciona el nuevo producto aquí.</p>
+                <SearchableSelect 
+                  value={cancelReplacementId} 
+                  onValueChange={setCancelReplacementId}
+                  placeholder="Seleccionar producto..."
+                  searchPlaceholder="Buscar plato..."
+                  options={[
+                    { label: "-- Ninguno (Solo cancelar) --", value: "none" },
+                    ...menuItems.map((item: any) => ({
+                      label: `${item.nombre} - $${item.precio.toLocaleString('es-CO')}`,
+                      value: item.id
+                    }))
+                  ]}
+                />
+              </div>
+            </div>
+            <DialogFooter className="gap-3 pt-2">
+              <Button variant="outline" onClick={() => setCancelItemDialog(null)} className="rounded-xl h-12 flex-1">Volver</Button>
+              <Button 
+                className="bg-red-600 hover:bg-red-700 font-bold rounded-xl h-12 flex-1" 
+                onClick={async () => {
+                  if (!activeOrder || !cancelItemDialog) return;
+                  
+                  const userToLogId = user?.id || '';
+                  const getOperationalTimestamp = () => {
+                    const now = new Date();
+                    const timePart = now.toTimeString().split(' ')[0];
+                    const ms = String(now.getMilliseconds()).padStart(3, '0');
+                    const offsetMinutes = now.getTimezoneOffset();
+                    const absOffset = Math.abs(offsetMinutes);
+                    const sign = offsetMinutes > 0 ? '-' : '+';
+                    const offsetHours = String(Math.floor(absOffset / 60)).padStart(2, '0');
+                    const offsetMins = String(absOffset % 60).padStart(2, '0');
+                    const timezoneOffsetStr = `${sign}${offsetHours}:${offsetMins}`;
+                    const activeDate = fechaOperativa || new Date(now.getTime() - (offsetMinutes * 60000)).toISOString().split('T')[0];
+                    return `${activeDate}T${timePart}.${ms}${timezoneOffsetStr}`;
+                  };
+
+                  let nuevosItemsParaComanda: ItemOrden[] = [];
+                  await cancelarItemOrden(activeOrder.id, cancelItemDialog.id, cancelMotivo, userToLogId);
+                  
+                  if (cancelReplacementId && cancelReplacementId !== "none") {
+                    const replacementMenu = menuItems.find((m: any) => m.id === cancelReplacementId);
+                    if (replacementMenu) {
+                      const operationalTimestamp = getOperationalTimestamp();
+                      const newItem: ItemOrden = {
+                        id: uuidv4(),
+                        menuItemId: replacementMenu.id,
+                        nombre: replacementMenu.nombre,
+                        cantidad: cancelItemDialog.cantidad,
+                        precioUnitario: replacementMenu.precio,
+                        notas: `Cambio por: ${cancelItemDialog.nombre}`,
+                        estacion: replacementMenu.estacion,
+                        estado: 'EN PREPARACION',
+                        createdAt: operationalTimestamp
+                      };
+                      
+                      usePOSStore.getState().addItemsToOrden(activeOrder.id, [newItem]);
+                      nuevosItemsParaComanda = [newItem];
+                    }
+                  }
+
+                  try {
+                    const notasTicket = cancelMotivo 
+                      ? `${cancelMotivo}${nuevosItemsParaComanda.length > 0 ? ' (CAMBIO)' : ''}`
+                      : (nuevosItemsParaComanda.length > 0 ? 'Cambio de producto' : 'Cancelación');
+                      
+                    await printModificacionTicket(
+                      mesa.numero, 
+                      user?.nombre || 'Mesero', 
+                      [cancelItemDialog], 
+                      nuevosItemsParaComanda, 
+                      notasTicket
+                    );
+                    
+                    toast({
+                      title: nuevosItemsParaComanda.length > 0 ? "Producto cambiado" : "Producto cancelado",
+                      description: "Se imprimió la modificación en la estación correspondiente.",
+                    });
+                  } catch (err: any) {
+                    toast({
+                      variant: "destructive",
+                      title: "Error de Impresión",
+                      description: err.message || "No se pudo imprimir el ticket de modificación.",
+                    });
+                  }
+                  setCancelItemDialog(null);
+                  setIsModifying(false);
+                }}
+              >
+                CONFIRMAR
+              </Button>
+            </DialogFooter>
+          </DialogContent>
+        </Dialog>
+
       </>
     )
 }
+
