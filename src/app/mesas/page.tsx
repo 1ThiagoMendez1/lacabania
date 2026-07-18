@@ -16,6 +16,16 @@ import {
   DialogFooter,
   DialogDescription
 } from "@/components/ui/dialog";
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from "@/components/ui/alert-dialog";
 import { useState, useEffect } from "react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -493,7 +503,7 @@ export default function MesasPage() {
 }
 
 function MesaCard({ mesa, user, onOpenMesa, onVerPedido, onStartEdit, onToggleFueraServicio, onDeleteMesa, getStatusColor, ordenes }: any) {
-    const { isCajaCerrada, updateOrden, usuarios, cancelarItemOrden, menuItems, fechaOperativa } = usePOSStore();
+    const { isCajaCerrada, updateOrden, usuarios, cancelarItemOrden, menuItems, fechaOperativa, updateMesaEstado } = usePOSStore();
     const router = useRouter();
     const { toast } = useToast();
     const activeOrder = ordenes.find((o: Orden) => o.mesaId === mesa.id && o.estado === 'ABIERTA');
@@ -506,6 +516,8 @@ function MesaCard({ mesa, user, onOpenMesa, onVerPedido, onStartEdit, onToggleFu
     const [cancelItemDialog, setCancelItemDialog] = useState<ItemOrden | null>(null);
     const [cancelMotivo, setCancelMotivo] = useState("");
     const [cancelReplacementId, setCancelReplacementId] = useState<string>("none");
+    const [isLiberarDialogOpen, setIsLiberarDialogOpen] = useState(false);
+    const [isEliminarDialogOpen, setIsEliminarDialogOpen] = useState(false);
 
     const isLlevar = mesa.zona === 'Para Llevar';
     const orderNum = mesa.id >= 101 ? mesa.id - 100 : mesa.id;
@@ -806,7 +818,17 @@ function MesaCard({ mesa, user, onOpenMesa, onVerPedido, onStartEdit, onToggleFu
                   </div>
                 )}
                 
-                <div className={cn("grid gap-3", user?.rol === 'ADMINISTRADOR' ? "grid-cols-3" : "grid-cols-1")}>
+                {mesa.estado !== 'LIBRE' && mesa.estado !== 'FUERA SERVICIO' && !(activeOrder && activeOrder.items && activeOrder.items.length > 0) && (
+                  <Button 
+                    className="w-full h-10 mt-1 bg-slate-500/10 text-slate-400 hover:bg-slate-500 hover:text-white border border-slate-500/30 hover:border-slate-500 font-black text-[9px] sm:text-[10px] uppercase tracking-widest rounded-2xl transition-all shadow-sm flex items-center justify-center gap-2"
+                    onClick={() => setIsLiberarDialogOpen(true)}
+                    disabled={isCajaCerrada}
+                  >
+                    LIBERAR MESA
+                  </Button>
+                )}
+
+                <div className={cn("grid gap-3 mt-3", user?.rol === 'ADMINISTRADOR' ? "grid-cols-3" : "grid-cols-1")}>
                   {user?.rol === 'ADMINISTRADOR' && (
                     <>
                       <Button 
@@ -819,12 +841,7 @@ function MesaCard({ mesa, user, onOpenMesa, onVerPedido, onStartEdit, onToggleFu
                       <Button 
                         variant="outline" 
                         className="h-10 border-border/50 bg-background/50 hover:bg-destructive/10 text-muted-foreground hover:text-destructive gap-2 rounded-2xl transition-all" 
-                        onClick={() => {
-                          if (confirm("¿Estás seguro de eliminar esta mesa?")) {
-                            setIsOpen(false);
-                            onDeleteMesa(mesa.id);
-                          }
-                        }}
+                        onClick={() => setIsEliminarDialogOpen(true)}
                         disabled={mesa.estado !== 'LIBRE' && mesa.estado !== 'FUERA SERVICIO'}
                       >
                         <Trash2 className="w-4 h-4" /> 
@@ -979,6 +996,76 @@ function MesaCard({ mesa, user, onOpenMesa, onVerPedido, onStartEdit, onToggleFu
           </DialogContent>
         </Dialog>
 
+        <AlertDialog open={isLiberarDialogOpen} onOpenChange={setIsLiberarDialogOpen}>
+          <AlertDialogContent className="bg-card border-border paper-texture rounded-[2rem] z-[110]">
+            <AlertDialogHeader>
+              <AlertDialogTitle className="font-headline text-2xl text-primary flex items-center gap-2">
+                <AlertCircle className="w-6 h-6" />
+                ¿Liberar Mesa?
+              </AlertDialogTitle>
+              <AlertDialogDescription className="text-base text-foreground/80 mt-2">
+                ¿Estás seguro de liberar esta mesa? Esto cancelará el pedido actual si existe y dejará la mesa libre para nuevos pedidos.
+              </AlertDialogDescription>
+            </AlertDialogHeader>
+            <AlertDialogFooter className="mt-4 gap-2">
+              <AlertDialogCancel className="rounded-xl h-12 flex-1 m-0">Cancelar</AlertDialogCancel>
+              <AlertDialogAction 
+                className="bg-primary text-primary-foreground font-bold rounded-xl h-12 flex-1 m-0 hover:glow-orange"
+                onClick={(e) => {
+                  e.preventDefault();
+                  setIsLiberarDialogOpen(false);
+                  setIsOpen(false);
+                  setTimeout(async () => {
+                    if (activeOrder) {
+                      await updateOrden(activeOrder.id, { estado: 'CANCELADA' });
+                    }
+                    await updateMesaEstado(mesa.id, 'LIBRE');
+                    if (typeof document !== 'undefined') {
+                      document.body.style.pointerEvents = 'auto';
+                      document.body.style.overflow = 'auto';
+                    }
+                  }, 50);
+                }}
+              >
+                Aceptar
+              </AlertDialogAction>
+            </AlertDialogFooter>
+          </AlertDialogContent>
+        </AlertDialog>
+
+        <AlertDialog open={isEliminarDialogOpen} onOpenChange={setIsEliminarDialogOpen}>
+          <AlertDialogContent className="bg-card border-border paper-texture rounded-[2rem] z-[110]">
+            <AlertDialogHeader>
+              <AlertDialogTitle className="font-headline text-2xl text-destructive flex items-center gap-2">
+                <Trash2 className="w-6 h-6" />
+                ¿Eliminar Mesa?
+              </AlertDialogTitle>
+              <AlertDialogDescription className="text-base text-foreground/80 mt-2">
+                ¿Estás seguro de eliminar esta mesa de forma permanente? Esta acción no se puede deshacer.
+              </AlertDialogDescription>
+            </AlertDialogHeader>
+            <AlertDialogFooter className="mt-4 gap-2">
+              <AlertDialogCancel className="rounded-xl h-12 flex-1 m-0">Cancelar</AlertDialogCancel>
+              <AlertDialogAction 
+                className="bg-destructive text-destructive-foreground font-bold rounded-xl h-12 flex-1 m-0 hover:bg-destructive/90"
+                onClick={(e) => {
+                  e.preventDefault();
+                  setIsEliminarDialogOpen(false);
+                  setIsOpen(false);
+                  setTimeout(() => {
+                    onDeleteMesa(mesa.id);
+                    if (typeof document !== 'undefined') {
+                      document.body.style.pointerEvents = 'auto';
+                      document.body.style.overflow = 'auto';
+                    }
+                  }, 50);
+                }}
+              >
+                Eliminar
+              </AlertDialogAction>
+            </AlertDialogFooter>
+          </AlertDialogContent>
+        </AlertDialog>
       </>
     )
 }

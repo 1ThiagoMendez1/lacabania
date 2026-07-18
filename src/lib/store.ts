@@ -939,16 +939,28 @@ export const usePOSStore = create<POSState>((set, get) => ({
 
     const targetOrden = get().ordenes.find(o => o.id === ordenId);
 
-    const [orderRes, mesaRes] = await Promise.all([
+    const updates: any[] = [
       supabase.from('ordenes').update({ 
         estado: 'CERRADA', 
         metodo_pago: metodoPago, 
         propina: propina || 0,
-        updated_at: operationalTimestamp,
-        items: targetOrden?.items
+        updated_at: operationalTimestamp
       }).eq('id', ordenId),
       supabase.from('mesas').update({ estado: 'LIBRE', mesero_id: null, orden_activa_id: null }).eq('id', mesaId)
-    ]);
+    ];
+
+    if (targetOrden?.items && targetOrden.items.length > 0) {
+      const itemsToUpdate = targetOrden.items.filter(i => i.estado !== 'CANCELADO');
+      if (itemsToUpdate.length > 0) {
+        updates.push(
+          supabase.from('items_orden').update({ estado: 'ENTREGADO' }).in('id', itemsToUpdate.map(i => i.id))
+        );
+      }
+    }
+
+    const results = await Promise.all(updates);
+    const orderRes = results[0];
+    const mesaRes = results[1];
     if (orderRes.error) console.error("Error al cerrar orden en Supabase:", orderRes.error);
     if (mesaRes.error) console.error("Error al actualizar mesa al cerrar orden en Supabase:", mesaRes.error);
   },
