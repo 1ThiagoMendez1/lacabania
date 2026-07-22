@@ -612,8 +612,25 @@ export const usePOSStore = create<POSState>((set, get) => ({
     }
   },
   updateMesaEstado: async (mesaId, estado, meseroId) => {
-    set((state) => ({ mesas: state.mesas.map(m => m.id === mesaId ? { ...m, estado, meseroId } : m) }));
-    const { error } = await supabase.from('mesas').update({ estado, mesero_id: meseroId }).eq('id', mesaId);
+    const isLibre = estado === 'LIBRE';
+    set((state) => ({
+      mesas: state.mesas.map(m => m.id === mesaId ? { 
+        ...m, 
+        estado, 
+        meseroId: isLibre ? undefined : (meseroId !== undefined ? meseroId : m.meseroId),
+        ordenActivaId: isLibre ? undefined : m.ordenActivaId
+      } : m)
+    }));
+
+    const updatePayload: any = { estado };
+    if (isLibre) {
+      updatePayload.mesero_id = null;
+      updatePayload.orden_activa_id = null;
+    } else if (meseroId !== undefined) {
+      updatePayload.mesero_id = meseroId;
+    }
+
+    const { error } = await supabase.from('mesas').update(updatePayload).eq('id', mesaId);
     if (error) {
       console.error("Error al actualizar estado de mesa en Supabase:", error.message, "Detalles:", error.details, "Código:", error.code, error);
     }
