@@ -37,7 +37,7 @@ export async function printKitchenTickets(
 
     try {
       const now = new Date();
-      const timeStr = now.toLocaleTimeString('es-CO', { hour: '2-digit', minute: '2-digit' });
+      const timeStr = now.toLocaleTimeString('es-CO', { hour: '2-digit', minute: '2-digit', hour12: true });
       const dateStr = now.toLocaleDateString('es-CO');
 
       // Comandos ESC/POS estándar para impresión térmica
@@ -147,7 +147,7 @@ export async function printModificacionTicket(
 
     try {
       const now = new Date();
-      const timeStr = now.toLocaleTimeString('es-CO', { hour: '2-digit', minute: '2-digit' });
+      const timeStr = now.toLocaleTimeString('es-CO', { hour: '2-digit', minute: '2-digit', hour12: true });
       const dateStr = now.toLocaleDateString('es-CO');
 
       const data: any[] = [];
@@ -262,7 +262,7 @@ export async function printReceiptTicket(
     const data: any[] = [];
     const orderIdStr = getOrderIdentifier({ mesaId: orden.mesaId, consecutivo: orden.consecutivo, id: orden.id });
     const dateStr = new Date(orden.updatedAt).toLocaleDateString('es-CO');
-    const timeStr = new Date(orden.updatedAt).toLocaleTimeString('es-CO', { hour: '2-digit', minute: '2-digit' });
+    const timeStr = new Date(orden.updatedAt).toLocaleTimeString('es-CO', { hour: '2-digit', minute: '2-digit', hour12: true });
 
     data.push('\x1B\x40'); // Init
     data.push('\x1B\x61\x01'); // Center

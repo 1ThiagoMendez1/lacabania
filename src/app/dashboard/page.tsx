@@ -29,7 +29,8 @@ import {
   Package,
   ArrowRight,
   FolderClosed,
-  Receipt
+  Receipt,
+  RefreshCcw
 } from "lucide-react";
 import { 
   BarChart, 
@@ -42,6 +43,7 @@ import {
 } from "recharts";
 import { cn, formatCurrencyInput, parseCurrencyInput, getOrderIdentifier } from "@/lib/utils";
 import { usePOSStore } from "@/lib/store";
+import { getBogotaDateString, getBogotaISOString, getBogotaCurrentDate, toBogotaDate } from '@/lib/dateUtils';
 import { supabase } from "@/lib/supabase";
 import { 
   Dialog, 
@@ -52,6 +54,7 @@ import {
   DialogFooter
 } from "@/components/ui/dialog";
 import { useState, useEffect, useMemo } from "react";
+import { ScrollArea } from "@/components/ui/scroll-area";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -62,16 +65,7 @@ import { Badge } from "@/components/ui/badge";
 import { format } from "date-fns";
 import { es } from "date-fns/locale";
 
-const chartData = [
-  { name: '12:00', ventas: 450000 },
-  { name: '13:00', ventas: 890000 },
-  { name: '14:00', ventas: 1200000 },
-  { name: '15:00', ventas: 700000 },
-  { name: '16:00', ventas: 400000 },
-  { name: '17:00', ventas: 300000 },
-  { name: '18:00', ventas: 600000 },
-  { name: '19:00', ventas: 1100000 },
-];
+
 
 export default function DashboardPage() {
   const { ordenes, mesas, isCajaCerrada, setCajaCerrada, user, fechaOperativa, setFechaOperativa, usuarios, productos, gastos, addGasto, deleteGasto } = usePOSStore();
@@ -88,6 +82,8 @@ export default function DashboardPage() {
   const [isAddingGasto, setIsAddingGasto] = useState(false);
 
   const [activeTab, setActiveTab] = useState<"dashboard" | "cierre">("dashboard");
+  const [selectedHour, setSelectedHour] = useState<string | null>(null);
+  const [isHourDetailOpen, setIsHourDetailOpen] = useState(false);
   const [cierreStep, setCierreStep] = useState<number>(1);
   const [cierreFecha, setCierreFecha] = useState<string>("");
   const [searchQuery, setSearchQuery] = useState<string>("");
@@ -123,10 +119,64 @@ export default function DashboardPage() {
     }
   }, [isCorteOpen, cierreFecha, fechaOperativa, historialCierres]);
 
-  const getOrderLocalDateStr = (createdAt: string) => {
-    const d = new Date(createdAt);
-    const tzOffset = d.getTimezoneOffset() * 60000;
-    return (new Date(d.getTime() - tzOffset)).toISOString().split('T')[0];
+  // MIGRAción Automática para arreglar fechas de Junio creadas en Julio, y desatascar fechaOperativa
+  useEffect(() => {
+    if (typeof window !== 'undefined') {
+      const fixHistory = async () => {
+        let changed = false;
+        // Fix cierres
+        for (let i = 0; i < localStorage.length; i++) {
+          const key = localStorage.key(i);
+          if (key && key.startsWith('cierre_2026-06-')) {
+            try {
+              const val = localStorage.getItem(key);
+              if (val) {
+                const parsed = JSON.parse(val);
+                // Si el timestamp real de creación fue en Julio, arreglar el mes de la fecha
+                if (parsed.timestamp && parsed.timestamp.includes('2026-07')) {
+                  const newDate = parsed.fecha.replace('-06-', '-07-');
+                  parsed.fecha = newDate;
+                  localStorage.setItem(`cierre_${newDate}`, JSON.stringify(parsed));
+                  localStorage.removeItem(key);
+                  changed = true;
+                  // Actualizar en BD (fire and forget)
+                  supabase.from('cierres_diarios').update({ fecha: newDate }).eq('fecha', key.replace('cierre_', '')).then();
+                  supabase.from('ordenes').update({ updated_at: parsed.timestamp }).like('updated_at', `${key.replace('cierre_', '')}%`).then();
+                } else {
+                  // Si no se migró, es un cierre erróneo de junio que quedó huérfano
+                  localStorage.removeItem(key);
+                }
+              }
+            } catch(e) {
+              localStorage.removeItem(key); // Remove if corrupted
+            }
+          }
+        }
+        
+        // Fix fechaOperativa atascada en el pasado
+        const todayStr = getBogotaDateString();
+        const storedStore = localStorage.getItem('pos-store');
+        if (storedStore && fechaOperativa && fechaOperativa < todayStr) {
+           // Si está muy atrasada (meses anteriores) o simplemente no es hoy
+           // Fuerza a hoy si no hay órdenes abiertas
+           const openOrders = ordenes.filter(o => o.estado === 'ABIERTA');
+           if (openOrders.length === 0) {
+             setFechaOperativa(todayStr);
+           } else if (fechaOperativa.includes('-06-') && todayStr.includes('-07-')) {
+             // Si hay ordenes abiertas pero están atascadas en junio y estamos en julio, 
+             // actualizamos la fecha operativa a hoy para desatascar.
+             setFechaOperativa(todayStr);
+           }
+        }
+      };
+      fixHistory();
+    }
+  }, []);;
+
+  function getOrderLocalDateStr(createdAt: string | Date | undefined) {
+    if (!createdAt) return "";
+    const d = toBogotaDate(createdAt);
+    return d.toISOString().split('T')[0];
   };
 
   const getFechaAnterior = (dateStr: string) => {
@@ -518,8 +568,9 @@ ${tableRows}${cleanNotas}`;
           realEfectivo: Number(c.realEfectivo || 0),
           diferencia: Number(c.diferencia || 0),
           notas: c.notas || '',
+          factura_electronica_id: c.factura_electronica_id || null,
           usuario: c.usuario || 'Cajero',
-          timestamp: c.timestamp || new Date().toISOString()
+          timestamp: c.timestamp || getBogotaISOString()
         });
       }
     });
@@ -537,8 +588,9 @@ ${tableRows}${cleanNotas}`;
           realEfectivo: Number(c.real_efectivo || 0),
           diferencia: Number(c.diferencia || 0),
           notas: c.notas || '',
+          real_efectivo: c.realEfectivo || c.real_efectivo || 0,
           usuario: userLabel,
-          timestamp: c.created_at || new Date().toISOString()
+          timestamp: c.created_at || getBogotaISOString()
         });
       }
     });
@@ -654,7 +706,7 @@ ${tableRows}${cleanNotas}`;
       diferencia,
       notas: serializedNotas,
       usuario: user?.nombre || "Cajero",
-      timestamp: new Date().toISOString()
+      timestamp: getBogotaISOString()
     };
     
     // Guardar localmente primero (síncrono)
@@ -741,9 +793,7 @@ ${tableRows}${cleanNotas}`;
       const day = parseInt(parts[2], 10);
       currentDate = new Date(year, month, day);
     } else {
-      const d = new Date();
-      const tzOffset = d.getTimezoneOffset() * 60000;
-      const localStr = (new Date(d.getTime() - tzOffset)).toISOString().split('T')[0];
+      const localStr = getBogotaDateString();
       const parts = localStr.split('-');
       currentDate = new Date(parseInt(parts[0], 10), parseInt(parts[1], 10) - 1, parseInt(parts[2], 10));
     }
@@ -785,9 +835,74 @@ ${tableRows}${cleanNotas}`;
     
   const kpiTicketPromedio = kpiVentasCerradas.length > 0 ? Math.round(kpiTotalVentas / kpiVentasCerradas.length) : 0;
 
+  const dynamicChartData = useMemo(() => {
+    const salesForDay = ordenes.filter(o => 
+      o.estado === 'CERRADA' && 
+      getOrderLocalDateStr(o.updatedAt || o.createdAt) === activeCloseDate
+    );
+
+    const hourlySales = new globalThis.Map<number, number>();
+    
+    salesForDay.forEach(o => {
+      const date = toBogotaDate(o.updatedAt || o.createdAt || new Date().toISOString());
+      const hour = date.getHours();
+      const totalOrden = o.items.reduce((sum, item) => sum + (item.precioUnitario * item.cantidad), 0);
+      hourlySales.set(hour, (hourlySales.get(hour) || 0) + totalOrden);
+    });
+
+    const chartDataResult = [];
+    
+    let minHour = 12;
+    let maxHour = 22;
+    
+    if (hourlySales.size > 0) {
+        const hours = Array.from(hourlySales.keys());
+        minHour = Math.min(...hours, minHour);
+        maxHour = Math.max(...hours, maxHour);
+    }
+    
+    // Ensure at least a reasonable window is shown
+    if (maxHour < minHour + 4) {
+       maxHour = Math.max(22, minHour + 4);
+    }
+    
+    for (let i = minHour; i <= maxHour; i++) {
+      const ampm = i >= 12 ? 'pm' : 'am';
+      const displayHour = i % 12 || 12;
+      chartDataResult.push({
+        name: `${displayHour.toString().padStart(2, '0')}:00 ${ampm}`,
+        ventas: hourlySales.get(i) || 0
+      });
+    }
+
+    return chartDataResult;
+  }, [ordenes, activeCloseDate]);
+
+  const handleBarClick = (data: any) => {
+    if (data && data.name && data.ventas > 0) {
+      setSelectedHour(data.name);
+      setIsHourDetailOpen(true);
+    }
+  };
+
+  const ordersForSelectedHour = useMemo(() => {
+    if (!selectedHour) return [];
+    const [timeStr, ampm] = selectedHour.split(' ');
+    let targetHour = parseInt(timeStr.split(':')[0], 10);
+    if (ampm === 'pm' && targetHour < 12) targetHour += 12;
+    if (ampm === 'am' && targetHour === 12) targetHour = 0;
+    return ordenes.filter(o => {
+      if (o.estado !== 'CERRADA') return false;
+      const dateStr = getOrderLocalDateStr(o.updatedAt || o.createdAt);
+      if (dateStr !== activeCloseDate) return false;
+      const date = toBogotaDate(o.updatedAt || o.createdAt || new Date().toISOString());
+      return date.getHours() === targetHour;
+    });
+  }, [ordenes, selectedHour, activeCloseDate]);
+
   const kpis = [
     { 
-      title: dashboardPeriod === 'DIA' ? "Ventas Hoy" : dashboardPeriod === 'MES' ? "Ventas del Mes" : "Ventas del Año", 
+      title: dashboardPeriod === 'DIA' ? `Ventas (${activeCloseDate})` : dashboardPeriod === 'MES' ? "Ventas del Mes" : "Ventas del Año", 
       value: `$${kpiTotalVentas.toLocaleString('es-CO')}`, 
       change: dashboardPeriod === 'DIA' ? "Hoy" : dashboardPeriod === 'MES' ? "Este mes" : "Este año", 
       icon: DollarSign, 
@@ -1201,6 +1316,29 @@ ${tableRows}${cleanNotas}`;
           </div>
 
           <div className="flex gap-2">
+            {/* Sync Hoy Button */}
+            {!isCierreClosed && (
+              <Button
+                variant="outline"
+                onClick={() => {
+                  if (window.confirm('¿Desea forzar la sincronización del sistema al día de hoy? Use esto si el día anterior ya terminó y el sistema se quedó en una fecha pasada.')) {
+                    setFechaOperativa(getBogotaDateString());
+                    if (typeof window !== 'undefined') {
+                      localStorage.setItem('fecha_operativa', getBogotaDateString());
+                    }
+                    toast({
+                      title: "Sistema Sincronizado",
+                      description: "La fecha operativa se ha actualizado a hoy.",
+                    });
+                  }
+                }}
+                className="bg-primary/20 hover:bg-primary/30 text-primary border-primary/30 font-black px-4 py-2 h-9 rounded-xl text-xs flex items-center gap-2 transition-all"
+              >
+                <RefreshCcw className="w-4 h-4" />
+                Sincronizar Hoy
+              </Button>
+            )}
+
             {!isCierreClosed && (
               <Dialog open={isAdminDayOpen} onOpenChange={setIsAdminDayOpen}>
                 <DialogTrigger asChild>
@@ -1352,7 +1490,7 @@ ${tableRows}${cleanNotas}`;
                       </span>
                       {!isCierreClosed && typeof window !== 'undefined' && (
                         <span className="text-[12px] uppercase tracking-widest font-mono text-muted-foreground bg-accent/20 border border-border/50 px-3 py-1 rounded-full whitespace-nowrap">
-                          {format(new Date(), "dd MMM yyyy - hh:mm a", { locale: es })}
+                          {format(getBogotaCurrentDate(), "dd MMM yyyy - hh:mm a", { locale: es })}
                         </span>
                       )}
                     </DialogTitle>
@@ -1962,7 +2100,7 @@ ${tableRows}${cleanNotas}`;
               <CardContent className="p-6">
                 <div className="h-[300px] w-full">
                   <ResponsiveContainer width="100%" height="100%">
-                    <BarChart data={chartData}>
+                    <BarChart data={dynamicChartData}>
                       <CartesianGrid strokeDasharray="3 3" stroke="#2E1D12" />
                       <XAxis dataKey="name" stroke="#A08060" fontSize={11} />
                       <YAxis stroke="#A08060" fontSize={11} tickFormatter={(val) => `$${val/1000}k`} />
@@ -1970,7 +2108,7 @@ ${tableRows}${cleanNotas}`;
                         contentStyle={{ backgroundColor: '#2C1810', border: '1px solid #3D2414', borderRadius: '8px' }}
                         itemStyle={{ color: '#F5E6D3' }}
                       />
-                      <Bar dataKey="ventas" fill="#C4501A" radius={[4, 4, 0, 0]} />
+                      <Bar dataKey="ventas" fill="#C4501A" radius={[4, 4, 0, 0]} onClick={handleBarClick} cursor="pointer" />
                     </BarChart>
                   </ResponsiveContainer>
                 </div>
@@ -2352,6 +2490,69 @@ ${tableRows}${cleanNotas}`;
           </div>
         </div>
       )}
+
+      {/* Hourly Sales Detail Dialog */}
+      <Dialog open={isHourDetailOpen} onOpenChange={setIsHourDetailOpen}>
+        <DialogContent className="sm:max-w-[500px] bg-background border-border shadow-2xl">
+          <DialogHeader>
+            <DialogTitle className="text-xl font-headline font-black text-foreground">
+              Desglose de Ventas ({selectedHour})
+            </DialogTitle>
+            <p className="text-sm text-muted-foreground mt-1">
+              Estos son los pedidos cerrados que componen los ingresos de esta hora.
+            </p>
+          </DialogHeader>
+          <ScrollArea className="max-h-[50vh] mt-2 pr-4 scrollbar-thin">
+            {ordersForSelectedHour.length > 0 ? (
+              <div className="space-y-3">
+                {ordersForSelectedHour.map((order) => {
+                  const totalOrden = order.items.reduce((sum, item) => sum + (item.precioUnitario * item.cantidad), 0);
+                  const mesaLabel = getOrderIdentifier({ mesaId: order.mesaId, consecutivo: order.consecutivo, id: order.id });
+                  const orderDate = toBogotaDate(order.updatedAt || order.createdAt || new Date().toISOString());
+                  const formattedDate = format(orderDate, "dd MMM yyyy - hh:mm a", { locale: es });
+                  const badgeColor = 
+                    order.metodoPago === 'TRANSFERENCIA' ? 'bg-purple-500/20 text-purple-400' :
+                    order.metodoPago === 'TARJETA' ? 'bg-blue-500/20 text-blue-400' :
+                    'bg-green-500/20 text-green-400';
+
+                  return (
+                    <div key={order.id} className="p-4 rounded-xl bg-card border border-border/50 shadow-sm flex flex-col gap-2">
+                      <div className="flex justify-between items-start">
+                        <div>
+                          <div className="flex flex-wrap items-center gap-2">
+                            <span className="font-black text-sm text-foreground">{mesaLabel}</span>
+                            <span className="text-[9px] uppercase tracking-widest text-muted-foreground bg-accent/20 px-2 py-0.5 rounded-full border border-border/40">
+                              {formattedDate}
+                            </span>
+                          </div>
+                          <span className="text-[10px] text-muted-foreground block mt-1">
+                            {order.items.reduce((sum, item) => sum + item.cantidad, 0)} items
+                          </span>
+                        </div>
+                        <span className="font-black text-green-500 text-sm whitespace-nowrap ml-2">
+                          ${totalOrden.toLocaleString('es-CO')}
+                        </span>
+                      </div>
+                      <div className="flex justify-between items-center border-t border-border/30 pt-2">
+                        <span className="text-xs text-muted-foreground">Pago:</span>
+                        <span className={cn("text-[10px] font-black uppercase tracking-wider px-2 py-0.5 rounded-full", badgeColor)}>
+                          {order.metodoPago === 'TRANSFERENCIA' ? 'NEQUI/DAVI' : order.metodoPago}
+                        </span>
+                      </div>
+                    </div>
+                  );
+                })}
+              </div>
+            ) : (
+              <div className="py-10 text-center text-muted-foreground flex flex-col items-center">
+                <span className="text-2xl mb-2">🤷‍♂️</span>
+                <span className="text-sm font-bold">No hay ventas registradas</span>
+                <span className="text-xs opacity-70">Para esta hora en específico.</span>
+              </div>
+            )}
+          </ScrollArea>
+        </DialogContent>
+      </Dialog>
     </main>
   );
 }

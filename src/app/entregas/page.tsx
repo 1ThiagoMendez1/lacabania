@@ -21,6 +21,8 @@ import { Input } from "@/components/ui/input";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { SearchableSelect } from "@/components/ui/searchable-select";
 import { ItemOrden } from "@/lib/types";
+import { format } from "date-fns";
+import { getBogotaISOString } from '@/lib/dateUtils';
 import { useState } from "react";
 import { v4 as uuidv4 } from "uuid";
 import { printModificacionTicket } from "@/lib/printHelper";
@@ -266,21 +268,7 @@ export default function EntregasPage() {
                 }
                 
                 const userToLogId = user?.id || '';
-
-                const getOperationalTimestamp = () => {
-                  const now = new Date();
-                  const timePart = now.toTimeString().split(' ')[0];
-                  const ms = String(now.getMilliseconds()).padStart(3, '0');
-                  const offsetMinutes = now.getTimezoneOffset();
-                  const absOffset = Math.abs(offsetMinutes);
-                  const sign = offsetMinutes > 0 ? '-' : '+';
-                  const offsetHours = String(Math.floor(absOffset / 60)).padStart(2, '0');
-                  const offsetMins = String(absOffset % 60).padStart(2, '0');
-                  const timezoneOffsetStr = `${sign}${offsetHours}:${offsetMins}`;
-                  
-                  const activeDate = usePOSStore.getState().fechaOperativa || new Date(now.getTime() - (offsetMinutes * 60000)).toISOString().split('T')[0];
-                  return `${activeDate}T${timePart}.${ms}${timezoneOffsetStr}`;
-                };
+                const timestampStr = getBogotaISOString();
 
                 let replacementItem: ItemOrden | undefined = undefined;
                 if (cancelReplacementId !== "none") {
@@ -294,7 +282,7 @@ export default function EntregasPage() {
                       precioUnitario: mi.precio,
                       estacion: mi.estacion,
                       estado: 'EN PREPARACION',
-                      createdAt: getOperationalTimestamp()
+                      createdAt: timestampStr
                     };
                     
                     addItemsToOrden(cancelItemDialog.orderId, [replacementItem]);

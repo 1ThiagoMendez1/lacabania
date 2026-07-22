@@ -2,6 +2,7 @@ import { create } from 'zustand';
 import { Mesa, Producto, MenuItem, Orden, Usuario, ItemOrden, EstadoComanda, MetodoPago, Rol, Gasto } from './types';
 import { supabase } from './supabase';
 import { uuidv4 } from './utils';
+import { getBogotaDateString, getBogotaISOString, getBogotaCurrentDate } from './dateUtils';
 
 // (QZ Tray eliminado - impresión vía servicio Node.js local + cola Supabase)
 
@@ -258,10 +259,7 @@ export const usePOSStore = create<POSState>((set, get) => ({
     }));
 
     const getLocalDateString = () => {
-      const d = new Date();
-      const tzOffset = d.getTimezoneOffset() * 60000;
-      const localISOTime = (new Date(d.getTime() - tzOffset)).toISOString().split('T')[0];
-      return localISOTime;
+      return getBogotaDateString();
     };
     let activeFecha = getLocalDateString();
     if (typeof window !== 'undefined') {
@@ -802,7 +800,7 @@ export const usePOSStore = create<POSState>((set, get) => ({
         tipo: 'CANCELACION',
         items_afectados: [item],
         observaciones: observaciones,
-        fecha: new Date().toISOString()
+        fecha: getBogotaISOString()
       });
       if (err2) console.error("Error al guardar auditoria de modificacion:", err2);
     }
@@ -927,20 +925,7 @@ export const usePOSStore = create<POSState>((set, get) => ({
   closeOrden: async (ordenId, mesaId, metodoPago, propina) => {
     const activeFecha = get().fechaOperativa;
     
-    // Construct local timestamp matching the active operational date
-    const now = new Date();
-    const timePart = now.toTimeString().split(' ')[0]; // hh:mm:ss
-    const ms = String(now.getMilliseconds()).padStart(3, '0');
-    const offsetMinutes = now.getTimezoneOffset();
-    const absOffset = Math.abs(offsetMinutes);
-    const sign = offsetMinutes > 0 ? '-' : '+';
-    const offsetHours = String(Math.floor(absOffset / 60)).padStart(2, '0');
-    const offsetMins = String(absOffset % 60).padStart(2, '0');
-    const timezoneOffsetStr = `${sign}${offsetHours}:${offsetMins}`;
-    
-    const operationalTimestamp = activeFecha 
-      ? `${activeFecha}T${timePart}.${ms}${timezoneOffsetStr}`
-      : new Date().toISOString();
+    const operationalTimestamp = getBogotaISOString();
 
     set((state) => {
       const targetOrden = state.ordenes.find(o => o.id === ordenId);

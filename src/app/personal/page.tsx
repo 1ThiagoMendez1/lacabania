@@ -2,6 +2,7 @@
 "use client"
 
 import { usePOSStore } from "@/lib/store";
+import { getBogotaDateString } from "@/lib/dateUtils";
 import { 
   Users, 
   UserPlus, 
@@ -186,7 +187,7 @@ export default function PersonalPage() {
       telefono: newStaff.telefono || "",
       sueldo: newStaff.sueldo,
       estado: "ACTIVO",
-      fechaIngreso: new Date().toISOString().split('T')[0],
+      fechaIngreso: getBogotaDateString(),
       fotoDocumento: newStaff.fotoDocumento || undefined
     };
 
@@ -488,7 +489,7 @@ export default function PersonalPage() {
                               </span>
                             </div>
                             <span className="text-xs text-muted-foreground">
-                              {new Date(o.createdAt).toLocaleDateString()} {new Date(o.createdAt).toLocaleTimeString([], {hour: '2-digit', minute:'2-digit'})}
+                              {new Date(o.createdAt).toLocaleDateString()} {new Date(o.createdAt).toLocaleTimeString([], {hour: '2-digit', minute:'2-digit', hour12: true})}
                             </span>
                           </div>
                           {o.ratingObservacion ? (

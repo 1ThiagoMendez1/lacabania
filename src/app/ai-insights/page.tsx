@@ -17,6 +17,9 @@ import {
 } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import { Skeleton } from "@/components/ui/skeleton";
+import { usePOSStore } from "@/lib/store";
+import { getBogotaDateString } from "@/lib/dateUtils";
+import { supabase } from "@/lib/supabase";
 import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
 
@@ -30,7 +33,7 @@ export default function AIInsightsPage() {
       const data = await generateProactiveOperationalInsights({
         historicalSalesSummary: "Las ventas han aumentado un 20% los fines de semana. La Picaña es el plato más vendido entre las 13:00 y las 15:00. Los jueves tenemos un flujo constante de grupos empresariales.",
         currentInventorySummary: "Estamos bajos en Costilla al Barril (8kg) y Punta Trasera (12kg). El stock de bebidas está saludable.",
-        currentDate: new Date().toISOString().split('T')[0]
+        currentDate: getBogotaDateString()
       });
       setInsights(data);
     } catch (err) {

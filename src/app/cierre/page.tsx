@@ -21,6 +21,7 @@ import {
 } from "lucide-react";
 import { cn, formatCurrencyInput, parseCurrencyInput } from "@/lib/utils";
 import { usePOSStore } from "@/lib/store";
+import { getBogotaDateString, getBogotaISOString, getBogotaCurrentDate, toBogotaDate } from '@/lib/dateUtils';
 import { supabase } from "@/lib/supabase";
 import { useState, useEffect } from "react";
 import { Button } from "@/components/ui/button";
@@ -63,10 +64,10 @@ export default function CierrePage() {
   };
 
   // Funciones de fecha
-  const getOrderLocalDateStr = (createdAt: string) => {
-    const d = new Date(createdAt);
-    const tzOffset = d.getTimezoneOffset() * 60000;
-    return (new Date(d.getTime() - tzOffset)).toISOString().split('T')[0];
+  function getOrderLocalDateStr(createdAt: string | Date | undefined) {
+    if (!createdAt) return "";
+    const d = toBogotaDate(createdAt);
+    return d.toISOString().split('T')[0];
   };
 
   const getFullDateLabel = (dateStr: string) => {
@@ -185,7 +186,7 @@ export default function CierrePage() {
           esperadoTarjeta: Number(c.esperadoTarjeta || 0),
           esperadoTransferencia: Number(c.esperadoTransferencia || 0),
           usuario: c.usuario || 'Cajero',
-          timestamp: c.timestamp || new Date().toISOString(),
+          timestamp: c.timestamp || getBogotaISOString(),
           notas: c.notas || "{}"
         });
       }
@@ -200,7 +201,7 @@ export default function CierrePage() {
           esperadoTarjeta: Number(c.esperado_tarjeta || 0),
           esperadoTransferencia: Number(c.esperado_transferencia || 0),
           usuario: creator ? creator.nombre : 'Administrador',
-          timestamp: c.created_at || new Date().toISOString(),
+          timestamp: c.created_at || getBogotaISOString(),
           notas: c.notas || "{}"
         });
       }
@@ -217,17 +218,16 @@ export default function CierrePage() {
   const handleConfirmarCierre = async () => {
     setIsProcessing(true);
     
-    // Simplificado, sin efectivo real
     const closureData = {
       fecha: fechaOperativa,
       esperadoEfectivo,
       esperadoTarjeta,
       esperadoTransferencia,
-      realEfectivo: esperadoEfectivo, // Se asume cuadre perfecto
+      realEfectivo: esperadoEfectivo,
       diferencia: 0,
       notas: "{}",
       usuario: user?.nombre || "Cajero",
-      timestamp: new Date().toISOString()
+      timestamp: getBogotaISOString()
     };
     
     localStorage.setItem(`cierre_${fechaOperativa}`, JSON.stringify(closureData));
@@ -282,7 +282,6 @@ export default function CierrePage() {
     setCajaCerrada(true);
     await cargarHistorialCierres();
     
-    // Iniciar el siguiente día automáticamente
     const sigDia = getFechaSiguiente(fechaOperativa);
     setFechaOperativa(sigDia);
     setCajaCerrada(false);
@@ -303,7 +302,6 @@ export default function CierrePage() {
 
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
         
-        {/* LADO IZQUIERDO: RESUMEN Y BOTÓN DE CIERRE */}
         <div className="lg:col-span-2 space-y-6">
           <Card className="bg-card border-border shadow-xl rounded-[2rem] overflow-hidden">
             <CardHeader className="bg-accent/10 border-b border-border/40 p-6">
@@ -376,7 +374,7 @@ export default function CierrePage() {
                               <span>1. Pre-Cierre — Revisión Automática</span>
                               {typeof window !== 'undefined' && (
                                 <span className="text-[12px] uppercase tracking-widest font-mono text-muted-foreground bg-accent/20 border border-border/50 px-3 py-1 rounded-full whitespace-nowrap">
-                                  {format(new Date(), "dd MMM yyyy - hh:mm a", { locale: es })}
+                                  {format(getBogotaCurrentDate(), "dd MMM yyyy - hh:mm a", { locale: es })}
                                 </span>
                               )}
                             </DialogTitle>
@@ -429,7 +427,6 @@ export default function CierrePage() {
                           </div>
                         </div>
 
-                        {/* Quick Register form inside closure dialog (Step 1) */}
                         <div className="bg-accent/10 p-4 rounded-[1.5rem] border border-border/30 space-y-3 shadow-inner">
                           <div className="flex items-center gap-2 mb-1">
                             <Receipt className="w-4 h-4 text-primary" />
@@ -475,7 +472,7 @@ export default function CierrePage() {
                                     categoria: gastoCategoria,
                                     descripcion: gastoDescripcion.trim(),
                                     valor: val,
-                                    fecha: fechaOperativa || new Date().toISOString().split('T')[0]
+                                    fecha: fechaOperativa || getBogotaDateString()
                                   });
                                   setGastoDescripcion("");
                                   setGastoValor("");

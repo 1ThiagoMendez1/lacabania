@@ -2,6 +2,7 @@
 "use client"
 
 import { usePOSStore } from "@/lib/store";
+import { getBogotaCurrentDate } from "@/lib/dateUtils";
 import { 
   History, 
   Search, 
@@ -67,7 +68,7 @@ export default function HistorialMeserosPage() {
   // Aplicar filtros de fecha a las órdenes
   const filteredClosedOrders = useMemo(() => {
     // Usar la fecha operativa como referencia de "hoy" (o la fecha actual si no existe)
-    const refDate = fechaOperativa ? new Date(fechaOperativa + "T12:00:00") : new Date();
+    const refDate = fechaOperativa ? new Date(fechaOperativa + "T12:00:00") : getBogotaCurrentDate();
     const currentYear = refDate.getFullYear();
     const currentMonth = refDate.getMonth();
     const currentDay = refDate.getDate();
@@ -353,7 +354,7 @@ export default function HistorialMeserosPage() {
                                       <div className="flex flex-col text-[10px]">
                                         <span className="font-bold text-foreground">{format(new Date(o.updatedAt), "dd MMM yyyy", { locale: es })}</span>
                                         <span className="text-muted-foreground flex items-center gap-1 mt-0.5">
-                                          <Calendar className="w-3 h-3" /> {format(new Date(o.updatedAt), "HH:mm a")}
+                                          <Calendar className="w-3 h-3" /> {format(new Date(o.updatedAt), "hh:mm a")}
                                         </span>
                                       </div>
                                     </TableCell>

@@ -30,6 +30,7 @@ import {
   Star,
   Lock
 } from "lucide-react";
+import { getBogotaISOString } from "@/lib/dateUtils";
 import { useState, useMemo, useEffect } from "react";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
@@ -223,23 +224,8 @@ export default function OrderPage() {
     }
     if (cart.length === 0) return;
 
-    // Helper to get timestamp locked to current operational date
-    const getOperationalTimestamp = () => {
-      const now = new Date();
-      const timePart = now.toTimeString().split(' ')[0]; // hh:mm:ss
-      const ms = String(now.getMilliseconds()).padStart(3, '0');
-      const offsetMinutes = now.getTimezoneOffset();
-      const absOffset = Math.abs(offsetMinutes);
-      const sign = offsetMinutes > 0 ? '-' : '+';
-      const offsetHours = String(Math.floor(absOffset / 60)).padStart(2, '0');
-      const offsetMins = String(absOffset % 60).padStart(2, '0');
-      const timezoneOffsetStr = `${sign}${offsetHours}:${offsetMins}`;
-      
-      const activeDate = fechaOperativa || new Date(now.getTime() - (offsetMinutes * 60000)).toISOString().split('T')[0];
-      return `${activeDate}T${timePart}.${ms}${timezoneOffsetStr}`;
-    };
-
-    const operationalTimestamp = getOperationalTimestamp();
+    // Asignar el timestamp operacional actual en Bogotá
+    const operationalTimestamp = getBogotaISOString();
     
     const newItems: ItemOrden[] = cart.map(item => ({
       id: uuidv4(),
@@ -702,20 +688,7 @@ export default function OrderPage() {
                 const userToLogId = user?.id || '';
 
                 // Obtener datos operativos para el nuevo item (si hay)
-                const getOperationalTimestamp = () => {
-                  const now = new Date();
-                  const timePart = now.toTimeString().split(' ')[0];
-                  const ms = String(now.getMilliseconds()).padStart(3, '0');
-                  const offsetMinutes = now.getTimezoneOffset();
-                  const absOffset = Math.abs(offsetMinutes);
-                  const sign = offsetMinutes > 0 ? '-' : '+';
-                  const offsetHours = String(Math.floor(absOffset / 60)).padStart(2, '0');
-                  const offsetMins = String(absOffset % 60).padStart(2, '0');
-                  const timezoneOffsetStr = `${sign}${offsetHours}:${offsetMins}`;
-                  
-                  const activeDate = fechaOperativa || new Date(now.getTime() - (offsetMinutes * 60000)).toISOString().split('T')[0];
-                  return `${activeDate}T${timePart}.${ms}${timezoneOffsetStr}`;
-                };
+                const operationalTimestamp = getBogotaISOString();
 
                 let nuevosItemsParaComanda: ItemOrden[] = [];
                 
@@ -726,7 +699,6 @@ export default function OrderPage() {
                 if (cancelReplacementId && cancelReplacementId !== "none") {
                   const replacementMenu = menuItems.find(m => m.id === cancelReplacementId);
                   if (replacementMenu) {
-                    const operationalTimestamp = getOperationalTimestamp();
                     const newItem: ItemOrden = {
                       id: uuidv4(),
                       menuItemId: replacementMenu.id,

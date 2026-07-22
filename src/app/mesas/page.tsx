@@ -1,7 +1,7 @@
-
 "use client"
 
 import { usePOSStore } from "@/lib/store";
+import { getBogotaISOString } from "@/lib/dateUtils";
 import { Badge } from "@/components/ui/badge";
 import { cn, getOrderIdentifier, uuidv4 } from "@/lib/utils";
 import { Clock, Users, UtensilsCrossed, PlusCircle, Edit, Ban, CheckCircle, Layers, AlertCircle, MapPin, Activity, Info, Map, Trash2, ShoppingBag, Star, Lock, UserCircle } from "lucide-react";
@@ -40,7 +40,7 @@ import {
 import { Textarea } from "@/components/ui/textarea";
 import { useRouter } from "next/navigation";
 import { useToast } from "@/hooks/use-toast";
-import { Mesa, Orden } from "@/lib/types";
+import { Mesa, Orden, ItemOrden } from "@/lib/types";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 
 export default function MesasPage() {
@@ -924,27 +924,31 @@ function MesaCard({ mesa, user, onOpenMesa, onVerPedido, onStartEdit, onToggleFu
                   if (!activeOrder || !cancelItemDialog) return;
                   
                   const userToLogId = user?.id || '';
-                  const getOperationalTimestamp = () => {
-                    const now = new Date();
-                    const timePart = now.toTimeString().split(' ')[0];
-                    const ms = String(now.getMilliseconds()).padStart(3, '0');
-                    const offsetMinutes = now.getTimezoneOffset();
-                    const absOffset = Math.abs(offsetMinutes);
-                    const sign = offsetMinutes > 0 ? '-' : '+';
-                    const offsetHours = String(Math.floor(absOffset / 60)).padStart(2, '0');
-                    const offsetMins = String(absOffset % 60).padStart(2, '0');
-                    const timezoneOffsetStr = `${sign}${offsetHours}:${offsetMins}`;
-                    const activeDate = fechaOperativa || new Date(now.getTime() - (offsetMinutes * 60000)).toISOString().split('T')[0];
-                    return `${activeDate}T${timePart}.${ms}${timezoneOffsetStr}`;
-                  };
+                  const timestampStr = getBogotaISOString();
 
-                  let nuevosItemsParaComanda: ItemOrden[] = [];
+                  const mi = menuItems.find((m: any) => m.id === cancelReplacementId);
+                  let replacementItem: ItemOrden | undefined = undefined;
+                  
+                  if (mi) {
+                    replacementItem = {
+                      id: uuidv4(),
+                      menuItemId: mi.id,
+                      nombre: mi.nombre,
+                      cantidad: cancelItemDialog.cantidad,
+                      precioUnitario: mi.precio,
+                      estacion: mi.estacion,
+                      estado: 'EN PREPARACION',
+                      createdAt: timestampStr
+                    };
+                  }
+
                   await cancelarItemOrden(activeOrder.id, cancelItemDialog.id, cancelMotivo, userToLogId);
                   
+                  let nuevosItemsParaComanda: ItemOrden[] = [];
                   if (cancelReplacementId && cancelReplacementId !== "none") {
                     const replacementMenu = menuItems.find((m: any) => m.id === cancelReplacementId);
                     if (replacementMenu) {
-                      const operationalTimestamp = getOperationalTimestamp();
+                      const operationalTimestamp = timestampStr;
                       const newItem: ItemOrden = {
                         id: uuidv4(),
                         menuItemId: replacementMenu.id,
