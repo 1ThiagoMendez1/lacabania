@@ -265,7 +265,14 @@ export const usePOSStore = create<POSState>((set, get) => ({
     if (typeof window !== 'undefined') {
       const savedFecha = localStorage.getItem('fecha_operativa');
       if (savedFecha && /^\d{4}-\d{2}-\d{2}$/.test(savedFecha)) {
-        activeFecha = savedFecha;
+        // Si no hay ordenes abiertas y la fecha es diferente a hoy (ya sea pasada o futura),
+        // o si es futura independientemente de las órdenes, la forzamos a hoy para que no se atasque
+        if (savedFecha > activeFecha) {
+           activeFecha = getLocalDateString();
+           localStorage.setItem('fecha_operativa', activeFecha);
+        } else {
+           activeFecha = savedFecha;
+        }
       } else {
         localStorage.setItem('fecha_operativa', activeFecha);
       }

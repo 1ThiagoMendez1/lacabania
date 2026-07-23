@@ -153,16 +153,16 @@ export default function DashboardPage() {
           }
         }
         
-        // Fix fechaOperativa atascada en el pasado
+        // Fix fechaOperativa atascada en el pasado o en el futuro
         const todayStr = getBogotaDateString();
         const storedStore = localStorage.getItem('pos-store');
-        if (storedStore && fechaOperativa && fechaOperativa < todayStr) {
-           // Si está muy atrasada (meses anteriores) o simplemente no es hoy
+        if (fechaOperativa && (fechaOperativa < todayStr || fechaOperativa > todayStr)) {
+           // Si está muy atrasada (meses anteriores), en el futuro, o simplemente no es hoy
            // Fuerza a hoy si no hay órdenes abiertas
            const openOrders = ordenes.filter(o => o.estado === 'ABIERTA');
            if (openOrders.length === 0) {
              setFechaOperativa(todayStr);
-           } else if (fechaOperativa.includes('-06-') && todayStr.includes('-07-')) {
+           } else if (fechaOperativa < todayStr && fechaOperativa.includes('-06-') && todayStr.includes('-07-')) {
              // Si hay ordenes abiertas pero están atascadas en junio y estamos en julio, 
              // actualizamos la fecha operativa a hoy para desatascar.
              setFechaOperativa(todayStr);
@@ -171,7 +171,7 @@ export default function DashboardPage() {
       };
       fixHistory();
     }
-  }, []);;
+  }, [fechaOperativa, ordenes, setFechaOperativa]);
 
   function getOrderLocalDateStr(createdAt: string | Date | undefined) {
     if (!createdAt) return "";
