@@ -1,4 +1,3 @@
-
 "use client"
 
 import { useState, useEffect } from "react";
@@ -8,11 +7,12 @@ import { Button } from "@/components/ui/button";
 import { 
   Lock, 
   Delete, 
-  IdCard
+  IdCard,
+  Flame
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { useToast } from "@/hooks/use-toast";
-import { ALL_MENU_ITEMS } from "@/components/layout/AppSidebar";
+import { ALL_MENU_ITEMS } from "@/components/layout/FloatingDock";
 
 export default function LoginPage() {
   const [pin, setPin] = useState("");
@@ -63,42 +63,50 @@ export default function LoginPage() {
   const clearPin = () => setPin("");
 
   return (
-    <main className="min-h-svh w-full flex flex-col items-center justify-center bg-background wood-texture p-4">
-      <div className="max-w-md w-full space-y-4 md:space-y-8 animate-in fade-in zoom-in duration-500">
+    <main className="min-h-svh w-full flex flex-col items-center justify-center bg-background p-4 relative overflow-hidden">
+      {/* Dynamic Background Elements */}
+      <div className="absolute top-1/4 left-1/4 w-96 h-96 bg-[#BF953F]/10 rounded-full blur-[100px] pointer-events-none animate-pulse-slow" />
+      <div className="absolute bottom-1/4 right-1/4 w-96 h-96 bg-red-900/10 rounded-full blur-[120px] pointer-events-none animate-pulse-slow" style={{ animationDelay: '2s' }} />
+
+      <div className="max-w-md w-full space-y-8 animate-in fade-in slide-in-from-bottom-10 duration-700 relative z-10">
         {/* Header Logo */}
-        <div className="text-center space-y-2">
-          <div className="mx-auto w-16 h-16 md:w-20 md:h-20 bg-primary/20 rounded-[2rem] flex items-center justify-center text-4xl md:text-5xl shadow-2xl border-2 border-primary/30 glow-orange">
-            🤠
+        <div className="text-center flex flex-col items-center space-y-4">
+          <div className="w-20 h-20 rounded-full bg-gradient-to-br from-[#2a2a2a] to-[#111] shadow-[0_0_30px_rgba(220,165,60,0.3)] border border-[#B38728]/30 flex items-center justify-center relative overflow-hidden group">
+            <div className="absolute inset-0 bg-gradient-to-tr from-[#BF953F]/20 via-transparent to-[#FCF6BA]/20 opacity-50 group-hover:opacity-100 transition-opacity duration-1000 animate-pulse-slow"></div>
+            <Flame className="w-10 h-10 text-[#BF953F] drop-shadow-[0_0_15px_rgba(191,149,63,0.8)]" />
           </div>
-          <h1 className="text-3xl md:text-4xl font-headline text-secondary glow-gold-text">La Cabaña</h1>
-          <p className="text-muted-foreground font-mono text-[9px] md:text-[10px] uppercase tracking-[0.3em]">
-            Gestión Gastronómica
-          </p>
+          <div>
+            <h1 className="text-4xl md:text-5xl font-decorative text-gradient-gold tracking-wider mb-2">La Cabaña</h1>
+            <p className="text-muted-foreground font-body font-bold text-[10px] uppercase tracking-[0.4em]">
+              Command Center
+            </p>
+          </div>
         </div>
 
-        {/* PIN Display */}
-        <div className="bg-card/50 backdrop-blur-xl border border-border/50 rounded-3xl p-6 md:p-8 shadow-2xl space-y-6 md:space-y-8 paper-texture">
-          <div className="flex flex-col items-center gap-4">
-            <div className="flex gap-3 md:gap-4">
+        {/* PIN Display & Keypad */}
+        <div className="glass-panel rounded-3xl p-6 md:p-8 space-y-8 border-t border-l border-white/10 shadow-[0_20px_50px_rgba(0,0,0,0.5)]">
+          <div className="flex flex-col items-center gap-6">
+            <div className="text-center space-y-1">
+              <p className="text-sm font-bold text-white uppercase tracking-widest flex items-center justify-center gap-2">
+                <IdCard className="w-5 h-5 text-[#BF953F]" /> Acceso de Personal
+              </p>
+              <p className="text-[10px] text-white/50 font-medium">
+                Ingresa los últimos 4 dígitos de tu Cédula
+              </p>
+            </div>
+
+            <div className="flex gap-4">
               {[0, 1, 2, 3].map((i) => (
                 <div
                   key={i}
                   className={cn(
-                    "w-3 h-3 md:w-4 md:h-4 rounded-full border-2 transition-all duration-300 scale-100",
+                    "w-4 h-4 rounded-full border-2 transition-all duration-300",
                     pin.length > i 
-                      ? "bg-primary border-primary scale-125 glow-orange" 
-                      : "border-muted-foreground/30"
+                      ? "bg-[#BF953F] border-[#BF953F] shadow-[0_0_15px_rgba(191,149,63,0.8)] scale-110" 
+                      : "border-white/20 bg-black/30"
                   )}
                 />
               ))}
-            </div>
-            <div className="text-center">
-              <p className="text-[10px] md:text-sm font-bold text-muted-foreground uppercase tracking-widest flex items-center justify-center gap-2 mb-1">
-                <IdCard className="w-4 h-4" /> Acceso de Personal
-              </p>
-              <p className="text-[9px] md:text-[10px] text-muted-foreground/60 font-medium">
-                Últimos 4 dígitos de tu Cédula
-              </p>
             </div>
           </div>
 
@@ -109,7 +117,7 @@ export default function LoginPage() {
                 key={num}
                 variant="outline"
                 onClick={() => handleKeyPress(num)}
-                className="h-14 md:h-16 text-xl md:text-2xl font-black rounded-2xl border-border/40 bg-background/40 active:bg-primary active:text-white transition-all active:scale-95"
+                className="h-16 text-2xl font-body font-light rounded-2xl border-white/5 bg-white/5 hover:bg-white/10 hover:border-white/10 text-white transition-all active:scale-95"
               >
                 {num}
               </Button>
@@ -117,19 +125,19 @@ export default function LoginPage() {
             <Button
               variant="ghost"
               onClick={clearPin}
-              className="h-14 md:h-16 rounded-2xl text-destructive hover:bg-destructive/10"
+              className="h-16 rounded-2xl text-white/40 hover:text-red-400 hover:bg-red-500/10 transition-colors"
             >
               <Delete className="w-6 h-6" />
             </Button>
             <Button
               variant="outline"
               onClick={() => handleKeyPress("0")}
-              className="h-14 md:h-16 text-xl md:text-2xl font-black rounded-2xl border-border/40 bg-background/40 active:bg-primary active:text-white transition-all active:scale-95"
+              className="h-16 text-2xl font-body font-light rounded-2xl border-white/5 bg-white/5 hover:bg-white/10 hover:border-white/10 text-white transition-all active:scale-95"
             >
               0
             </Button>
-            <div className="h-14 md:h-16 flex items-center justify-center">
-              <Lock className="w-5 h-5 md:w-6 md:h-6 text-muted-foreground/20" />
+            <div className="h-16 flex items-center justify-center">
+              <Lock className="w-5 h-5 text-white/20" />
             </div>
           </div>
         </div>

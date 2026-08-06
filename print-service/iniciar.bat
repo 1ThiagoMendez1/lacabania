@@ -19,7 +19,7 @@ if not exist "%~dp0.env" (
 
 :: Instalar dependencias si no existen
 if not exist "%~dp0node_modules" (
-    echo  Instalando dependencias (solo la primera vez)...
+    echo  Instalando dependencias, esto solo se hara la primera vez...
     cd /d "%~dp0"
     npm install
     echo.

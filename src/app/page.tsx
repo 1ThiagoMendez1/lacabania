@@ -4,7 +4,7 @@
 import { usePOSStore } from '@/lib/store';
 import { useRouter } from 'next/navigation';
 import { useEffect } from 'react';
-import { ALL_MENU_ITEMS } from '@/components/layout/AppSidebar';
+import { ALL_MENU_ITEMS } from '@/components/layout/FloatingDock';
 
 export default function Home() {
   const { user, permisos } = usePOSStore();

@@ -1,7 +1,6 @@
 import type {Metadata} from 'next';
 import './globals.css';
 import { Toaster } from "@/components/ui/toaster"
-import { SidebarProvider } from "@/components/ui/sidebar"
 import AuthWrapper from "@/components/layout/AuthWrapper"
 
 export const metadata: Metadata = {
@@ -28,18 +27,10 @@ export default function RootLayout({
         <link rel="preconnect" href="https://fonts.gstatic.com" crossOrigin="anonymous" />
         <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=Playfair+Display:wght@700;900&family=JetBrains+Mono&family=Satisfy&display=swap" rel="stylesheet" />
       </head>
-      <body className="font-body antialiased">
-        <SidebarProvider 
-          defaultOpen={false}
-          style={{
-            "--sidebar-width": "16rem",
-            "--sidebar-width-icon": "5rem",
-          } as React.CSSProperties}
-        >
-          <AuthWrapper>
-            {children}
-          </AuthWrapper>
-        </SidebarProvider>
+      <body className="font-body antialiased bg-background">
+        <AuthWrapper>
+          {children}
+        </AuthWrapper>
         <Toaster />
       </body>
     </html>

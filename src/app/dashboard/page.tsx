@@ -1249,13 +1249,13 @@ ${tableRows}${cleanNotas}`;
           </p>
         </div>
         
-        <div className="flex flex-wrap items-center gap-3">
+        <div className="flex flex-wrap items-center gap-3 w-full md:w-auto mt-2 md:mt-0">
           {/* Tab Selector Switcher */}
-          <div className="bg-primary-foreground/10 p-1 rounded-xl flex items-center gap-1 border border-primary-foreground/10">
+          <div className="bg-primary-foreground/10 p-1 rounded-xl flex items-center gap-1 border border-primary-foreground/10 w-full sm:w-auto overflow-x-auto no-scrollbar">
             <button
               onClick={() => setActiveTab("dashboard")}
               className={cn(
-                "px-4 py-2 rounded-lg text-xs font-black flex items-center gap-2 transition-all",
+                "px-3 md:px-4 py-2 rounded-lg text-xs font-black flex items-center gap-2 transition-all flex-1 sm:flex-none justify-center whitespace-nowrap",
                 activeTab === "dashboard"
                   ? "bg-white text-primary shadow-md"
                   : "text-white hover:bg-white/10"
@@ -1267,7 +1267,7 @@ ${tableRows}${cleanNotas}`;
             <button
               onClick={() => setActiveTab("cierre")}
               className={cn(
-                "px-4 py-2 rounded-lg text-xs font-black flex items-center gap-2 transition-all",
+                "px-3 md:px-4 py-2 rounded-lg text-xs font-black flex items-center gap-2 transition-all flex-1 sm:flex-none justify-center whitespace-nowrap",
                 activeTab === "cierre"
                   ? "bg-white text-primary shadow-md"
                   : "text-white hover:bg-white/10"
@@ -1279,11 +1279,11 @@ ${tableRows}${cleanNotas}`;
           </div>
 
           {/* Period Selector Switcher */}
-          <div className="bg-primary-foreground/10 p-1 rounded-xl flex items-center gap-1 border border-primary-foreground/10 animate-fadeIn">
+          <div className="bg-primary-foreground/10 p-1 rounded-xl flex items-center gap-1 border border-primary-foreground/10 animate-fadeIn w-full sm:w-auto overflow-x-auto no-scrollbar">
             <button
               onClick={() => setDashboardPeriod('DIA')}
               className={cn(
-                "px-4 py-2 rounded-lg text-xs font-black transition-all",
+                "px-3 md:px-4 py-2 rounded-lg text-xs font-black transition-all flex-1 sm:flex-none justify-center whitespace-nowrap",
                 dashboardPeriod === 'DIA'
                   ? "bg-white text-primary shadow-md"
                   : "text-white hover:bg-white/10"
@@ -1294,7 +1294,7 @@ ${tableRows}${cleanNotas}`;
             <button
               onClick={() => setDashboardPeriod('MES')}
               className={cn(
-                "px-4 py-2 rounded-lg text-xs font-black transition-all",
+                "px-3 md:px-4 py-2 rounded-lg text-xs font-black transition-all flex-1 sm:flex-none justify-center whitespace-nowrap",
                 dashboardPeriod === 'MES'
                   ? "bg-white text-primary shadow-md"
                   : "text-white hover:bg-white/10"
@@ -1305,7 +1305,7 @@ ${tableRows}${cleanNotas}`;
             <button
               onClick={() => setDashboardPeriod('AÑO')}
               className={cn(
-                "px-4 py-2 rounded-lg text-xs font-black transition-all",
+                "px-3 md:px-4 py-2 rounded-lg text-xs font-black transition-all flex-1 sm:flex-none justify-center whitespace-nowrap",
                 dashboardPeriod === 'AÑO'
                   ? "bg-white text-primary shadow-md"
                   : "text-white hover:bg-white/10"
@@ -1315,7 +1315,7 @@ ${tableRows}${cleanNotas}`;
             </button>
           </div>
 
-          <div className="flex gap-2">
+          <div className="flex flex-wrap gap-2 w-full sm:w-auto">
             {/* Sync Hoy Button */}
             {!isCierreClosed && (
               <Button
@@ -1332,9 +1332,9 @@ ${tableRows}${cleanNotas}`;
                     });
                   }
                 }}
-                className="bg-primary/20 hover:bg-primary/30 text-primary border-primary/30 font-black px-4 py-2 h-9 rounded-xl text-xs flex items-center gap-2 transition-all"
+                className="bg-primary/20 hover:bg-primary/30 text-primary border-primary/30 font-black px-4 py-2 h-9 rounded-xl text-xs flex items-center justify-center gap-2 transition-all flex-1 sm:flex-none whitespace-nowrap"
               >
-                <RefreshCcw className="w-4 h-4" />
+                <RefreshCcw className="w-4 h-4 shrink-0" />
                 Sincronizar Hoy
               </Button>
             )}
@@ -1344,13 +1344,13 @@ ${tableRows}${cleanNotas}`;
                 <DialogTrigger asChild>
                   <Button
                     variant="outline"
-                    className="bg-transparent hover:bg-white/10 text-white border-white/20 font-black px-4 py-2 h-9 rounded-xl text-xs flex items-center gap-2 transition-all"
+                    className="bg-transparent hover:bg-white/10 text-white border-white/20 font-black px-4 py-2 h-9 rounded-xl text-xs flex items-center justify-center gap-2 transition-all flex-1 sm:flex-none whitespace-nowrap"
                   >
-                    <FolderClosed className="w-4 h-4" />
+                    <FolderClosed className="w-4 h-4 shrink-0" />
                     Día Sin Ventas
                   </Button>
                 </DialogTrigger>
-                <DialogContent className="max-w-md bg-card border-border paper-texture rounded-[2rem] text-foreground">
+                <DialogContent className="max-w-[calc(100vw-2rem)] md:max-w-md bg-card border-border paper-texture rounded-[2rem] text-foreground p-4 md:p-6 overflow-y-auto max-h-[90vh]">
                   <DialogHeader>
                     <DialogTitle className="text-xl font-headline text-primary flex items-center gap-2">
                       <FolderClosed className="w-6 h-6" /> Día Administrativo

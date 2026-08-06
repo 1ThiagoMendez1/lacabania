@@ -63,7 +63,7 @@ import {
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { ALL_MENU_ITEMS } from "@/components/layout/AppSidebar";
+import { ALL_MENU_ITEMS } from "@/components/layout/FloatingDock";
 import { Checkbox } from "@/components/ui/checkbox";
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 

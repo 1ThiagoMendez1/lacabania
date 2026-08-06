@@ -2,7 +2,7 @@
 "use client"
 
 import { usePOSStore } from "@/lib/store";
-import { ALL_MENU_ITEMS } from "@/components/layout/AppSidebar";
+import { ALL_MENU_ITEMS } from "@/components/layout/FloatingDock";
 import { 
   ShieldCheck, 
   Lock, 
