@@ -11,6 +11,7 @@ import {
   Utensils,
   ChevronDown,
   ChevronRight,
+  ChevronLeft,
   Printer
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
@@ -38,6 +39,8 @@ export default function HistorialPedidosPage() {
   const [searchTerm, setSearchTerm] = useState("");
   const [expandedOrderId, setExpandedOrderId] = useState<string | null>(null);
   const [orderToPrint, setOrderToPrint] = useState<any | null>(null);
+  const [currentPage, setCurrentPage] = useState(1);
+  const ITEMS_PER_PAGE = 20;
   const { toast } = useToast();
 
   const handlePrint = async () => {
@@ -78,6 +81,12 @@ export default function HistorialPedidosPage() {
     });
   }, [closedOrders, usuarios, mesas, searchTerm]);
 
+  const totalPages = Math.ceil(filteredOrders.length / ITEMS_PER_PAGE);
+  const paginatedOrders = useMemo(() => {
+    const start = (currentPage - 1) * ITEMS_PER_PAGE;
+    return filteredOrders.slice(start, start + ITEMS_PER_PAGE);
+  }, [filteredOrders, currentPage]);
+
   return (
     <main className="p-4 md:p-8 space-y-8">
       {/* Cabecera general */}
@@ -110,7 +119,10 @@ export default function HistorialPedidosPage() {
                 placeholder="Buscar mesa, mesero u orden..." 
                 className="pl-10 h-10 bg-background/50 rounded-xl"
                 value={searchTerm}
-                onChange={(e) => setSearchTerm(e.target.value)}
+                onChange={(e) => {
+                  setSearchTerm(e.target.value);
+                  setCurrentPage(1);
+                }}
               />
             </div>
           </div>
@@ -128,20 +140,20 @@ export default function HistorialPedidosPage() {
                 </TableRow>
               </TableHeader>
               <TableBody>
-                {filteredOrders.length === 0 ? (
+                {paginatedOrders.length === 0 ? (
                   <TableRow>
                     <TableCell colSpan={5} className="text-center py-12 text-muted-foreground italic text-sm">
                       No se encontraron pedidos cerrados que coincidan con la búsqueda.
                     </TableCell>
                   </TableRow>
                 ) : (
-                  filteredOrders.map((o) => {
+                  paginatedOrders.map((o) => {
                     const mesero = usuarios.find(u => u.id === o.meseroId);
                     // Filter out canceled items for total calculation
                     const activeItems = o.items.filter(i => i.estado !== 'CANCELADO');
                     const subtotal = activeItems.reduce((sum, i) => sum + (i.precioUnitario * i.cantidad), 0);
-                    const tienePropina = o.clienteNombre !== 'SIN_PROPINA';
-                    const total = subtotal * (tienePropina ? 1.1 : 1.0);
+                    const tienePropina = o.propina !== undefined && o.propina > 0;
+                    const total = subtotal + (o.propina || 0);
                     const isExpanded = expandedOrderId === o.id;
                     
                     return (
@@ -200,7 +212,7 @@ export default function HistorialPedidosPage() {
                               </Badge>
                               {tienePropina && (
                                 <span className="text-[9px] text-green-600 font-bold uppercase tracking-widest">
-                                  +10% Propina
+                                  + Propina
                                 </span>
                               )}
                             </div>
@@ -264,6 +276,37 @@ export default function HistorialPedidosPage() {
               </TableBody>
             </Table>
           </div>
+          
+          {totalPages > 1 && (
+            <div className="flex items-center justify-between px-6 py-4 border-t border-border/50 bg-accent/5">
+              <span className="text-xs text-muted-foreground">
+                Mostrando {(currentPage - 1) * ITEMS_PER_PAGE + 1} a {Math.min(currentPage * ITEMS_PER_PAGE, filteredOrders.length)} de {filteredOrders.length} registros
+              </span>
+              <div className="flex items-center gap-2">
+                <Button 
+                  variant="outline" 
+                  size="sm" 
+                  onClick={() => setCurrentPage(prev => Math.max(prev - 1, 1))}
+                  disabled={currentPage === 1}
+                  className="h-8 px-3 text-xs"
+                >
+                  <ChevronLeft className="w-3 h-3 mr-1" /> Anterior
+                </Button>
+                <div className="text-xs font-medium px-2">
+                  Página {currentPage} de {totalPages}
+                </div>
+                <Button 
+                  variant="outline" 
+                  size="sm" 
+                  onClick={() => setCurrentPage(prev => Math.min(prev + 1, totalPages))}
+                  disabled={currentPage === totalPages}
+                  className="h-8 px-3 text-xs"
+                >
+                  Siguiente <ChevronRight className="w-3 h-3 ml-1" />
+                </Button>
+              </div>
+            </div>
+          )}
         </CardContent>
       </Card>
 

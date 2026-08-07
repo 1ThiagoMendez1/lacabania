@@ -335,8 +335,7 @@ export default function HistorialMeserosPage() {
                             ) : (
                               m.orders.map((o) => {
                                 const subtotal = o.items.reduce((sum, i) => sum + (i.precioUnitario * i.cantidad), 0);
-                                const tienePropina = o.clienteNombre !== 'SIN_PROPINA';
-                                const total = subtotal * (tienePropina ? 1.1 : 1.0);
+                                const total = subtotal + (o.propina || 0);
                                 
                                 return (
                                   <TableRow key={o.id} className="border-border/50 hover:bg-background/80 transition-colors">

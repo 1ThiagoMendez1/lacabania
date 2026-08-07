@@ -64,14 +64,56 @@ export function FloatingDock() {
       {/* Background Overlay for More Menu */}
       {isMoreOpen && (
         <div 
-          className="fixed inset-0 bg-black/60 backdrop-blur-sm z-40 transition-opacity animate-in fade-in duration-300"
+          className="fixed inset-0 bg-background/60 backdrop-blur-sm z-40 transition-opacity animate-in fade-in duration-300"
           onClick={() => setIsMoreOpen(false)}
         />
       )}
 
       {/* Floating Dock Container */}
       <div className="fixed bottom-4 md:bottom-8 left-1/2 -translate-x-1/2 z-50 w-full max-w-[calc(100vw-1rem)] md:max-w-fit px-2 md:px-0 flex justify-center">
-        <div className="bg-black/40 backdrop-blur-3xl border border-white/10 shadow-[0_20px_50px_rgba(0,0,0,0.5)] rounded-[2rem] p-2 md:p-3 flex items-center gap-1 md:gap-4 overflow-x-auto no-scrollbar">
+        
+        {/* Popup Menu (moved outside the scroll container to prevent clipping) */}
+        {isMoreOpen && secondaryItems.length > 0 && (
+          <div className="absolute bottom-[calc(100%+1rem)] right-2 md:right-0 w-64 bg-card/95 backdrop-blur-3xl border border-border rounded-3xl p-2 shadow-2xl animate-in slide-in-from-bottom-5 fade-in duration-300 z-50">
+            <div className="grid grid-cols-1 gap-1">
+              {secondaryItems.map((item) => {
+                const isActive = pathname === item.href || pathname.startsWith(item.href + "/");
+                return (
+                  <Link 
+                    key={item.href} 
+                    href={item.href}
+                    onClick={() => setIsMoreOpen(false)}
+                    className={cn(
+                      "flex items-center gap-3 p-3 rounded-2xl transition-all duration-200 group outline-none",
+                      isActive ? "bg-primary/10" : "hover:bg-accent/10"
+                    )}
+                  >
+                    <div className={cn(
+                      "w-10 h-10 rounded-xl flex items-center justify-center transition-colors shadow-sm",
+                      isActive ? "bg-primary text-primary-foreground" : "bg-card border border-border text-primary group-hover:bg-primary/20"
+                    )}>
+                      <item.icon className="w-5 h-5" />
+                    </div>
+                    <span className={cn(
+                      "font-medium text-sm md:text-base",
+                      isActive ? "text-foreground font-bold" : "text-muted-foreground group-hover:text-foreground"
+                    )}>
+                      {item.label}
+                    </span>
+                    {item.label === "Inventario" && alertsCount > 0 && (
+                      <Badge variant="destructive" className="ml-auto shadow-md px-2 py-0.5">
+                        {alertsCount}
+                      </Badge>
+                    )}
+                  </Link>
+                );
+              })}
+            </div>
+          </div>
+        )}
+
+        {/* Dock Bar */}
+        <div className="glass-panel rounded-[2rem] p-2 md:p-3 flex items-center gap-1 md:gap-4 overflow-x-auto no-scrollbar shadow-[0_25px_50px_-12px_rgba(255,81,0,0.3)] animate-in slide-in-from-bottom-full duration-700">
           
           {primaryItems.map((item) => {
             const isActive = pathname === item.href || pathname.startsWith(item.href + "/");
@@ -85,12 +127,12 @@ export function FloatingDock() {
                 <div className={cn(
                   "flex items-center justify-center rounded-2xl transition-all duration-500 ease-out",
                   isActive 
-                    ? "bg-gradient-to-r from-[#BF953F] to-[#8c6b22] text-black shadow-[0_10px_20px_rgba(191,149,63,0.3)] px-3 md:px-5 h-10 md:h-14 gap-1.5 md:gap-2" 
-                    : "w-10 h-10 md:w-14 md:h-14 hover:bg-white/10 text-white/60 hover:text-white"
+                    ? "btn-primary-3d px-3 md:px-5 h-10 md:h-14 gap-1.5 md:gap-2" 
+                    : "w-10 h-10 md:w-14 md:h-14 hover:bg-card hover:shadow-[0_10px_20px_rgba(255,81,0,0.15)] text-muted-foreground hover:text-[#FF5100] border border-transparent hover:border-[#FF5100]/30 hover:scale-105"
                 )}>
                   <item.icon className={cn(
                     "transition-all duration-300",
-                    isActive ? "w-4 h-4 md:w-6 md:h-6 drop-shadow-md" : "w-5 h-5 md:w-7 md:h-7 group-hover:scale-110"
+                    isActive ? "w-4 h-4 md:w-6 md:h-6 drop-shadow-sm" : "w-5 h-5 md:w-7 md:h-7 group-hover:scale-110"
                   )} />
                   {/* Text only visible when active or on hover (as tooltip) */}
                   {isActive ? (
@@ -98,7 +140,7 @@ export function FloatingDock() {
                       {item.label}
                     </span>
                   ) : (
-                    <span className="absolute -top-10 bg-black/90 text-white text-[10px] md:text-xs font-bold px-3 py-1.5 rounded-lg opacity-0 group-hover:opacity-100 transition-opacity duration-300 whitespace-nowrap border border-white/10 shadow-xl pointer-events-none hidden md:block">
+                    <span className="absolute -top-10 bg-foreground text-background text-[10px] md:text-xs font-bold px-3 py-1.5 rounded-lg opacity-0 group-hover:opacity-100 transition-opacity duration-300 whitespace-nowrap shadow-xl pointer-events-none hidden md:block">
                       {item.label}
                     </span>
                   )}
@@ -109,7 +151,7 @@ export function FloatingDock() {
 
           {/* Vertical Divider */}
           {secondaryItems.length > 0 && (
-            <div className="w-[1px] h-6 md:h-8 bg-white/10 mx-0.5 md:mx-1 shrink-0"></div>
+            <div className="w-[1px] h-6 md:h-8 bg-border mx-0.5 md:mx-1 shrink-0"></div>
           )}
 
           {/* More Menu Toggle */}
@@ -120,58 +162,18 @@ export function FloatingDock() {
                 className={cn(
                   "w-10 h-10 md:w-14 md:h-14 flex items-center justify-center rounded-2xl transition-all duration-500 outline-none",
                   isMoreOpen 
-                    ? "bg-white/20 text-white shadow-[0_10px_20px_rgba(255,255,255,0.1)]" 
-                    : "hover:bg-white/10 text-white/60 hover:text-white"
+                    ? "bg-secondary text-secondary-foreground shadow-md" 
+                    : "hover:bg-accent/10 text-muted-foreground hover:text-foreground"
                 )}
               >
                 {isMoreOpen ? <X className="w-5 h-5 md:w-7 md:h-7 transition-transform duration-300 rotate-90" /> : <MenuIcon className="w-5 h-5 md:w-7 md:h-7 transition-transform duration-300 group-hover:scale-110" />}
                 {alertsCount > 0 && !isMoreOpen && (
-                  <span className="absolute top-1 md:top-2 right-1 md:right-2 w-2 h-2 md:w-3 md:h-3 bg-red-500 rounded-full animate-pulse border md:border-2 border-black" />
+                  <span className="absolute top-1 md:top-2 right-1 md:right-2 w-2 h-2 md:w-3 md:h-3 bg-destructive rounded-full animate-pulse border md:border-2 border-background" />
                 )}
               </button>
             </div>
           )}
         </div>
-
-        {/* Popup Menu (moved outside the scroll container to prevent clipping) */}
-        {isMoreOpen && secondaryItems.length > 0 && (
-          <div className="absolute bottom-[calc(100%+1rem)] right-2 md:right-0 w-64 bg-black/60 backdrop-blur-3xl border border-white/10 rounded-3xl p-2 shadow-[0_20px_50px_rgba(0,0,0,0.5)] animate-in slide-in-from-bottom-5 fade-in duration-300 z-50">
-            <div className="grid grid-cols-1 gap-1">
-              {secondaryItems.map((item) => {
-                const isActive = pathname === item.href || pathname.startsWith(item.href + "/");
-                return (
-                  <Link 
-                    key={item.href} 
-                    href={item.href}
-                    onClick={() => setIsMoreOpen(false)}
-                    className={cn(
-                      "flex items-center gap-3 p-3 rounded-2xl transition-all duration-200 group outline-none",
-                      isActive ? "bg-white/10" : "hover:bg-white/5"
-                    )}
-                  >
-                    <div className={cn(
-                      "w-10 h-10 rounded-xl flex items-center justify-center transition-colors shadow-sm",
-                      isActive ? "bg-[#BF953F] text-black" : "bg-black/50 text-[#BF953F] group-hover:bg-[#BF953F]/20"
-                    )}>
-                      <item.icon className="w-5 h-5" />
-                    </div>
-                    <span className={cn(
-                      "font-medium text-sm md:text-base",
-                      isActive ? "text-white" : "text-white/70 group-hover:text-white"
-                    )}>
-                      {item.label}
-                    </span>
-                    {item.label === "Inventario" && alertsCount > 0 && (
-                      <Badge variant="destructive" className="ml-auto bg-red-500 text-white border-none shadow-md px-2 py-0.5">
-                        {alertsCount}
-                      </Badge>
-                    )}
-                  </Link>
-                );
-              })}
-            </div>
-          </div>
-        )}
       </div>
     </>
   );

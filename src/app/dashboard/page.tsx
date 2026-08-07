@@ -257,9 +257,7 @@ export default function DashboardPage() {
     acc + o.items.reduce((sum, i) => sum + (i.precioUnitario * i.cantidad), 0), 0);
   
   const totalPropinas = ventasCerradas.reduce((acc, o) => {
-    const sub = o.items.reduce((sum, i) => sum + (i.precioUnitario * i.cantidad), 0);
-    const tienePropina = o.clienteNombre !== 'SIN_PROPINA';
-    return acc + (tienePropina ? sub * 0.10 : 0);
+    return acc + (o.propina || 0);
   }, 0);
   const granTotalRecaudado = totalVentasCerradas + totalPropinas;
 
@@ -269,20 +267,17 @@ export default function DashboardPage() {
 
   const esperadoEfectivo = ventasCerradas.filter(o => o.metodoPago === 'EFECTIVO').reduce((acc, o) => {
     const sub = o.items.reduce((sum, i) => sum + (i.precioUnitario * i.cantidad), 0);
-    const tienePropina = o.clienteNombre !== 'SIN_PROPINA';
-    return acc + sub + (tienePropina ? sub * 0.10 : 0);
+    return acc + sub + (o.propina || 0);
   }, 0);
 
   const esperadoTarjeta = ventasCerradas.filter(o => o.metodoPago === 'TARJETA').reduce((acc, o) => {
     const sub = o.items.reduce((sum, i) => sum + (i.precioUnitario * i.cantidad), 0);
-    const tienePropina = o.clienteNombre !== 'SIN_PROPINA';
-    return acc + sub + (tienePropina ? sub * 0.10 : 0);
+    return acc + sub + (o.propina || 0);
   }, 0);
 
   const esperadoTransferencia = ventasCerradas.filter(o => o.metodoPago === 'TRANSFERENCIA').reduce((acc, o) => {
     const sub = o.items.reduce((sum, i) => sum + (i.precioUnitario * i.cantidad), 0);
-    const tienePropina = o.clienteNombre !== 'SIN_PROPINA';
-    return acc + sub + (tienePropina ? sub * 0.10 : 0);
+    return acc + sub + (o.propina || 0);
   }, 0);
 
   const closureReportRaw = typeof window !== 'undefined' ? localStorage.getItem(`cierre_${activeCloseDate}`) : null;
@@ -1183,8 +1178,7 @@ ${tableRows}${cleanNotas}`;
                        const identifier = getOrderIdentifier({ mesaId: o.mesaId, consecutivo: o.consecutivo, id: o.id });
                        const activeItems = o.items.filter(i => i.estado !== 'CANCELADO');
                        const subtotal = activeItems.reduce((sum, i) => sum + (i.precioUnitario * i.cantidad), 0);
-                       const tienePropina = o.clienteNombre !== 'SIN_PROPINA';
-                       const propinaVal = tienePropina ? (subtotal * 0.1) : 0;
+                       const propinaVal = o.propina || 0;
                        const totalFinal = subtotal + propinaVal;
                        
                        return (
@@ -1213,9 +1207,9 @@ ${tableRows}${cleanNotas}`;
                                   ${totalFinal.toLocaleString('es-CO')}
                                 </span>
                               </div>
-                              {tienePropina && (
+                              {propinaVal > 0 && (
                                 <span className="text-[9px] text-green-500 font-bold uppercase tracking-widest mt-0.5 block">
-                                  +10% Propina incl.
+                                  + Propina incl.
                                 </span>
                               )}
                             </div>
@@ -1909,8 +1903,7 @@ ${tableRows}${cleanNotas}`;
                               const identifier = getOrderIdentifier({ mesaId: o.mesaId, consecutivo: o.consecutivo, id: o.id });
                               
                               const subtotal = o.items.reduce((sum, i) => sum + (i.precioUnitario * i.cantidad), 0);
-                              const tienePropina = o.clienteNombre !== 'SIN_PROPINA';
-                              const totalOrder = subtotal * (tienePropina ? 1.10 : 1.00);
+                              const totalOrder = subtotal + (o.propina || 0);
                               const waiterName = usuarios.find(u => u.id === o.meseroId)?.nombre || 'Mesero';
 
                               return (
@@ -2074,16 +2067,21 @@ ${tableRows}${cleanNotas}`;
           {/* Main Dashboard Stats cards */}
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
             {kpis.map((kpi, i) => (
-              <Card key={i} className="bg-card/50 border-border paper-texture shadow-lg rounded-2xl transition-all hover:translate-y-[-2px]">
-                <CardContent className="pt-6">
-                  <div className="flex items-center justify-between mb-2">
-                    <kpi.icon className={cn("w-5 h-5", kpi.color)} />
-                    <span className="text-[10px] font-mono text-green-500 bg-green-500/10 px-2 py-0.5 rounded-full font-bold">
+              <Card key={i} className="glass-panel hover:bg-card/90 transition-all premium-glow group animate-in slide-in-from-bottom-10 fade-in duration-700 fill-mode-both" style={{ animationDelay: `${i * 150}ms` }}>
+                <CardContent className="pt-6 relative z-10 overflow-hidden">
+                  {/* Decorative glowing orb inside card */}
+                  <div className="absolute -top-10 -right-10 w-24 h-24 bg-[#FF5100]/20 rounded-full blur-2xl group-hover:bg-[#FFC300]/30 transition-colors duration-500" />
+                  
+                  <div className="flex items-center justify-between mb-2 relative z-10">
+                    <div className="bg-gradient-to-br from-[#FFC300]/20 to-[#FF5100]/20 p-2.5 rounded-xl group-hover:scale-110 group-hover:rotate-6 transition-transform duration-300">
+                      <kpi.icon className={cn("w-6 h-6", kpi.color)} />
+                    </div>
+                    <span className="text-[11px] font-mono text-[#2D8C3C] bg-[#2D8C3C]/10 border border-[#2D8C3C]/30 px-2.5 py-0.5 rounded-full font-black shadow-sm group-hover:bg-[#2D8C3C] group-hover:text-white transition-colors">
                       {kpi.change}
                     </span>
                   </div>
-                  <p className="text-xs text-muted-foreground font-black uppercase tracking-wider">{kpi.title}</p>
-                  <h3 className="text-2xl font-bold mt-1 text-foreground">{kpi.value}</h3>
+                  <p className="text-[10px] text-muted-foreground font-black uppercase tracking-[0.1em] relative z-10">{kpi.title}</p>
+                  <h3 className="text-3xl font-black mt-1 text-foreground drop-shadow-sm relative z-10">{kpi.value}</h3>
                 </CardContent>
               </Card>
             ))}
@@ -2091,10 +2089,10 @@ ${tableRows}${cleanNotas}`;
 
           <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
             {/* Sales Chart */}
-            <Card className="lg:col-span-2 bg-card border-border shadow-xl rounded-[2rem] overflow-hidden">
-              <CardHeader className="bg-accent/10 border-b border-border/40 p-5">
-                <CardTitle className="text-base font-headline font-black tracking-tight text-foreground">
-                  Flujo de Ventas (Hoy)
+            <Card className="lg:col-span-2 glass-panel overflow-hidden">
+              <CardHeader className="bg-gradient-to-r from-primary/10 via-background/30 to-background/5 border-b border-white/20 p-5">
+                <CardTitle className="text-base font-headline font-black tracking-tight text-primary flex items-center gap-2">
+                  <TrendingUp className="w-5 h-5" /> Flujo de Ventas
                 </CardTitle>
               </CardHeader>
               <CardContent className="p-6">

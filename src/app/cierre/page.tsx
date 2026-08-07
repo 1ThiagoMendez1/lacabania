@@ -107,27 +107,22 @@ export default function CierrePage() {
     acc + o.items.reduce((sum, i) => sum + (i.precioUnitario * i.cantidad), 0), 0);
   
   const totalPropinas = ventasCerradas.reduce((acc, o) => {
-    const sub = o.items.reduce((sum, i) => sum + (i.precioUnitario * i.cantidad), 0);
-    const tienePropina = o.clienteNombre !== 'SIN_PROPINA';
-    return acc + (tienePropina ? sub * 0.10 : 0);
+    return acc + (o.propina || 0);
   }, 0);
 
   const esperadoEfectivo = ventasCerradas.filter(o => o.metodoPago === 'EFECTIVO').reduce((acc, o) => {
     const sub = o.items.reduce((sum, i) => sum + (i.precioUnitario * i.cantidad), 0);
-    const tienePropina = o.clienteNombre !== 'SIN_PROPINA';
-    return acc + sub + (tienePropina ? sub * 0.10 : 0);
+    return acc + sub + (o.propina || 0);
   }, 0);
 
   const esperadoTarjeta = ventasCerradas.filter(o => o.metodoPago === 'TARJETA').reduce((acc, o) => {
     const sub = o.items.reduce((sum, i) => sum + (i.precioUnitario * i.cantidad), 0);
-    const tienePropina = o.clienteNombre !== 'SIN_PROPINA';
-    return acc + sub + (tienePropina ? sub * 0.10 : 0);
+    return acc + sub + (o.propina || 0);
   }, 0);
 
   const esperadoTransferencia = ventasCerradas.filter(o => o.metodoPago === 'TRANSFERENCIA').reduce((acc, o) => {
     const sub = o.items.reduce((sum, i) => sum + (i.precioUnitario * i.cantidad), 0);
-    const tienePropina = o.clienteNombre !== 'SIN_PROPINA';
-    return acc + sub + (tienePropina ? sub * 0.10 : 0);
+    return acc + sub + (o.propina || 0);
   }, 0);
 
   const granTotalRecaudado = totalVentasCerradas + totalPropinas;
@@ -569,8 +564,7 @@ export default function CierrePage() {
                                 const closedMesa = mesas.find(m => m.id === o.mesaId);
                                 const label = closedMesa?.zona === 'Para Llevar' ? `Llevar - PLL-${o.consecutivo || (o.mesaId >= 101 ? o.mesaId - 100 : o.mesaId)}` : `Mesa ${o.mesaId}`;
                                 const subtotal = o.items.reduce((sum, i) => sum + (i.precioUnitario * i.cantidad), 0);
-                                const tienePropina = o.clienteNombre !== 'SIN_PROPINA';
-                                const totalOrder = subtotal * (tienePropina ? 1.10 : 1.00);
+                                const totalOrder = subtotal + (o.propina || 0);
                                 const waiterName = usuarios.find(u => u.id === o.meseroId)?.nombre || 'Mesero';
                                 return (
                                   <div key={o.id} className="p-2.5 bg-background/50 rounded-xl border border-border/30 flex items-center justify-between text-[11px] gap-2 hover:border-primary/20 transition-all duration-200">

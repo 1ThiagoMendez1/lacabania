@@ -27,45 +27,45 @@ export function TopHeader() {
   if (!user) return null;
 
   return (
-    <header className="fixed top-0 left-0 right-0 h-16 bg-background/70 backdrop-blur-2xl border-b border-white/5 z-40 px-4 md:px-8 flex items-center justify-between shadow-[0_4px_30px_rgba(0,0,0,0.3)]">
+    <header className="fixed top-0 left-0 right-0 h-16 glass-panel border-b-0 z-40 px-4 md:px-8 flex items-center justify-between shadow-[0_15px_35px_-10px_rgba(255,81,0,0.2)] animate-in slide-in-from-top-full duration-700">
       {/* Brand / Logo */}
       <div className="flex items-center gap-3">
-        <div className="w-10 h-10 rounded-full bg-gradient-to-br from-[#2a2a2a] to-[#111] shadow-[0_0_10px_rgba(220,165,60,0.2)] border border-[#B38728]/30 flex items-center justify-center relative overflow-hidden group">
-          <div className="absolute inset-0 bg-gradient-to-tr from-[#BF953F]/10 via-transparent to-[#FCF6BA]/20 opacity-0 group-hover:opacity-100 transition-opacity duration-500"></div>
-          <Flame className="w-5 h-5 text-[#BF953F] drop-shadow-[0_0_5px_rgba(191,149,63,0.8)]" />
+        <div className="w-12 h-12 rounded-full bg-card shadow-[inset_0_2px_4px_rgba(255,255,255,1),0_4px_15px_rgba(255,81,0,0.4)] border-2 border-white flex items-center justify-center relative overflow-hidden group premium-glow">
+          <div className="absolute inset-0 bg-gradient-to-tr from-[#FF5100]/20 via-transparent to-[#FFC300]/20 opacity-0 group-hover:opacity-100 transition-opacity duration-500"></div>
+          <Flame className="w-6 h-6 text-[#FF5100] drop-shadow-[0_2px_10px_rgba(255,81,0,0.8)] animate-pulse-glow" />
         </div>
         <div className="hidden sm:flex flex-col">
-          <h1 className="font-decorative text-xl text-gradient-gold leading-none tracking-wider py-0.5">La Cabaña</h1>
-          <p className="text-[9px] font-body font-bold text-foreground/50 uppercase tracking-[0.2em]">Command Center</p>
+          <h1 className="font-decorative text-2xl text-gradient-gold leading-none tracking-wider py-0.5 drop-shadow-sm">La Cabaña</h1>
+          <p className="text-[10px] font-body font-black text-foreground uppercase tracking-[0.2em] drop-shadow-sm">Punto de Venta</p>
         </div>
       </div>
 
       {/* Clock (Center) */}
-      <div className="hidden md:flex items-center gap-2 px-4 py-1.5 rounded-full bg-white/5 border border-white/5 text-foreground/70">
-        <Clock className="w-4 h-4 text-[#BF953F]" />
-        <span className="text-sm font-mono tracking-widest font-medium">
+      <div className="hidden md:flex items-center gap-2 px-5 py-2 rounded-full bg-background border border-white/60 text-foreground shadow-sm hover:shadow-[0_5px_15px_-5px_rgba(255,81,0,0.3)] transition-all group">
+        <Clock className="w-4 h-4 text-[#FF5100] group-hover:scale-110 transition-transform" />
+        <span className="text-sm font-mono tracking-widest font-black">
           {time ? time.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }) : '--:--'}
         </span>
       </div>
 
       {/* User Profile & Logout */}
       <div className="flex items-center gap-4">
-        <div className="flex items-center gap-3 bg-white/5 pl-2 pr-4 py-1.5 rounded-full border border-white/5">
-          <div className="w-8 h-8 rounded-full bg-gradient-to-br from-[#BF953F] to-[#8c6b22] flex items-center justify-center text-black text-sm font-bold shadow-[0_0_10px_rgba(191,149,63,0.3)] shrink-0">
+        <div className="flex items-center gap-3 bg-background pl-2 pr-5 py-1.5 rounded-full border border-white/60 shadow-sm hover:shadow-[0_5px_15px_-5px_rgba(255,81,0,0.3)] transition-all">
+          <div className="w-9 h-9 rounded-full bg-gradient-to-br from-[#FFC300] to-[#FF5100] flex items-center justify-center text-white text-sm font-black shadow-[0_2px_10px_rgba(255,81,0,0.4)] shrink-0 border border-white/50">
             {user.nombre[0]}
           </div>
           <div className="flex flex-col min-w-0">
-            <span className="text-xs font-semibold text-white leading-tight truncate max-w-[100px]">{user.nombre.split(' ')[0]}</span>
-            <span className="text-[9px] text-[#BF953F] font-bold uppercase tracking-widest leading-tight">{user.rol}</span>
+            <span className="text-xs font-black text-foreground leading-tight truncate max-w-[100px]">{user.nombre.split(' ')[0]}</span>
+            <span className="text-[10px] text-[#FF5100] font-black uppercase tracking-widest leading-tight">{user.rol}</span>
           </div>
         </div>
 
         <button 
           onClick={handleLogout}
-          className="w-10 h-10 rounded-full flex items-center justify-center text-foreground/50 hover:text-red-400 hover:bg-red-500/10 border border-transparent hover:border-red-500/20 transition-all duration-300"
+          className="w-11 h-11 rounded-full flex items-center justify-center text-muted-foreground hover:text-white hover:bg-[#E61919] border border-transparent hover:border-[#E61919] hover:shadow-[0_5px_15px_-5px_rgba(230,25,25,0.6)] transition-all duration-300 hover:scale-110"
           title="Cerrar Sesión"
         >
-          <LogOut className="w-4 h-4" />
+          <LogOut className="w-5 h-5" />
         </button>
       </div>
     </header>
