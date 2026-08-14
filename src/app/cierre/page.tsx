@@ -599,6 +599,37 @@ export default function CierrePage() {
                   </Dialog>
                 </div>
               )}
+              {isCajaCerrada && user?.rol === 'ADMINISTRADOR' && (
+                <div className="pt-4 border-t border-border/40">
+                  <div className="mb-4 bg-amber-500/10 border border-amber-500/30 text-amber-500 p-4 rounded-2xl flex items-center gap-3">
+                    <AlertTriangle className="w-6 h-6 shrink-0" />
+                    <div>
+                      <p className="text-sm font-bold">¿Caja cerrada por error?</p>
+                      <p className="text-xs">Como administrador, puedes reabrir la caja del día operativo actual. Esto eliminará el reporte de cierre.</p>
+                    </div>
+                  </div>
+                  <Button 
+                    variant="destructive"
+                    className="w-full h-14 text-base font-black rounded-2xl shadow-lg hover:shadow-xl transition-all"
+                    onClick={async () => {
+                      if (window.confirm('¿Estás seguro de que deseas REABRIR la caja? Esto eliminará el reporte de cierre de hoy.')) {
+                        try {
+                          localStorage.removeItem(`cierre_${fechaOperativa}`);
+                          await supabase.from('cierres_diarios').delete().eq('fecha', fechaOperativa);
+                          setCajaCerrada(false);
+                          
+                          // Recargar para que cambie el UI a abierto
+                          window.location.reload();
+                        } catch (e: any) {
+                          toast({ variant: "destructive", title: "Error", description: e.message });
+                        }
+                      }
+                    }}
+                  >
+                    Reabrir Caja 🔓
+                  </Button>
+                </div>
+              )}
             </CardContent>
           </Card>
         </div>
