@@ -128,8 +128,6 @@ async function start() {
   console.log('Conectando a Supabase...');
   await publishPrinters();
 
-  await processPendingJobs();
-
   // Suscribirse a nuevos jobs via Realtime
   const channel = supabase
     .channel('print-queue')
@@ -139,12 +137,16 @@ async function start() {
         await processJob(job);
       }
     })
-    .subscribe((status, err) => {
+    .subscribe(async (status, err) => {
       if (status === 'SUBSCRIBED') {
         console.log('\n✅ Servicio listo. Escuchando trabajos de impresión...');
         console.log('   No cierres esta ventana mientras uses el POS.\n');
+        // Revisar jobs pendientes al conectar (o reconectar después de un corte de internet)
+        await processPendingJobs();
       } else if (status === 'CHANNEL_ERROR') {
-        console.error('❌ Error en canal Realtime:', err);
+        console.error('❌ Error de red en canal Realtime (posible corte de internet):', err);
+      } else if (status === 'CLOSED') {
+        console.warn('⚠️ Conexión cerrada. Supabase intentará reconectar automáticamente...');
       }
     });
 
