@@ -68,6 +68,8 @@ interface POSState {
   deleteGasto: (id: string) => Promise<void>;
 }
 
+let realtimeSubscriptionCreated = false;
+
 export const usePOSStore = create<POSState>((set, get) => ({
   user: typeof window !== 'undefined' && (() => {
     const savedUser = sessionStorage.getItem('user_session');
@@ -419,6 +421,10 @@ export const usePOSStore = create<POSState>((set, get) => ({
   },
 
   setupRealtime: () => {
+    // The store is shared across routes. Do not tear down/recreate subscriptions
+    // every time a page mounts: this can interrupt other Realtime listeners.
+    if (realtimeSubscriptionCreated) return;
+    realtimeSubscriptionCreated = true;
     // Several changes to the same order can arrive in a burst.
     // Coalesce them to avoid loading every order three times.
     let refreshTimeout: ReturnType<typeof setTimeout> | null = null;
@@ -429,7 +435,6 @@ export const usePOSStore = create<POSState>((set, get) => ({
         void get().refreshOrdenesYMesas().catch(err => console.error('Realtime refresh failed:', err));
       }, 200);
     };
-    supabase.removeAllChannels();
     supabase
       .channel('mesas-channel')
       .on(
