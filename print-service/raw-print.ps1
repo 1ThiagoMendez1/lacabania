@@ -56,6 +56,8 @@ public class RawPrint {
                 int written;
                 if (!WritePrinter(hPrinter, pUnmanaged, pBytes.Length, out written))
                     throw new Exception("WritePrinter falló (Win32 error " + Marshal.GetLastWin32Error() + ")");
+                if (written != pBytes.Length)
+                    throw new Exception("WritePrinter escribió " + written + " de " + pBytes.Length + " bytes. Revisar ticket manualmente.");
             } finally {
                 Marshal.FreeCoTaskMem(pUnmanaged);
             }

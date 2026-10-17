@@ -37,6 +37,12 @@ test('timezone helpers produce Colombian business dates', () => {
   assert.ok(Math.abs(Date.parse(exported.getBogotaISOString()) - Date.now()) < 2000);
 });
 
+test('database bootstrap cannot drop existing business tables or types', () => {
+  const sql = readFileSync(join(root, 'supabase/schema.sql'), 'utf8');
+  assert.doesNotMatch(sql, /^\s*DROP\s+(?:TABLE|TYPE)\b/im);
+  assert.match(sql, /CREATE\s+TYPE\s+public\.order_status/i);
+});
+
 test('order cancellation uses the database enum', () => {
   const source = readFileSync(join(root, 'src/app/mesas/page.tsx'), 'utf8');
   assert.match(source, /updateOrden\(activeOrder\.id,\s*\{\s*estado:\s*'ANULADA'/);

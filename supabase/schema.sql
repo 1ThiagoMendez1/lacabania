@@ -1,21 +1,12 @@
 -- Schema for La Cabaña POS
 
--- Limpiar esquema anterior (Útil si necesitas volver a correr el script)
-DROP TABLE IF EXISTS public.items_orden CASCADE;
-DROP TABLE IF EXISTS public.ordenes CASCADE;
-DROP TABLE IF EXISTS public.mesas CASCADE;
-DROP TABLE IF EXISTS public.productos CASCADE;
-DROP TABLE IF EXISTS public.menu_items CASCADE;
-DROP TABLE IF EXISTS public.usuarios CASCADE;
-DROP TABLE IF EXISTS public.permisos CASCADE;
-DROP TABLE IF EXISTS public.cierres_diarios CASCADE;
-
-DROP TYPE IF EXISTS public.user_role CASCADE;
-DROP TYPE IF EXISTS public.station CASCADE;
-DROP TYPE IF EXISTS public.table_status CASCADE;
-DROP TYPE IF EXISTS public.order_item_status CASCADE;
-DROP TYPE IF EXISTS public.order_status CASCADE;
-DROP TYPE IF EXISTS public.payment_method CASCADE;
+-- Inicialización de una base de datos VACÍA solamente.
+-- IMPORTANTE: Nunca hacer DROP de tablas o tipos aquí: este archivo puede
+-- ejecutarse por error contra una base que contenga ventas reales.
+-- Si ya existen los tipos, CREATE TYPE fallará sin destruir información.
+-- Para cambios en una base existente, preparar una migración incremental
+-- revisada, con respaldo verificado y transacción.
+-- NOTA: Este esquema legado todavía deshabilita RLS: NO apto para producción.
 
 -- Enum for roles
 CREATE TYPE public.user_role AS ENUM ('ADMINISTRADOR', 'MESERO', 'CAJERO');

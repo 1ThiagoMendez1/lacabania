@@ -12,7 +12,7 @@ Requisitos: Node.js compatible con Next.js 15, npm y un proyecto de Supabase con
 4. `npm run dev` — inicia la aplicación en el puerto 9002.
 5. `npm run build` — verifica la compilación optimizada de producción.
 
-El proyecto no configura actualmente un linter independiente; la compilación omite ESLint. No debe confundirse una compilación correcta con una auditoría integral de seguridad.
+El proyecto no configura actualmente un linter independiente; la compilación omite ESLint. No debe confundirse una compilación correcta con una auditoría integral de seguridad. Existe validación automática sin credenciales en `.github/workflows/ci.yml`. El servicio de impresión tiene pruebas con impresoras simuladas, pero no se han emitido tickets físicos.
 
 ## Servicio de impresión
 
@@ -20,7 +20,7 @@ El proyecto no configura actualmente un linter independiente; la compilación om
 
 ## Protección de datos: lectura obligatoria
 
-- **NO EJECUTAR** `supabase/schema.sql` sobre una base que contenga información: incluye múltiples `DROP TABLE ... CASCADE`, lo que borraría datos.
+- **NO EJECUTAR** `supabase/schema.sql` sobre una base que contenga información: es un esquema de inicialización de base vacía, no una migración. Se eliminaron las órdenes `DROP` de su contenido, pero sigue desactivando RLS y no sirve para actualizar producción.
 - `/api/reset` está deshabilitado y devuelve HTTP 410. No existe operación de reseteo remoto.
 - El SQL histórico desactiva Row Level Security en tablas de negocio; **no lo utilices como configuración de seguridad en producción**. Migrar a autenticación y políticas RLS probadas antes de cambiar el acceso actual.
 - Las claves y contenedores criptográficos `.key` y `.p12` previamente versionados requieren evaluación y rotación. Añadirlos a `.gitignore` no elimina copias históricas ni revoca claves.

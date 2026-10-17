@@ -9,7 +9,7 @@
 
 ### 1. Ejecutar la migración en Supabase
 
-Abre el **SQL Editor** en tu dashboard de Supabase y ejecuta el contenido de `supabase-migration.sql`.
+**No ejecutes directamente `supabase-migration.sql` sobre la base en producción.** Es un esquema inicial histórico que abre la cola mediante una política RLS permisiva. Primero configura la autenticación y las políticas de acceso de la instalación, revisa el SQL sobre una copia y realiza una migración incremental con respaldo probado.
 
 ### 2. Crear el archivo .env
 
@@ -54,6 +54,14 @@ Doble clic en **autostart.bat** para que el servicio arranque automáticamente c
 ```
 
 No necesitas certificados, ni configuración por dispositivo, ni abrir puertos. Funciona desde cualquier celular en cualquier red.
+
+## Recuperación segura de trabajos
+
+- El servicio **solo reclama** trabajos con estado `pending`, y usa un cambio condicional de estado para impedir que dos instancias impriman simultáneamente el mismo ticket.
+- Los trabajos `pending` se consultan al conectar y cada 30 segundos. Si la impresora no está instalada o está desconectada, permanecen pendientes y se reintentan cuando vuelva a estar disponible.
+- Un trabajo `processing` **nunca se reimprime automáticamente**: podría haberse impreso justo antes de un corte de internet o del cierre del programa. Comprueba físicamente el comprobante y registra la incidencia antes de tomar una acción manual.
+- Los trabajos `error` quedan almacenados con el mensaje de fallo para revisión. No son borrados por el servicio.
+- El servicio admite hasta 1 MiB por ticket y solo imprime en nombres de impresora detectados por Windows. No permite interpretar nombres de impresoras como comandos de consola.
 
 ## Solución de problemas
 

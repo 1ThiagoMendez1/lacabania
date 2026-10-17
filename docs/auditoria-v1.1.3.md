@@ -23,7 +23,10 @@ Revisión estática de rutas, almacén Zustand, esquema SQL y servicio de impres
 - Después: `npm run typecheck` completado sin errores.
 - `npm run test`: **3 pruebas correctas**, 0 fallidas. Cubren la ruta de reset, fechas Bogotá y enum de anulación.
 - `npm run build`: compilación Next.js 15.5.28 completada. 20 páginas generadas. JavaScript de primera carga del dashboard reportado: **325 kB** (medición del compilador, no rendimiento real del navegador).
-- `npm audit --omit=dev --json`: antes del parche 6 críticas y 31 altas; después 5 críticas y 31 altas. También quedan 68 moderadas y 1 baja. **La auditoría de dependencias no está resuelta**: requiere triage detallado, identificar rutas realmente alcanzables, actualizar paquetes transitivos y validar funcionalidades.
+- `npm audit --omit=dev --json`: estado original 6 críticas, 31 altas; después de la actualización de parches del primer lote 5 críticas y 31 altas. **Segundo lote:** actualización no destructiva de dependencias compatibles con `npm audit fix` (sin `--force`) y restablecimiento explícito de `@opentelemetry/exporter-jaeger@1.30.1` como dependencia de compatibilidad de Genkit: **0 críticas, 19 altas, 59 moderadas**. Es un conteo de avisos del árbol, no una prueba de ausencia de vulnerabilidades explotables. El exportador está obsoleto y requiere migración de telemetría posterior.
+- **Segunda intervención:** 9 pruebas automatizadas correctas; compilación Next.js correcta sin advertencias de módulos faltantes; sintaxis del servicio de impresión comprobada. Servicio de impresión: `npm audit --omit=dev` sin avisos.
+- **Segunda intervención:** se retiraron los `DROP TABLE` y `DROP TYPE` de `supabase/schema.sql` para reducir riesgos de borrado accidental; sigue siendo un script SOLO para una base vacía y deshabilita RLS.
+- **CI:** se añadió un flujo GitHub Actions para validar TypeScript, pruebas, compilación y sintaxis del servicio tras cambios en `v1.1.3` (aún sujeto a ejecución real en GitHub).
 - Sin pruebas E2E con datos reales ni benchmarks HTTP. La estabilidad de negocio en producción **no** está certificada.
 
 ## Riesgos críticos pendientes — requieren trabajo de arquitectura coordinado
@@ -41,8 +44,9 @@ Revisión estática de rutas, almacén Zustand, esquema SQL y servicio de impres
 
 ### Impresión y consistencia (P1)
 
-- `print-service/index.js` construye una invocación de PowerShell con un nombre de impresora de la cola. Debe usar argumentos separados y validar destinos para evitar interpretación de texto no confiable.
-- La recuperación automática de tareas en estado `processing` puede volver a imprimir si el proceso murió después de imprimir, pero antes de marcar `done`. Requiere un protocolo de reclamación idempotente y pruebas con impresora simulada.
+- **Corregido en la segunda intervención:** `print-service/index.js` usa `execFile` con argumentos separados, impresoras permitidas detectadas en Windows, directorio temporal único y límite de 1 MiB por trabajo.
+- **Corregido en la segunda intervención:** `print-service/queue-worker.js` reclama cada ticket mediante un UPDATE condicional de `pending` a `processing`. Solo los `pending` se recuperan automáticamente; `processing` exige comprobación manual ante incertidumbre de impresión. Se añadieron pruebas de concurrencia, desconexión y fallos con impresora simulada.
+- **Pendiente:** esquema de autenticación RLS para print_queue; evitar la política pública de la migración histórica. No hay pruebas con impresoras físicas.
 
 ### Rendimiento y escalabilidad (P1)
 
