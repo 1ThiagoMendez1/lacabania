@@ -98,9 +98,6 @@ export default function OrderPage() {
   const handleRateMesero = async (ratingVal: number) => {
     if (!activeOrder) return;
     await updateOrden(activeOrder.id, { rating: ratingVal });
-    setTimeout(() => {
-      setActiveTab("menu");
-    }, 1500);
   };
   
   const [searchTerm, setSearchTerm] = useState("");

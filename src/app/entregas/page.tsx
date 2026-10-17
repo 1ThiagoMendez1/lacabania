@@ -13,7 +13,7 @@ import {
   BellRing,
   Ban
 } from "lucide-react";
-import { cn } from "@/lib/utils";
+import { cn, uuidv4 } from "@/lib/utils";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "@/components/ui/dialog";
 import { Label } from "@/components/ui/label";
@@ -24,7 +24,6 @@ import { ItemOrden } from "@/lib/types";
 import { format } from "date-fns";
 import { getBogotaISOString } from '@/lib/dateUtils';
 import { useState } from "react";
-import { v4 as uuidv4 } from "uuid";
 import { printModificacionTicket } from "@/lib/printHelper";
 import { useToast } from "@/hooks/use-toast";
 
@@ -32,7 +31,7 @@ export default function EntregasPage() {
   const { ordenes, updateItemEstado, user, menuItems, cancelarItemOrden, mesas, addItemsToOrden, usuarios } = usePOSStore();
   const { toast } = useToast();
   
-  const [cancelItemDialog, setCancelItemDialog] = useState<(ItemOrden & { orderId: string }) | null>(null);
+  const [cancelItemDialog, setCancelItemDialog] = useState<(ItemOrden & { orderId: string; mesaId: number }) | null>(null);
   const [cancelMotivo, setCancelMotivo] = useState("");
   const [cancelReplacementId, setCancelReplacementId] = useState<string>("none");
 

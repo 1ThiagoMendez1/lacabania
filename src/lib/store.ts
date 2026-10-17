@@ -419,6 +419,16 @@ export const usePOSStore = create<POSState>((set, get) => ({
   },
 
   setupRealtime: () => {
+    // Several changes to the same order can arrive in a burst.
+    // Coalesce them to avoid loading every order three times.
+    let refreshTimeout: ReturnType<typeof setTimeout> | null = null;
+    const scheduleOrdenesRefresh = () => {
+      if (refreshTimeout) clearTimeout(refreshTimeout);
+      refreshTimeout = setTimeout(() => {
+        refreshTimeout = null;
+        void get().refreshOrdenesYMesas().catch(err => console.error('Realtime refresh failed:', err));
+      }, 200);
+    };
     supabase.removeAllChannels();
     supabase
       .channel('mesas-channel')
@@ -427,7 +437,7 @@ export const usePOSStore = create<POSState>((set, get) => ({
         { event: '*', schema: 'public', table: 'mesas' },
         (payload) => {
           console.log("Realtime: mesas change detected", payload.eventType);
-          get().refreshOrdenesYMesas();
+          scheduleOrdenesRefresh();
         }
       )
       .on(
@@ -435,7 +445,7 @@ export const usePOSStore = create<POSState>((set, get) => ({
         { event: '*', schema: 'public', table: 'ordenes' },
         (payload) => {
           console.log("Realtime: ordenes change detected", payload.eventType);
-          get().refreshOrdenesYMesas();
+          scheduleOrdenesRefresh();
         }
       )
       .on(
@@ -443,7 +453,7 @@ export const usePOSStore = create<POSState>((set, get) => ({
         { event: '*', schema: 'public', table: 'items_orden' },
         (payload) => {
           console.log("Realtime: items_orden change detected", payload.eventType);
-          get().refreshOrdenesYMesas();
+          scheduleOrdenesRefresh();
         }
       )
       .on(

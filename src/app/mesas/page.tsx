@@ -310,7 +310,9 @@ export default function MesasPage() {
                   <Label>Zona / Área</Label>
                   <Select 
                     onValueChange={(v) => {
-                      setNewMesa({ ...newMesa, zona: v });
+                      if (v === 'Primer Piso' || v === 'Segundo Piso' || v === 'Para Llevar') {
+                        setNewMesa({ ...newMesa, zona: v });
+                      }
                     }} 
                     value={newMesa.zona}
                   >
@@ -1021,7 +1023,7 @@ function MesaCard({ mesa, user, onOpenMesa, onVerPedido, onStartEdit, onToggleFu
                   setIsOpen(false);
                   setTimeout(async () => {
                     if (activeOrder) {
-                      await updateOrden(activeOrder.id, { estado: 'CANCELADA' });
+                      await updateOrden(activeOrder.id, { estado: 'ANULADA' });
                     }
                     await updateMesaEstado(mesa.id, 'LIBRE');
                     if (typeof document !== 'undefined') {

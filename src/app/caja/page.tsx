@@ -251,7 +251,7 @@ export default function CajaPage() {
                   const searchTerm = searchQuery.toLowerCase();
                   
                   const mesaIdStr = String(mesa.id);
-                  const mesaVisibleStr = mesa.numeroVisible ? String(mesa.numeroVisible).toLowerCase() : '';
+                  const mesaVisibleStr = mesa.numero ? String(mesa.numero).toLowerCase() : '';
                   const orderStr = activeOrder ? getOrderIdentifier({ mesaId: mesa.id, consecutivo: activeOrder.consecutivo, id: activeOrder.id }).toLowerCase() : '';
                   
                   return mesaIdStr.includes(searchTerm) || 
@@ -284,7 +284,7 @@ export default function CajaPage() {
                           {activeOrder ? getOrderIdentifier({ mesaId: mesa.id, consecutivo: activeOrder.consecutivo, id: activeOrder.id }) : (mesa.zona === 'Para Llevar' ? `PLL-${mesa.id}` : `Mesa ${mesa.id}`)}
                           {mesa.id < 101 && activeOrder && (
                             <span className="text-xs bg-primary/10 text-primary px-2 py-0.5 rounded-md uppercase tracking-widest font-bold border border-primary/20">
-                              {mesa.numeroVisible ? `Mesa ${mesa.numeroVisible}` : `Mesa ${mesa.id}`}
+                              {mesa.numero ? `Mesa ${mesa.numero}` : `Mesa ${mesa.id}`}
                             </span>
                           )}
                         </span>
@@ -315,7 +315,7 @@ export default function CajaPage() {
                           <span className="text-xl bg-primary/20 text-primary px-4 py-1.5 rounded-xl uppercase tracking-widest font-black shadow-inner border border-primary/30">
                             {(() => {
                               const mesaInfo = mesas.find(m => m.id === selectedMesaId);
-                              return mesaInfo?.numeroVisible ? `MESA ${mesaInfo.numeroVisible}` : `MESA ${selectedMesaId}`;
+                              return mesaInfo?.numero ? `MESA ${mesaInfo.numero}` : `MESA ${selectedMesaId}`;
                             })()}
                           </span>
                         )}
