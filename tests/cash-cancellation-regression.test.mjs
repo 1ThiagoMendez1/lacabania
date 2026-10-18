@@ -32,6 +32,6 @@ test('financial reports exclude canceled line items from totals and costs', () =
 test('release-table displays failure instead of silently claiming cancellation persisted', () => {
   const mesas = source('src/app/mesas/page.tsx');
   assert.match(mesas, /No se confirmó la cancelación/);
-  assert.match(mesas, /items\.some\(item => item\.estado !== 'CANCELADO'\)/);
+  assert.match(mesas, /items\.some\(\(item: ItemOrden\) => item\.estado !== 'CANCELADO'\)/);
   assert.match(mesas, /await updateOrden\(activeOrder\.id, \{ estado: 'ANULADA' \}\)/);
 });
