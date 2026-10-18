@@ -71,3 +71,9 @@ test('stale stored operative dates are repaired only when there are no open orde
   assert.match(store, /savedFecha < todayInBogota && !hasOpenOrders/);
   assert.match(store, /const hasOpenOrders = ordenesMapped\.some/);
 });
+
+test('Bogotá midnight is handled with 00:xx hours, not invalid hour 24', () => {
+  const { exported } = loadSimpleTypescript('src/lib/dateUtils.ts');
+  assert.equal(exported.toBogotaDate('2026-10-18T05:15:00Z').toISOString(), '2026-10-18T05:15:00.000Z');
+  assert.equal(exported.toBogotaDate('2026-10-19T04:59:59Z').toISOString(), '2026-10-19T04:59:59.000Z');
+});
