@@ -64,8 +64,9 @@ export default function MenuPage() {
 
     // Sondeo de respaldo cada 5 segundos para stock en tiempo real
     const interval = setInterval(() => {
+      if (document.visibilityState === 'hidden') return;
       refreshMenu().catch(err => console.error("Error en sondeo de respaldo de menú:", err));
-    }, 5000);
+    }, 20000);
 
     return () => clearInterval(interval);
   }, []);

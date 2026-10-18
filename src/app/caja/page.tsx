@@ -95,8 +95,9 @@ export default function CajaPage() {
 
     // Sondeo de respaldo cada 5 segundos para entornos inestables o pestañas en suspensión
     const interval = setInterval(() => {
+      if (document.visibilityState === 'hidden') return;
       refresh().catch(err => console.error("Error en sondeo de respaldo de caja:", err));
-    }, 5000);
+    }, 20000);
 
     return () => {
       clearInterval(interval);

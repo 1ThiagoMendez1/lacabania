@@ -61,8 +61,9 @@ export default function StationPage() {
 
     // Sondeo de respaldo cada 5 segundos
     const interval = setInterval(() => {
+      if (document.visibilityState === 'hidden') return;
       refresh().catch(err => console.error("Error en sondeo de respaldo de estación:", err));
-    }, 5000);
+    }, 20000);
 
     return () => {
       clearInterval(interval);

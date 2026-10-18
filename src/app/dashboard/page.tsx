@@ -671,8 +671,9 @@ ${tableRows}${cleanNotas}`;
 
     // Sondeo de respaldo cada 5 segundos
     const interval = setInterval(() => {
+      if (document.visibilityState === 'hidden') return;
       refresh().catch(err => console.error("Error en sondeo de respaldo de dashboard:", err));
-    }, 5000);
+    }, 20000);
 
     return () => {
       clearInterval(interval);

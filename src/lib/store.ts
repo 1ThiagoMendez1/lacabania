@@ -69,6 +69,7 @@ interface POSState {
 }
 
 let realtimeSubscriptionCreated = false;
+let activeOrdersRefresh: Promise<void> | null = null;
 
 export const usePOSStore = create<POSState>((set, get) => ({
   user: typeof window !== 'undefined' && (() => {
@@ -320,7 +321,9 @@ export const usePOSStore = create<POSState>((set, get) => ({
     get().checkQzConnection().catch(e => console.warn("Print service check skipped:", e));
   },
 
-  refreshOrdenesYMesas: async () => {
+  refreshOrdenesYMesas: () => {
+    if (activeOrdersRefresh) return activeOrdersRefresh;
+    activeOrdersRefresh = (async () => {
     const [mesasRes, ordenesRes] = await Promise.all([
       supabase.from('mesas').select('*'),
       supabase.from('ordenes').select('*, items:items_orden(*)')
@@ -374,6 +377,8 @@ export const usePOSStore = create<POSState>((set, get) => ({
         ordenes: ordenesMapped
       });
     }
+    })().finally(() => { activeOrdersRefresh = null; });
+    return activeOrdersRefresh;
   },
 
   refreshMenuItems: async () => {
