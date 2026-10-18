@@ -1,6 +1,7 @@
 "use client"
 
 import { usePOSStore } from "@/lib/store";
+import { useShallow } from 'zustand/react/shallow';
 import { getBogotaISOString } from "@/lib/dateUtils";
 import { Badge } from "@/components/ui/badge";
 import { cn, getOrderIdentifier, uuidv4 } from "@/lib/utils";
@@ -44,7 +45,7 @@ import { Mesa, Orden, ItemOrden } from "@/lib/types";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 
 export default function MesasPage() {
-  const { mesas, updateMesaEstado, updateMesa, addMesa, deleteMesa, user, ordenes, isCajaCerrada } = usePOSStore();
+  const { mesas, updateMesaEstado, updateMesa, addMesa, deleteMesa, user, ordenes, isCajaCerrada } = usePOSStore(useShallow(state => ({ mesas: state.mesas, updateMesaEstado: state.updateMesaEstado, updateMesa: state.updateMesa, addMesa: state.addMesa, deleteMesa: state.deleteMesa, user: state.user, ordenes: state.ordenes, isCajaCerrada: state.isCajaCerrada })));
   const [selectedMesaId, setSelectedMesaId] = useState<number | null>(null);
   const [isAddMesaOpen, setIsAddMesaOpen] = useState(false);
   const [isEditMode, setIsEditMode] = useState(false);
@@ -506,7 +507,7 @@ export default function MesasPage() {
 }
 
 function MesaCard({ mesa, user, onOpenMesa, onVerPedido, onStartEdit, onToggleFueraServicio, onDeleteMesa, getStatusColor, ordenes }: any) {
-    const { isCajaCerrada, updateOrden, usuarios, cancelarItemOrden, menuItems, fechaOperativa, updateMesaEstado } = usePOSStore();
+    const { isCajaCerrada, updateOrden, usuarios, cancelarItemOrden, menuItems, fechaOperativa, updateMesaEstado } = usePOSStore(useShallow(state => ({ isCajaCerrada: state.isCajaCerrada, updateOrden: state.updateOrden, usuarios: state.usuarios, cancelarItemOrden: state.cancelarItemOrden, menuItems: state.menuItems, fechaOperativa: state.fechaOperativa, updateMesaEstado: state.updateMesaEstado })));
     const router = useRouter();
     const { toast } = useToast();
     const activeOrder = ordenes.find((o: Orden) => o.mesaId === mesa.id && o.estado === 'ABIERTA');

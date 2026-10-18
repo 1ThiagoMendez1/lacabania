@@ -1,13 +1,14 @@
 "use client"
 
 import { usePOSStore } from "@/lib/store";
+import { useShallow } from 'zustand/react/shallow';
 import { usePathname, useRouter } from "next/navigation";
 import { useEffect, useState } from "react";
 import { TopHeader } from "@/components/layout/TopHeader";
 import { FloatingDock, ALL_MENU_ITEMS } from "@/components/layout/FloatingDock";
 
 export default function AuthWrapper({ children }: { children: React.ReactNode }) {
-  const { user, permisos, isInitialized, fetchInitialData } = usePOSStore();
+  const { user, permisos, isInitialized, fetchInitialData } = usePOSStore(useShallow(state => ({ user: state.user, permisos: state.permisos, isInitialized: state.isInitialized, fetchInitialData: state.fetchInitialData })));
   const pathname = usePathname();
   const router = useRouter();
   const [mounted, setMounted] = useState(false);

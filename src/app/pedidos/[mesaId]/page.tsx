@@ -2,6 +2,7 @@
 "use client"
 
 import { usePOSStore } from "@/lib/store";
+import { useShallow } from 'zustand/react/shallow';
 import { useParams, useRouter } from "next/navigation";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -84,7 +85,7 @@ type CartItem = {
 export default function OrderPage() {
   const { mesaId } = useParams();
   const router = useRouter();
-  const { menuItems, mesas, ordenes, addOrden, updateMesaEstado, updateItemEstado, user, isCajaCerrada, fechaOperativa, usuarios, updateOrden } = usePOSStore();
+  const { menuItems, mesas, ordenes, addOrden, updateMesaEstado, updateItemEstado, user, isCajaCerrada, fechaOperativa, usuarios, updateOrden } = usePOSStore(useShallow(state => ({ menuItems: state.menuItems, mesas: state.mesas, ordenes: state.ordenes, addOrden: state.addOrden, updateMesaEstado: state.updateMesaEstado, updateItemEstado: state.updateItemEstado, user: state.user, isCajaCerrada: state.isCajaCerrada, fechaOperativa: state.fechaOperativa, usuarios: state.usuarios, updateOrden: state.updateOrden })));
   const { toast } = useToast();
   
   const mesa = mesas.find(m => m.id === Number(mesaId));
@@ -112,7 +113,7 @@ export default function OrderPage() {
   const [cancelItemDialog, setCancelItemDialog] = useState<ItemOrden | null>(null);
   const [cancelMotivo, setCancelMotivo] = useState("");
   const [cancelReplacementId, setCancelReplacementId] = useState<string>("none");
-  const { cancelarItemOrden } = usePOSStore();
+  const { cancelarItemOrden } = usePOSStore(useShallow(state => ({ cancelarItemOrden: state.cancelarItemOrden })));
 
   if (!mesa) {
     return (

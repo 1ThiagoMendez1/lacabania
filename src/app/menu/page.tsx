@@ -1,6 +1,7 @@
 "use client"
 
 import { usePOSStore } from "@/lib/store";
+import { useShallow } from 'zustand/react/shallow';
 import { 
   Search, 
   PlusCircle,
@@ -44,7 +45,7 @@ import { Switch } from "@/components/ui/switch";
 import { Estacion, MenuItem } from "@/lib/types";
 
 export default function MenuPage() {
-  const { menuItems, addMenuItem, updateMenuItem } = usePOSStore();
+  const { menuItems, addMenuItem, updateMenuItem } = usePOSStore(useShallow(state => ({ menuItems: state.menuItems, addMenuItem: state.addMenuItem, updateMenuItem: state.updateMenuItem })));
   const [searchTerm, setSearchTerm] = useState("");
   const [isDialogOpen, setIsDialogOpen] = useState(false);
   const [isEditDialogOpen, setIsEditDialogOpen] = useState(false);

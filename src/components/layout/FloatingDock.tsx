@@ -1,6 +1,7 @@
 "use client"
 
 import { usePOSStore } from "@/lib/store";
+import { useShallow } from 'zustand/react/shallow';
 import { 
   LayoutDashboard, 
   Map,
@@ -40,7 +41,7 @@ export const ALL_MENU_ITEMS = [
 
 export function FloatingDock() {
   const pathname = usePathname();
-  const { user, productos, permisos } = usePOSStore();
+  const { user, productos, permisos } = usePOSStore(useShallow(state => ({ user: state.user, productos: state.productos, permisos: state.permisos })));
   const [isMoreOpen, setIsMoreOpen] = useState(false);
 
   if (!user) return null;

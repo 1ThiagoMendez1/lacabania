@@ -1,13 +1,14 @@
 "use client"
 
 import { usePOSStore } from "@/lib/store";
+import { useShallow } from 'zustand/react/shallow';
 import { Flame, LogOut, Clock } from "lucide-react";
 import { useEffect, useState } from "react";
 import { cn } from "@/lib/utils";
 import { useRouter } from "next/navigation";
 
 export function TopHeader() {
-  const { user, logout } = usePOSStore();
+  const { user, logout } = usePOSStore(useShallow(state => ({ user: state.user, logout: state.logout })));
   const router = useRouter();
   const [time, setTime] = useState<Date | null>(null);
 

@@ -2,6 +2,7 @@
 "use client"
 
 import { usePOSStore } from "@/lib/store";
+import { useShallow } from 'zustand/react/shallow';
 import { 
   CircleDollarSign, 
   Receipt, 
@@ -57,7 +58,7 @@ import {
 } from "@/components/ui/select";
 
 export default function CajaPage() {
-  const { ordenes, mesas, closeOrden, isCajaCerrada, usuarios, updateOrden } = usePOSStore();
+  const { ordenes, mesas, closeOrden, isCajaCerrada, usuarios, updateOrden } = usePOSStore(useShallow(state => ({ ordenes: state.ordenes, mesas: state.mesas, closeOrden: state.closeOrden, isCajaCerrada: state.isCajaCerrada, usuarios: state.usuarios, updateOrden: state.updateOrden })));
   const { toast } = useToast();
   const [selectedMesaId, setSelectedMesaId] = useState<number | null>(null);
   const [searchQuery, setSearchQuery] = useState("");

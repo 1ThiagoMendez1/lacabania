@@ -68,6 +68,24 @@ interface POSState {
   deleteGasto: (id: string) => Promise<void>;
 }
 
+// Fetch complete financial history without PostgREST's 1,000-row truncation.
+const ORDER_HISTORY_PAGE_SIZE = 400;
+const ORDER_REFRESH_RECENT_LIMIT = 120;
+async function loadEntireOrderHistory() {
+  const rows: any[] = [];
+  for (let offset = 0; ; offset += ORDER_HISTORY_PAGE_SIZE) {
+    const { data, error } = await supabase.from('ordenes')
+      .select('*, items:items_orden(*)')
+      .order('created_at', { ascending: false })
+      .order('id', { ascending: false })
+      .range(offset, offset + ORDER_HISTORY_PAGE_SIZE - 1);
+    if (error) return { data: null, error };
+    rows.push(...(data || []));
+    if (!data || data.length < ORDER_HISTORY_PAGE_SIZE) break;
+  }
+  return { data: rows, error: null };
+}
+
 let realtimeSubscriptionCreated = false;
 let activeOrdersRefresh: Promise<void> | null = null;
 
@@ -122,7 +140,7 @@ export const usePOSStore = create<POSState>((set, get) => ({
       supabase.from('mesas').select('*'),
       supabase.from('productos').select('*'),
       supabase.from('menu_items').select('*'),
-      supabase.from('ordenes').select('*, items:items_orden(*)'),
+      loadEntireOrderHistory(),
       supabase.from('permisos').select('*'),
       supabase.from('configuracion_impresoras').select('*').eq('id', 'default').maybeSingle(),
       supabase.from('gastos').select('*').order('fecha', { ascending: false })
@@ -326,7 +344,17 @@ export const usePOSStore = create<POSState>((set, get) => ({
     activeOrdersRefresh = (async () => {
     const [mesasRes, ordenesRes] = await Promise.all([
       supabase.from('mesas').select('*'),
-      supabase.from('ordenes').select('*, items:items_orden(*)')
+      Promise.all([
+        supabase.from('ordenes').select('*, items:items_orden(*)').eq('estado', 'ABIERTA'),
+        supabase.from('ordenes').select('*, items:items_orden(*)')
+          .order('updated_at', { ascending: false }).limit(ORDER_REFRESH_RECENT_LIMIT)
+      ]).then(([active, recent]) => {
+        const error = active.error || recent.error;
+        if (error) return { data: null, error };
+        const rows = new Map<string, any>();
+        for (const row of [...(active.data || []), ...(recent.data || [])]) rows.set(row.id, row);
+        return { data: [...rows.values()], error: null };
+      })
     ]);
 
     if (mesasRes.error) console.error("Error al refrescar mesas:", mesasRes.error);
@@ -372,10 +400,29 @@ export const usePOSStore = create<POSState>((set, get) => ({
         tiempoAbierta: m.tiempo_abierta || undefined,
       }));
 
-      set({
-        mesas: mesasMapped.sort((a, b) => a.id - b.id),
-        ordenes: ordenesMapped
-      });
+      // Keep closed history intact. Replace changed snapshots only, so unchanged
+      // polls do not re-render every POS screen.
+      const incoming = new Map(ordenesMapped.map(o => [o.id, o]));
+      const previousOrders = get().ordenes;
+      const nextOrders = previousOrders
+        .filter(o => o.estado !== 'ABIERTA' || incoming.has(o.id))
+        .map(o => {
+          const latest = incoming.get(o.id);
+          incoming.delete(o.id);
+          return latest && JSON.stringify(latest) !== JSON.stringify(o) ? latest : o;
+        });
+      nextOrders.push(...incoming.values());
+      const previousMesas = get().mesas;
+      const nextMesas = mesasMapped.sort((a, b) => a.id - b.id);
+      const changedOrders = nextOrders.length !== previousOrders.length ||
+        nextOrders.some((o, index) => o !== previousOrders[index]);
+      const changedMesas = JSON.stringify(nextMesas) !== JSON.stringify(previousMesas);
+      if (changedOrders || changedMesas) {
+        set({
+          ...(changedOrders ? { ordenes: nextOrders } : {}),
+          ...(changedMesas ? { mesas: nextMesas } : {})
+        });
+      }
     }
     })().finally(() => { activeOrdersRefresh = null; });
     return activeOrdersRefresh;
@@ -407,7 +454,7 @@ export const usePOSStore = create<POSState>((set, get) => ({
         stock
       };
     });
-    set({ menuItems: menuMapped });
+    if (JSON.stringify(get().menuItems) !== JSON.stringify(menuMapped)) set({ menuItems: menuMapped });
   },
 
   decrementMenuItemStock: async (menuItemId: string, cantidad: number) => {

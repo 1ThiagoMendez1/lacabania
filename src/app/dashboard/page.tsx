@@ -43,6 +43,7 @@ import {
 } from "recharts";
 import { cn, formatCurrencyInput, parseCurrencyInput, getOrderIdentifier } from "@/lib/utils";
 import { usePOSStore } from "@/lib/store";
+import { useShallow } from 'zustand/react/shallow';
 import { getBogotaDateString, getBogotaISOString, getBogotaCurrentDate, toBogotaDate } from '@/lib/dateUtils';
 import { supabase } from "@/lib/supabase";
 import { 
@@ -68,7 +69,7 @@ import { es } from "date-fns/locale";
 
 
 export default function DashboardPage() {
-  const { ordenes, mesas, isCajaCerrada, setCajaCerrada, user, fechaOperativa, setFechaOperativa, usuarios, productos, gastos, addGasto, deleteGasto } = usePOSStore();
+  const { ordenes, mesas, isCajaCerrada, setCajaCerrada, user, fechaOperativa, setFechaOperativa, usuarios, productos, gastos, addGasto, deleteGasto } = usePOSStore(useShallow(state => ({ ordenes: state.ordenes, mesas: state.mesas, isCajaCerrada: state.isCajaCerrada, setCajaCerrada: state.setCajaCerrada, user: state.user, fechaOperativa: state.fechaOperativa, setFechaOperativa: state.setFechaOperativa, usuarios: state.usuarios, productos: state.productos, gastos: state.gastos, addGasto: state.addGasto, deleteGasto: state.deleteGasto })));
   const { toast } = useToast();
   const [isCorteOpen, setIsCorteOpen] = useState(false);
   const [isAdminDayOpen, setIsAdminDayOpen] = useState(false);

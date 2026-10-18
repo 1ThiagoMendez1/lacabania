@@ -2,6 +2,7 @@
 "use client"
 
 import { usePOSStore } from "@/lib/store";
+import { useShallow } from 'zustand/react/shallow';
 import { useParams } from "next/navigation";
 import { Card, CardContent, CardHeader } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
@@ -31,7 +32,7 @@ import { useState, useEffect } from "react";
 export default function StationPage() {
   const { id } = useParams();
   const stationId = (id as string).toUpperCase() as Estacion;
-  const { ordenes, usuarios, updateItemEstado, user } = usePOSStore();
+  const { ordenes, usuarios, updateItemEstado, user } = usePOSStore(useShallow(state => ({ ordenes: state.ordenes, usuarios: state.usuarios, updateItemEstado: state.updateItemEstado, user: state.user })));
   const [hasCriticalOrders, setHasCriticalOrders] = useState(false);
 
   const ordersWithItems = ordenes
