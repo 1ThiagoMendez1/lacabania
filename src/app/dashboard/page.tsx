@@ -221,7 +221,7 @@ export default function DashboardPage() {
   };
 
   const getCostoAsociado = (order: any) => {
-    return (order.items || []).reduce((sum: number, item: any) => {
+    return (order.items || []).filter((item: any) => item.estado !== 'CANCELADO').reduce((sum: number, item: any) => {
       const matchingProduct = productos.find(
         (p: any) => p.nombre.toLowerCase().trim() === item.nombre.toLowerCase().trim()
       );
@@ -254,29 +254,29 @@ export default function DashboardPage() {
   );
   
   const totalVentasCerradas = ventasCerradas.reduce((acc, o) => 
-    acc + o.items.reduce((sum, i) => sum + (i.precioUnitario * i.cantidad), 0), 0);
+    acc + o.items.filter(i => i.estado !== 'CANCELADO').reduce((sum, i) => sum + (i.precioUnitario * i.cantidad), 0), 0);
   
   const totalPropinas = ventasCerradas.reduce((acc, o) => {
     return acc + (o.propina || 0);
   }, 0);
   const granTotalRecaudado = totalVentasCerradas + totalPropinas;
 
-  const subtotalEfectivo = ventasCerradas.filter(o => o.metodoPago === 'EFECTIVO').reduce((acc, o) => acc + o.items.reduce((sum, i) => sum + (i.precioUnitario * i.cantidad), 0), 0);
-  const subtotalTarjeta = ventasCerradas.filter(o => o.metodoPago === 'TARJETA').reduce((acc, o) => acc + o.items.reduce((sum, i) => sum + (i.precioUnitario * i.cantidad), 0), 0);
-  const subtotalTransferencia = ventasCerradas.filter(o => o.metodoPago === 'TRANSFERENCIA').reduce((acc, o) => acc + o.items.reduce((sum, i) => sum + (i.precioUnitario * i.cantidad), 0), 0);
+  const subtotalEfectivo = ventasCerradas.filter(o => o.metodoPago === 'EFECTIVO').reduce((acc, o) => acc + o.items.filter(i => i.estado !== 'CANCELADO').reduce((sum, i) => sum + (i.precioUnitario * i.cantidad), 0), 0);
+  const subtotalTarjeta = ventasCerradas.filter(o => o.metodoPago === 'TARJETA').reduce((acc, o) => acc + o.items.filter(i => i.estado !== 'CANCELADO').reduce((sum, i) => sum + (i.precioUnitario * i.cantidad), 0), 0);
+  const subtotalTransferencia = ventasCerradas.filter(o => o.metodoPago === 'TRANSFERENCIA').reduce((acc, o) => acc + o.items.filter(i => i.estado !== 'CANCELADO').reduce((sum, i) => sum + (i.precioUnitario * i.cantidad), 0), 0);
 
   const esperadoEfectivo = ventasCerradas.filter(o => o.metodoPago === 'EFECTIVO').reduce((acc, o) => {
-    const sub = o.items.reduce((sum, i) => sum + (i.precioUnitario * i.cantidad), 0);
+    const sub = o.items.filter(i => i.estado !== 'CANCELADO').reduce((sum, i) => sum + (i.precioUnitario * i.cantidad), 0);
     return acc + sub + (o.propina || 0);
   }, 0);
 
   const esperadoTarjeta = ventasCerradas.filter(o => o.metodoPago === 'TARJETA').reduce((acc, o) => {
-    const sub = o.items.reduce((sum, i) => sum + (i.precioUnitario * i.cantidad), 0);
+    const sub = o.items.filter(i => i.estado !== 'CANCELADO').reduce((sum, i) => sum + (i.precioUnitario * i.cantidad), 0);
     return acc + sub + (o.propina || 0);
   }, 0);
 
   const esperadoTransferencia = ventasCerradas.filter(o => o.metodoPago === 'TRANSFERENCIA').reduce((acc, o) => {
-    const sub = o.items.reduce((sum, i) => sum + (i.precioUnitario * i.cantidad), 0);
+    const sub = o.items.filter(i => i.estado !== 'CANCELADO').reduce((sum, i) => sum + (i.precioUnitario * i.cantidad), 0);
     return acc + sub + (o.propina || 0);
   }, 0);
 
@@ -347,7 +347,7 @@ export default function DashboardPage() {
   const ventasPorDiaMap = new globalThis.Map<string, number>();
   ordenes.filter(o => o.estado === 'CERRADA').forEach(o => {
     const d = getOrderLocalDateStr(o.updatedAt || o.createdAt);
-    const totalOrden = o.items.reduce((sum, item) => sum + (item.precioUnitario * item.cantidad), 0);
+    const totalOrden = o.items.filter(item => item.estado !== 'CANCELADO').reduce((sum, item) => sum + (item.precioUnitario * item.cantidad), 0);
     ventasPorDiaMap.set(d, (ventasPorDiaMap.get(d) || 0) + totalOrden);
   });
 
@@ -456,7 +456,7 @@ export default function DashboardPage() {
       const nameLabel = getOrderIdentifier({ mesaId: o.mesaId, consecutivo: o.consecutivo, id: o.id });
       
       const metodoLabel = o.metodoPago === 'TRANSFERENCIA' ? 'Nequi' : (o.metodoPago === 'TARJETA' ? 'Tarjeta' : 'Efectivo');
-      const totalFact = o.items.reduce((sum, i) => sum + (i.precioUnitario * i.cantidad), 0);
+      const totalFact = o.items.filter(i => i.estado !== 'CANCELADO').reduce((sum, i) => sum + (i.precioUnitario * i.cantidad), 0);
       const costAsoc = getCostoAsociado(o);
       const util = totalFact - costAsoc;
 
@@ -826,7 +826,7 @@ ${tableRows}${cleanNotas}`;
   }, [ordenes, activeCloseDate, dashboardPeriod]);
 
   const kpiTotalVentas = kpiVentasCerradas.reduce((acc, o) => 
-    acc + o.items.reduce((sum, i) => sum + (i.precioUnitario * i.cantidad), 0), 0);
+    acc + o.items.filter(i => i.estado !== 'CANCELADO').reduce((sum, i) => sum + (i.precioUnitario * i.cantidad), 0), 0);
     
   const kpiTicketPromedio = kpiVentasCerradas.length > 0 ? Math.round(kpiTotalVentas / kpiVentasCerradas.length) : 0;
 
@@ -841,7 +841,7 @@ ${tableRows}${cleanNotas}`;
     salesForDay.forEach(o => {
       const date = toBogotaDate(o.updatedAt || o.createdAt || new Date().toISOString());
       const hour = date.getHours();
-      const totalOrden = o.items.reduce((sum, item) => sum + (item.precioUnitario * item.cantidad), 0);
+      const totalOrden = o.items.filter(item => item.estado !== 'CANCELADO').reduce((sum, item) => sum + (item.precioUnitario * item.cantidad), 0);
       hourlySales.set(hour, (hourlySales.get(hour) || 0) + totalOrden);
     });
 
@@ -1902,7 +1902,7 @@ ${tableRows}${cleanNotas}`;
                             {ordersToday.map((o) => {
                               const identifier = getOrderIdentifier({ mesaId: o.mesaId, consecutivo: o.consecutivo, id: o.id });
                               
-                              const subtotal = o.items.reduce((sum, i) => sum + (i.precioUnitario * i.cantidad), 0);
+                              const subtotal = o.items.filter(i => i.estado !== 'CANCELADO').reduce((sum, i) => sum + (i.precioUnitario * i.cantidad), 0);
                               const totalOrder = subtotal + (o.propina || 0);
                               const waiterName = usuarios.find(u => u.id === o.meseroId)?.nombre || 'Mesero';
 
