@@ -800,16 +800,19 @@ export const usePOSStore = create<POSState>((set, get) => ({
     if (error) console.error("Error al actualizar estado de item de orden en Supabase:", error);
   },
   cancelarItemOrden: async (ordenId, itemId, observaciones, usuarioId) => {
+    const previous = get().ordenes.find(o => o.id === ordenId)?.items.find(i => i.id === itemId);
+    if (!previous || previous.estado === 'CANCELADO') return;
+    const { error: err1 } = await supabase.from('items_orden')
+      .update({ estado: 'CANCELADO' }).eq('id', itemId).eq('orden_id', ordenId);
+    if (err1) {
+      console.error('Error al cancelar item:', err1);
+      throw new Error('No se guardó la cancelación: ' + err1.message);
+    }
     set((state) => ({
-      ordenes: state.ordenes.map(o => 
-        o.id === ordenId 
-          ? { ...o, items: o.items.map(i => i.id === itemId ? { ...i, estado: 'CANCELADO' } : i) }
-          : o
-      )
+      ordenes: state.ordenes.map(o => o.id === ordenId
+        ? { ...o, items: o.items.map(i => i.id === itemId ? { ...i, estado: 'CANCELADO' } : i) }
+        : o)
     }));
-
-    const { error: err1 } = await supabase.from('items_orden').update({ estado: 'CANCELADO' }).eq('id', itemId);
-    if (err1) console.error("Error al cancelar item:", err1);
 
     const orden = get().ordenes.find(o => o.id === ordenId);
     const item = orden?.items.find(i => i.id === itemId);
