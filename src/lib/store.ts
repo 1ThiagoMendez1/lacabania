@@ -647,6 +647,8 @@ export const usePOSStore = create<POSState>((set, get) => ({
     const { error } = await supabase.from('mesas').update(updatePayload).eq('id', mesaId);
     if (error) {
       console.error("Error al actualizar estado de mesa en Supabase:", error.message, "Detalles:", error.details, "Código:", error.code, error);
+      await get().refreshOrdenesYMesas();
+      throw new Error(error.message || 'No se pudo actualizar mesa');
     }
   },
   updateMesa: async (mesaId, updates) => {
@@ -753,7 +755,11 @@ export const usePOSStore = create<POSState>((set, get) => ({
       delete dbUpdates.ratingObservacion;
     }
     const { error } = await supabase.from('ordenes').update(dbUpdates).eq('id', ordenId);
-    if (error) console.error("Error al actualizar orden en Supabase:", error);
+    if (error) {
+      console.error('Error al actualizar orden en Supabase:', error);
+      await get().refreshOrdenesYMesas();
+      throw new Error(error.message || 'No se pudo actualizar orden');
+    }
   },
   addItemsToOrden: async (ordenId, newItems) => {
     set((state) => ({
@@ -979,8 +985,12 @@ export const usePOSStore = create<POSState>((set, get) => ({
     const results = await Promise.all(updates);
     const orderRes = results[0];
     const mesaRes = results[1];
-    if (orderRes.error) console.error("Error al cerrar orden en Supabase:", orderRes.error);
-    if (mesaRes.error) console.error("Error al actualizar mesa al cerrar orden en Supabase:", mesaRes.error);
+    const failed = results.find(r => r.error)?.error;
+    if (failed) {
+      console.error('Cierre de orden incompleto:', failed);
+      await get().refreshOrdenesYMesas();
+      throw new Error('Cierre no confirmado. Verifique estado de orden antes de repetir el cobro: ' + failed.message);
+    }
   },
   togglePermiso: async (rol, label) => {
     const state = get();
