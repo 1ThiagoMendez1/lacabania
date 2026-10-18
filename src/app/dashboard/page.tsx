@@ -128,12 +128,12 @@ export default function DashboardPage() {
       setNotas("");
       setIncidencias(0);
       
-      const activeDate = cierreFecha || fechaOperativa;
+      const activeDate = cierreFecha || dashboardToday;
       const isClosed = historialCierres.some(c => c.fecha === activeDate) || 
                        (typeof window !== 'undefined' && !!localStorage.getItem(`cierre_${activeDate}`));
       setCierreStep(isClosed ? 3 : 1);
     }
-  }, [isCorteOpen, cierreFecha, fechaOperativa, historialCierres]);
+  }, [isCorteOpen, cierreFecha, dashboardToday, historialCierres]);
 
   // Do not auto-migrate historical close dates or reset the selected operative
   // day on mount: close dates and payment records are auditable business data.
@@ -195,7 +195,7 @@ export default function DashboardPage() {
     }, 0);
   };
 
-  const activeCloseDate = cierreFecha || fechaOperativa;
+  const activeCloseDate = cierreFecha || dashboardToday;
 
   const otrosCostos = useMemo(() => {
     return (gastos || [])
@@ -293,7 +293,7 @@ export default function DashboardPage() {
   );
   const totalPedidosHoy = ordersToday.length;
   const pedidosCerradosHoy = ordersToday.filter(o => o.estado === 'CERRADA' || o.estado === 'ANULADA').length;
-  const pedidosAbiertosHoy = ordersToday.filter(o => o.estado === 'ABIERTA').length;
+  const pedidosAbiertosHoy = ordenes.filter(o => o.estado === 'ABIERTA').length;
 
   const ordersMesasHoy = ordersToday.filter(o => {
     const mesa = mesas.find(m => m.id === o.mesaId);
@@ -647,6 +647,14 @@ ${tableRows}${cleanNotas}`;
 
   const handleConfirmarCierre = async (): Promise<boolean> => {
     if (isSubmittingCierre) return false;
+    if (ordenes.some(o => o.estado === 'ABIERTA')) {
+      toast({ variant: 'destructive', title: 'Cierre bloqueado', description: 'Hay órdenes abiertas. Deben cobrarse o anularse antes de cerrar.' });
+      return false;
+    }
+    if (activeCloseDate === dashboardToday && ventasCerradas.length === 0 && !isAdminDayOpen) {
+      toast({ variant: 'destructive', title: 'Sin ventas cobradas', description: 'Utiliza Día Sin Ventas si realmente no hubo actividad.' });
+      return false;
+    }
     setIsSubmittingCierre(true);
     const fechaCierre = activeCloseDate;
     const realVal = realEfectivo || 0;
@@ -704,7 +712,7 @@ ${tableRows}${cleanNotas}`;
       } catch (historyError) {
         console.warn('Cierre guardado, pero no se pudo recargar el historial:', historyError);
       }
-      handleIniciarSiguienteDia(fechaCierre);
+      if (fechaCierre === dashboardToday) handleIniciarSiguienteDia(fechaCierre);
       toast({
         title: 'Cierre de Caja Guardado',
         description: 'El servidor confirmó el cierre del día.'
@@ -1408,6 +1416,10 @@ ${tableRows}${cleanNotas}`;
                       disabled={isSubmittingCierre}
                       onClick={async () => {
                         try {
+                          if (ventasCerradas.length > 0 || pedidosAbiertosHoy > 0) {
+                            toast({ variant: 'destructive', title: 'Cierre de $0 bloqueado', description: 'Existen ventas o pedidos abiertos.' });
+                            return;
+                          }
                           if (await handleConfirmarCierre()) setIsAdminDayOpen(false);
                         } catch (err: any) {
                           toast({ variant: "destructive", title: "Error al cerrar", description: err.message });
@@ -1425,7 +1437,7 @@ ${tableRows}${cleanNotas}`;
             <Dialog open={isCorteOpen} onOpenChange={setIsCorteOpen}>
               <DialogTrigger asChild>
                 <Button
-                  onClick={() => setCierreFecha("")}
+                  onClick={() => { setCierreFecha(''); setDashboardToday(getBogotaDateString()); }}
                   className="bg-white hover:bg-white/95 text-primary font-black px-5 py-2 h-9 rounded-xl text-xs flex items-center gap-2 shadow-md transition-all"
                 >
                   <Calculator className="w-4 h-4" />
@@ -1456,6 +1468,7 @@ ${tableRows}${cleanNotas}`;
                         </span>
                       )}
                     </DialogTitle>
+                    <p className="text-xs font-bold text-primary mt-1">Fecha del cierre: {activeCloseDate}</p>
                     <p className="text-[10px] text-muted-foreground uppercase font-black tracking-widest mt-0.5">
                       {isCierreClosed 
                         ? "Resumen de ventas y diferencias (Solo Lectura)" 
@@ -1812,7 +1825,7 @@ ${tableRows}${cleanNotas}`;
                           {totalPedidosHoy === 0 ? (
                             <p><strong>Error:</strong> No se puede realizar el cierre porque no hay pedidos registrados para el día operativo en curso.</p>
                           ) : pedidosAbiertosHoy > 0 ? (
-                            <p><strong>Nota:</strong> Hay items con advertencias. Puede continuar con el cierre, pero se recomienda revisar los puntos señalados.</p>
+                            <p><strong>Cierre pendiente:</strong> Hay órdenes abiertas. Factúralas o anúlalas antes de continuar.</p>
                           ) : (
                             <p><strong>Excelente:</strong> Todos los pedidos del día se han cerrado con éxito. Listo para arqueo de caja.</p>
                           )}
@@ -1927,7 +1940,7 @@ ${tableRows}${cleanNotas}`;
                         </Button>
                         <Button
                           onClick={() => setCierreStep(2)}
-                          disabled={totalPedidosHoy === 0}
+                          disabled={totalPedidosHoy === 0 || pedidosAbiertosHoy > 0}
                           className="bg-primary hover:bg-primary/90 text-primary-foreground font-black px-6 py-2 rounded-xl text-xs flex items-center gap-1.5 shadow-md transition-all"
                         >
                           Continuar al Cierre <ArrowRight className="w-3.5 h-3.5" />
