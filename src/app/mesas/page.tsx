@@ -820,7 +820,7 @@ function MesaCard({ mesa, user, onOpenMesa, onVerPedido, onStartEdit, onToggleFu
                   </div>
                 )}
                 
-                {mesa.estado !== 'LIBRE' && mesa.estado !== 'FUERA SERVICIO' && !(activeOrder && activeOrder.items && activeOrder.items.length > 0) && (
+                {mesa.estado !== 'LIBRE' && mesa.estado !== 'FUERA SERVICIO' && !(activeOrder && activeOrder.items && activeOrder.items.some(item => item.estado !== 'CANCELADO')) && (
                   <Button 
                     className="w-full h-10 mt-1 bg-slate-500/10 text-slate-400 hover:bg-slate-500 hover:text-white border border-slate-500/30 hover:border-slate-500 font-black text-[9px] sm:text-[10px] uppercase tracking-widest rounded-2xl transition-all shadow-sm flex items-center justify-center gap-2"
                     onClick={() => setIsLiberarDialogOpen(true)}
