@@ -60,7 +60,8 @@ export default function CierrePage() {
   };
 
   const getCostoAsociado = (orden: any) => {
-    return orden.items.reduce((sum: number, item: any) => sum + ((item.costoProveedor || 0) * item.cantidad), 0);
+    return (orden.items || []).filter((item: any) => item.estado !== 'CANCELADO')
+      .reduce((sum: number, item: any) => sum + ((item.costoProveedor || 0) * item.cantidad), 0);
   };
 
   // Funciones de fecha
@@ -210,8 +211,16 @@ export default function CierrePage() {
   }, [isCajaCerrada, fechaOperativa, usuarios]);
 
   const handleConfirmarCierre = async () => {
+    if (isProcessing) return;
+    if (ordenes.some(o => o.estado === 'ABIERTA')) {
+      toast({
+        variant: 'destructive',
+        title: 'Cierre bloqueado',
+        description: 'Aún hay pedidos abiertos. Resuélvelos antes de cerrar el día.',
+      });
+      return;
+    }
     setIsProcessing(true);
-    
     const closureData = {
       fecha: fechaOperativa,
       esperadoEfectivo,
@@ -219,67 +228,71 @@ export default function CierrePage() {
       esperadoTransferencia,
       realEfectivo: esperadoEfectivo,
       diferencia: 0,
-      notas: "{}",
-      usuario: user?.nombre || "Cajero",
+      notas: '{}',
+      usuario: user?.nombre || 'Cajero',
       timestamp: getBogotaISOString()
     };
-    
-    localStorage.setItem(`cierre_${fechaOperativa}`, JSON.stringify(closureData));
 
     try {
-      let insertError = null;
-      const { error } = await supabase.from('cierres_diarios').insert({
+      const record = {
         fecha: fechaOperativa,
         esperado_efectivo: esperadoEfectivo,
         esperado_tarjeta: esperadoTarjeta,
         esperado_transferencia: esperadoTransferencia,
         real_efectivo: esperadoEfectivo,
         diferencia: 0,
-        notas: "{}",
+        notas: '{}',
         creado_por: user?.id || null
-      });
-      
+      };
+      const initial = await supabase.from('cierres_diarios').insert(record);
+      let error = initial.error;
+      if (error?.code === '23503' && record.creado_por) {
+        const retry = await supabase.from('cierres_diarios')
+          .insert({ ...record, creado_por: null });
+        error = retry.error;
+      }
       if (error) {
-        const { error: retryError } = await supabase.from('cierres_diarios').insert({
-          fecha: fechaOperativa,
-          esperado_efectivo: esperadoEfectivo,
-          esperado_tarjeta: esperadoTarjeta,
-          esperado_transferencia: esperadoTransferencia,
-          real_efectivo: esperadoEfectivo,
-          diferencia: 0,
-          notas: "{}",
-          creado_por: null
+        toast({
+          variant: 'destructive',
+          title: 'Cierre no confirmado',
+          description: 'El servidor no confirmó el cierre: ' + error.message,
         });
-        insertError = retryError;
+        return;
       }
 
-      if (insertError) {
-        toast({
-          variant: "destructive",
-          title: "Error al guardar cierre",
-          description: `Guardado localmente. Error en servidor: ${insertError.message}`,
-        });
-      } else {
-        toast({
-          title: "Cierre Exitoso",
-          description: "Cierre guardado correctamente y día finalizado.",
-        });
+      // Do not mark the register closed locally until Supabase confirms success.
+      try {
+        localStorage.setItem(`cierre_${fechaOperativa}`, JSON.stringify(closureData));
+      } catch (storageError) {
+        console.warn('El cierre fue confirmado en BD pero falló la copia local:', storageError);
       }
-    } catch (e: any) {
+      setCajaCerrada(true);
+      try {
+        await cargarHistorialCierres();
+      } catch (historyError) {
+        console.warn('No se pudo recargar el historial, pero el cierre fue confirmado:', historyError);
+      }
+
+      const sigDia = getFechaSiguiente(fechaOperativa);
+      if (sigDia) {
+        setFechaOperativa(sigDia);
+        setCajaCerrada(false);
+      }
+      setIsPreCierreOpen(false);
       toast({
-        variant: "destructive",
-        title: "Error de conexión",
-        description: `Error: ${e.message || e}`,
+        title: 'Cierre Exitoso',
+        description: 'La base de datos confirmó el cierre del día.',
       });
+    } catch (error) {
+      console.error('Error de conexión al cerrar caja:', error);
+      toast({
+        variant: 'destructive',
+        title: 'Cierre no confirmado',
+        description: 'No se pudo confirmar el cierre con el servidor. Verifica el estado antes de reintentar.',
+      });
+    } finally {
+      setIsProcessing(false);
     }
-
-    setCajaCerrada(true);
-    await cargarHistorialCierres();
-    
-    const sigDia = getFechaSiguiente(fechaOperativa);
-    setFechaOperativa(sigDia);
-    setCajaCerrada(false);
-    setIsProcessing(false);
   };
 
   return (
@@ -294,6 +307,15 @@ export default function CierrePage() {
         <p className="text-sm text-muted-foreground">Resumen de ventas y cierre operativo del día.</p>
       </header>
 
+      {fechaOperativa && fechaOperativa !== getBogotaDateString() && (
+        <div role="alert" className="mb-4 rounded-xl border border-amber-500/50 bg-amber-500/10 p-4 flex items-start gap-3 text-amber-500">
+          <AlertTriangle className="h-5 w-5 shrink-0" />
+          <p className="text-sm">
+            Atención: el día operativo es {fechaOperativa}, pero hoy en Colombia es {getBogotaDateString()}.
+            Revisa las órdenes pendientes antes de cerrar una fecha anterior.
+          </p>
+        </div>
+      )}
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
         
         <div className="lg:col-span-2 space-y-6">
@@ -613,8 +635,9 @@ export default function CierrePage() {
                     onClick={async () => {
                       if (window.confirm('¿Estás seguro de que deseas REABRIR la caja? Esto eliminará el reporte de cierre de hoy.')) {
                         try {
+                          const { error } = await supabase.from('cierres_diarios').delete().eq('fecha', fechaOperativa);
+                          if (error) throw new Error(error.message);
                           localStorage.removeItem(`cierre_${fechaOperativa}`);
-                          await supabase.from('cierres_diarios').delete().eq('fecha', fechaOperativa);
                           setCajaCerrada(false);
                           
                           // Recargar para que cambie el UI a abierto

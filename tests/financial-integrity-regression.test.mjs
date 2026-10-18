@@ -27,3 +27,23 @@ test('dashboard does not silently rewrite archived financial dates on mount', ()
   assert.doesNotMatch(src, /localStorage\.removeItem\(key\)/);
   assert.doesNotMatch(src, /startsWith\('cierre_2026-06-'\)/);
 });
+
+test('secondary cash close route also waits for Supabase and ignores canceled items', () => {
+  const secondary = readFileSync(join(dirname(dirname(fileURLToPath(import.meta.url))), 'src/app/cierre/page.tsx'), 'utf8');
+  const block = secondary.split('const handleConfirmarCierre = async')[1]?.split('return (\n    <main')[0] || '';
+  const insert = block.indexOf(".from('cierres_diarios').insert(record)");
+  const local = block.indexOf("localStorage.setItem(");
+  const errorCheck = block.indexOf("if (error) {");
+  assert.ok(insert >= 0 && errorCheck > insert && local > errorCheck);
+  assert.match(block, /if \(ordenes\.some\(o => o\.estado === 'ABIERTA'\)\)/);
+  assert.match(block, /finally \{/);
+  assert.match(secondary, /filter\(\(item: any\) => item.estado !== 'CANCELADO'\)/);
+  assert.match(secondary, /el día operativo es \{fechaOperativa\}/);
+});
+test('reopening a cash day updates local state only after the database permits it', () => {
+  const secondary = readFileSync(join(dirname(dirname(fileURLToPath(import.meta.url))), 'src/app/cierre/page.tsx'), 'utf8');
+  const dbDelete = secondary.indexOf(".from('cierres_diarios').delete()");
+  const errorCheck = secondary.indexOf("if (error) throw new Error(error.message)", dbDelete);
+  const localDelete = secondary.indexOf("localStorage.removeItem(", dbDelete);
+  assert.ok(dbDelete >= 0 && errorCheck > dbDelete && localDelete > errorCheck);
+});
