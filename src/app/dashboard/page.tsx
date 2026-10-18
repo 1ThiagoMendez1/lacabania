@@ -673,6 +673,31 @@ ${tableRows}${cleanNotas}`;
     };
 
     try {
+      // Before any financial write, verify current database state rather than
+      // relying solely on a possibly stale browser snapshot.
+      const [openOrdersCheck, existingCloseCheck] = await Promise.all([
+        supabase.from('ordenes').select('id').eq('estado', 'ABIERTA').limit(1),
+        supabase.from('cierres_diarios').select('fecha').eq('fecha', fechaCierre).limit(1)
+      ]);
+      if (openOrdersCheck.error || existingCloseCheck.error) {
+        throw new Error('No se pudo verificar el estado de Caja contra el servidor.');
+      }
+      if ((openOrdersCheck.data || []).length > 0) {
+        toast({
+          variant: 'destructive',
+          title: 'Cierre bloqueado',
+          description: 'El servidor detectó una orden abierta. Actualiza Mesas y Caja antes de cerrar.'
+        });
+        return false;
+      }
+      if ((existingCloseCheck.data || []).length > 0) {
+        toast({
+          variant: 'destructive',
+          title: 'Día ya cerrado',
+          description: 'Existe un cierre confirmado para esta fecha; no se registró otro.'
+        });
+        return false;
+      }
       // The server must confirm the close BEFORE the browser marks it complete.
       // Retry only confirmed foreign-key failures with a null actor.
       const { error: initialError } = await supabase.from('cierres_diarios').insert(cierrePayload);
@@ -1314,6 +1339,8 @@ ${tableRows}${cleanNotas}`;
                 <DialogTrigger asChild>
                   <Button
                     variant="outline"
+                    disabled={ventasCerradas.length > 0 || pedidosAbiertosHoy > 0 || isSubmittingCierre}
+                    onClick={() => { setCierreFecha(''); setDashboardToday(getBogotaDateString()); }}
                     className="bg-transparent hover:bg-white/10 text-white border-white/20 font-black px-4 py-2 h-9 rounded-xl text-xs flex items-center justify-center gap-2 transition-all flex-1 sm:flex-none whitespace-nowrap"
                   >
                     <FolderClosed className="w-4 h-4 shrink-0" />
