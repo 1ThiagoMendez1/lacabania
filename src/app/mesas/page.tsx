@@ -1022,10 +1022,15 @@ function MesaCard({ mesa, user, onOpenMesa, onVerPedido, onStartEdit, onToggleFu
                   setIsLiberarDialogOpen(false);
                   setIsOpen(false);
                   setTimeout(async () => {
-                    if (activeOrder) {
-                      await updateOrden(activeOrder.id, { estado: 'ANULADA' });
+                    try {
+                      if (activeOrder) {
+                        await updateOrden(activeOrder.id, { estado: 'ANULADA' });
+                      }
+                      await updateMesaEstado(mesa.id, 'LIBRE');
+                    } catch (error) {
+                      console.error('No se pudo liberar la mesa. Datos preservados:', error);
+                      alert('No se confirmó la cancelación. Consulta caja antes de intentarlo nuevamente.');
                     }
-                    await updateMesaEstado(mesa.id, 'LIBRE');
                     if (typeof document !== 'undefined') {
                       document.body.style.pointerEvents = 'auto';
                       document.body.style.overflow = 'auto';
