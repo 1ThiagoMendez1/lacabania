@@ -81,6 +81,7 @@ export default function DashboardPage() {
   const [gastoDescripcion, setGastoDescripcion] = useState<string>("");
   const [gastoValor, setGastoValor] = useState<string>("");
   const [isAddingGasto, setIsAddingGasto] = useState(false);
+  const [isSubmittingCierre, setIsSubmittingCierre] = useState(false);
 
   const [activeTab, setActiveTab] = useState<"dashboard" | "cierre">("dashboard");
   const [selectedHour, setSelectedHour] = useState<string | null>(null);
@@ -120,59 +121,9 @@ export default function DashboardPage() {
     }
   }, [isCorteOpen, cierreFecha, fechaOperativa, historialCierres]);
 
-  // MIGRAción Automática para arreglar fechas de Junio creadas en Julio, y desatascar fechaOperativa
-  useEffect(() => {
-    if (typeof window !== 'undefined') {
-      const fixHistory = async () => {
-        let changed = false;
-        // Fix cierres
-        for (let i = 0; i < localStorage.length; i++) {
-          const key = localStorage.key(i);
-          if (key && key.startsWith('cierre_2026-06-')) {
-            try {
-              const val = localStorage.getItem(key);
-              if (val) {
-                const parsed = JSON.parse(val);
-                // Si el timestamp real de creación fue en Julio, arreglar el mes de la fecha
-                if (parsed.timestamp && parsed.timestamp.includes('2026-07')) {
-                  const newDate = parsed.fecha.replace('-06-', '-07-');
-                  parsed.fecha = newDate;
-                  localStorage.setItem(`cierre_${newDate}`, JSON.stringify(parsed));
-                  localStorage.removeItem(key);
-                  changed = true;
-                  // Actualizar en BD (fire and forget)
-                  supabase.from('cierres_diarios').update({ fecha: newDate }).eq('fecha', key.replace('cierre_', '')).then();
-                  supabase.from('ordenes').update({ updated_at: parsed.timestamp }).like('updated_at', `${key.replace('cierre_', '')}%`).then();
-                } else {
-                  // Si no se migró, es un cierre erróneo de junio que quedó huérfano
-                  localStorage.removeItem(key);
-                }
-              }
-            } catch(e) {
-              localStorage.removeItem(key); // Remove if corrupted
-            }
-          }
-        }
-        
-        // Fix fechaOperativa atascada en el pasado o en el futuro
-        const todayStr = getBogotaDateString();
-        const storedStore = localStorage.getItem('pos-store');
-        if (fechaOperativa && (fechaOperativa < todayStr || fechaOperativa > todayStr)) {
-           // Si está muy atrasada (meses anteriores), en el futuro, o simplemente no es hoy
-           // Fuerza a hoy si no hay órdenes abiertas
-           const openOrders = ordenes.filter(o => o.estado === 'ABIERTA');
-           if (openOrders.length === 0) {
-             setFechaOperativa(todayStr);
-           } else if (fechaOperativa < todayStr && fechaOperativa.includes('-06-') && todayStr.includes('-07-')) {
-             // Si hay ordenes abiertas pero están atascadas en junio y estamos en julio, 
-             // actualizamos la fecha operativa a hoy para desatascar.
-             setFechaOperativa(todayStr);
-           }
-        }
-      };
-      fixHistory();
-    }
-  }, [fechaOperativa, ordenes, setFechaOperativa]);
+  // Do not auto-migrate historical close dates or reset the selected operative
+  // day on mount: close dates and payment records are auditable business data.
+  // Date corrections must be explicit and reviewed separately.
 
   function getOrderLocalDateStr(createdAt: string | Date | undefined) {
     if (!createdAt) return "";
@@ -681,99 +632,82 @@ ${tableRows}${cleanNotas}`;
     };
   }, []);
 
-  const handleConfirmarCierre = async () => {
-    const realVal = realEfectivo || 0;
-    const diferencia = realVal - esperadoEfectivo;
-    
-    const serializedNotas = JSON.stringify({
-      textNotas: notas,
-      otrosCostos,
-      incidencias
-    });
-
-    // Usar activeCloseDate (la fecha que se está cerrando) en lugar de fechaOperativa
+  const handleConfirmarCierre = async (): Promise<boolean> => {
+    if (isSubmittingCierre) return false;
+    setIsSubmittingCierre(true);
     const fechaCierre = activeCloseDate;
-
-    const closureData = {
+    const realVal = realEfectivo || 0;
+    const serializedNotas = JSON.stringify({
+      textNotas: notas, otrosCostos, incidencias
+    });
+    const cierrePayload = {
       fecha: fechaCierre,
-      esperadoEfectivo,
-      esperadoTarjeta,
-      esperadoTransferencia,
-      realEfectivo: realVal,
-      diferencia,
+      esperado_efectivo: esperadoEfectivo,
+      esperado_tarjeta: esperadoTarjeta,
+      esperado_transferencia: esperadoTransferencia,
+      real_efectivo: realVal,
+      diferencia: realVal - esperadoEfectivo,
       notas: serializedNotas,
-      usuario: user?.nombre || "Cajero",
-      timestamp: getBogotaISOString()
+      creado_por: user?.id || null
     };
-    
-    // Guardar localmente primero (síncrono)
-    localStorage.setItem(`cierre_${fechaCierre}`, JSON.stringify(closureData));
 
-    // Guardar en Supabase de forma robusta
     try {
-      let insertError = null;
-      const { error } = await supabase.from('cierres_diarios').insert({
-        fecha: fechaCierre,
-        esperado_efectivo: esperadoEfectivo,
-        esperado_tarjeta: esperadoTarjeta,
-        esperado_transferencia: esperadoTransferencia,
-        real_efectivo: realVal,
-        diferencia: diferencia,
-        notas: serializedNotas,
-        creado_por: user?.id || null
-      });
-      
+      // The server must confirm the close BEFORE the browser marks it complete.
+      // Retry only confirmed foreign-key failures with a null actor.
+      const { error: initialError } = await supabase.from('cierres_diarios').insert(cierrePayload);
+      let error = initialError;
+      if (error?.code === '23503' && cierrePayload.creado_por) {
+        const retry = await supabase.from('cierres_diarios')
+          .insert({ ...cierrePayload, creado_por: null });
+        error = retry.error;
+      }
       if (error) {
-        insertError = error;
-        console.warn("No se pudo guardar el cierre en Supabase con creado_por, reintentando con creado_por = null:", error.message);
-        
-        // Fallback: si el id del usuario no existe en la base de datos de producción/Supabase, guardamos con creado_por = null
-        const { error: retryError } = await supabase.from('cierres_diarios').insert({
-          fecha: fechaCierre,
-          esperado_efectivo: esperadoEfectivo,
-          esperado_tarjeta: esperadoTarjeta,
-          esperado_transferencia: esperadoTransferencia,
-          real_efectivo: realVal,
-          diferencia: diferencia,
-          notas: serializedNotas,
-          creado_por: null
+        console.error('Cierre rechazado por Supabase:', error);
+        toast({
+          variant: 'destructive',
+          title: 'Cierre no confirmado',
+          description: 'La base de datos no confirmó el cierre: ' + error.message
         });
-        
-        if (!retryError) {
-          insertError = null; // Éxito en el reintento
-        } else {
-          insertError = retryError;
-        }
+        return false;
       }
 
-      if (insertError) {
-        console.error("Fallo definitivo al guardar cierre en Supabase:", insertError.message);
-        toast({
-          variant: "destructive",
-          title: "Error al guardar cierre",
-          description: `El cierre se guardó localmente en tu navegador pero no se sincronizó con el servidor: ${insertError.message}.`,
-        });
-      } else {
-        toast({
-          title: "Cierre de Caja Guardado",
-          description: "El reporte se guardó correctamente en el servidor y las ventas del día fueron bloqueadas.",
-        });
+      const closureData = {
+        fecha: fechaCierre,
+        esperadoEfectivo, esperadoTarjeta, esperadoTransferencia,
+        realEfectivo: realVal,
+        diferencia: realVal - esperadoEfectivo,
+        notas: serializedNotas,
+        usuario: user?.nombre || 'Cajero',
+        timestamp: getBogotaISOString()
+      };
+      try {
+        localStorage.setItem('cierre_' + fechaCierre, JSON.stringify(closureData));
+      } catch (localError) {
+        console.warn('Cierre confirmado en BD, pero sin copia local:', localError);
       }
-    } catch (e: any) {
-      console.error("Excepción al guardar en Supabase:", e);
+      setCajaCerrada(true);
+      try {
+        await cargarHistorialCierres();
+      } catch (historyError) {
+        console.warn('Cierre guardado, pero no se pudo recargar el historial:', historyError);
+      }
+      handleIniciarSiguienteDia(fechaCierre);
       toast({
-        variant: "destructive",
-        title: "Error de conexión",
-        description: `No se pudo conectar a la base de datos: ${e.message || e}`,
+        title: 'Cierre de Caja Guardado',
+        description: 'El servidor confirmó el cierre del día.'
       });
+      return true;
+    } catch (error: any) {
+      console.error('No se confirmó el cierre:', error);
+      toast({
+        variant: 'destructive',
+        title: 'Error de conexión',
+        description: 'No se pudo confirmar el cierre; comprueba el servidor antes de reintentar.'
+      });
+      return false;
+    } finally {
+      setIsSubmittingCierre(false);
     }
-
-    // Actualizar estado local y recargar historial de cierres
-    setCajaCerrada(true);
-    await cargarHistorialCierres();
-
-    // Automáticamente iniciar el siguiente día basándose en la fecha que se acaba de cerrar
-    handleIniciarSiguienteDia(fechaCierre);
   };
 
   const handleIniciarSiguienteDia = (fechaCerrada?: string) => {
@@ -1439,10 +1373,10 @@ ${tableRows}${cleanNotas}`;
                     <Button variant="ghost" onClick={() => setIsAdminDayOpen(false)} className="rounded-xl">Cancelar</Button>
                     <Button 
                       className="bg-primary hover:bg-primary/90 font-bold rounded-xl"
+                      disabled={isSubmittingCierre}
                       onClick={async () => {
                         try {
-                          await handleConfirmarCierre();
-                          setIsAdminDayOpen(false);
+                          if (await handleConfirmarCierre()) setIsAdminDayOpen(false);
                         } catch (err: any) {
                           toast({ variant: "destructive", title: "Error al cerrar", description: err.message });
                         }
@@ -2021,10 +1955,10 @@ ${tableRows}${cleanNotas}`;
                         </Button>
                         <Button
                           onClick={async () => {
-                            await handleConfirmarCierre();
-                            setCierreStep(3);
+                            if (await handleConfirmarCierre()) setCierreStep(3);
                           }}
                           className="bg-primary hover:bg-primary/90 text-primary-foreground font-black px-6 h-11 rounded-xl text-xs transition-all"
+                          disabled={isSubmittingCierre}
                         >
                           Confirmar y Guardar Cierre 🤠
                         </Button>
