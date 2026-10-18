@@ -107,24 +107,24 @@ export default function CierrePage() {
   );
   
   const totalVentasCerradas = ventasCerradas.reduce((acc, o) => 
-    acc + o.items.reduce((sum, i) => sum + (i.precioUnitario * i.cantidad), 0), 0);
+    acc + o.items.filter(i => i.estado !== 'CANCELADO').reduce((sum, i) => sum + (i.precioUnitario * i.cantidad), 0), 0);
   
   const totalPropinas = ventasCerradas.reduce((acc, o) => {
     return acc + (o.propina || 0);
   }, 0);
 
   const esperadoEfectivo = ventasCerradas.filter(o => o.metodoPago === 'EFECTIVO').reduce((acc, o) => {
-    const sub = o.items.reduce((sum, i) => sum + (i.precioUnitario * i.cantidad), 0);
+    const sub = o.items.filter(i => i.estado !== 'CANCELADO').reduce((sum, i) => sum + (i.precioUnitario * i.cantidad), 0);
     return acc + sub + (o.propina || 0);
   }, 0);
 
   const esperadoTarjeta = ventasCerradas.filter(o => o.metodoPago === 'TARJETA').reduce((acc, o) => {
-    const sub = o.items.reduce((sum, i) => sum + (i.precioUnitario * i.cantidad), 0);
+    const sub = o.items.filter(i => i.estado !== 'CANCELADO').reduce((sum, i) => sum + (i.precioUnitario * i.cantidad), 0);
     return acc + sub + (o.propina || 0);
   }, 0);
 
   const esperadoTransferencia = ventasCerradas.filter(o => o.metodoPago === 'TRANSFERENCIA').reduce((acc, o) => {
-    const sub = o.items.reduce((sum, i) => sum + (i.precioUnitario * i.cantidad), 0);
+    const sub = o.items.filter(i => i.estado !== 'CANCELADO').reduce((sum, i) => sum + (i.precioUnitario * i.cantidad), 0);
     return acc + sub + (o.propina || 0);
   }, 0);
 
@@ -245,6 +245,29 @@ export default function CierrePage() {
     };
 
     try {
+      const [openOrdersCheck, existingCloseCheck] = await Promise.all([
+        supabase.from('ordenes').select('id').eq('estado', 'ABIERTA').limit(1),
+        supabase.from('cierres_diarios').select('fecha').eq('fecha', fechaCierreHoy).limit(1)
+      ]);
+      if (openOrdersCheck.error || existingCloseCheck.error) {
+        throw new Error('No se pudo verificar el estado de Caja en el servidor.');
+      }
+      if ((openOrdersCheck.data || []).length > 0) {
+        toast({
+          variant: 'destructive',
+          title: 'Cierre bloqueado',
+          description: 'El servidor detectó una orden abierta. Comprueba Mesas antes de cerrar.'
+        });
+        return;
+      }
+      if ((existingCloseCheck.data || []).length > 0) {
+        toast({
+          variant: 'destructive',
+          title: 'Día ya cerrado',
+          description: 'El servidor ya tiene registrado un cierre para hoy.'
+        });
+        return;
+      }
       const record = {
         fecha: fechaCierreHoy,
         esperado_efectivo: esperadoEfectivo,
@@ -595,7 +618,7 @@ export default function CierrePage() {
                               {ordersToday.map((o) => {
                                 const closedMesa = mesas.find(m => m.id === o.mesaId);
                                 const label = closedMesa?.zona === 'Para Llevar' ? `Llevar - PLL-${o.consecutivo || (o.mesaId >= 101 ? o.mesaId - 100 : o.mesaId)}` : `Mesa ${o.mesaId}`;
-                                const subtotal = o.items.reduce((sum, i) => sum + (i.precioUnitario * i.cantidad), 0);
+                                const subtotal = o.items.filter(i => i.estado !== 'CANCELADO').reduce((sum, i) => sum + (i.precioUnitario * i.cantidad), 0);
                                 const totalOrder = subtotal + (o.propina || 0);
                                 const waiterName = usuarios.find(u => u.id === o.meseroId)?.nombre || 'Mesero';
                                 return (
@@ -753,7 +776,7 @@ export default function CierrePage() {
         );
         
         const ingresosTotales = ventasDelDia.reduce((acc, o) => 
-          acc + o.items.reduce((sum, i) => sum + (i.precioUnitario * i.cantidad), 0), 0);
+          acc + o.items.filter(i => i.estado !== 'CANCELADO').reduce((sum, i) => sum + (i.precioUnitario * i.cantidad), 0), 0);
           
         const costoInsumosDelDia = ventasDelDia.reduce((sum, o) => sum + getCostoAsociado(o), 0);
         const utilidadDelDia = ingresosTotales - (costoInsumosDelDia + reportOtrosCostos);
