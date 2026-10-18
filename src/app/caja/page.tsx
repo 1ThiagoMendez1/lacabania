@@ -121,9 +121,9 @@ export default function CajaPage() {
     direccion: ''
   });
 
-  const mesasConOrden = mesas.filter(m => 
-    m.estado === 'OCUPADA' || m.estado === 'EN PEDIDO' || m.estado === 'LISTA PAGAR'
-  );
+  // La orden ABIERTA, y no una bandera desactualizada de la mesa, determina si hay cuenta por cobrar.
+  const mesasConOrden = mesas.filter(m => ordenes.some(o => o.mesaId === m.id && o.estado === 'ABIERTA'));
+  const [isClosing, setIsClosing] = useState(false);
 
   const activeOrden = ordenes.find(o => String(o.mesaId) === String(selectedMesaId) && o.estado === 'ABIERTA');
 
@@ -180,8 +180,17 @@ export default function CajaPage() {
       id: activeOrden.id 
     });
 
+    if (isClosing) return;
+    setIsClosing(true);
+    try {
+      await closeOrden(activeOrden.id, selectedMesaId, metodoPago, propinaAplicada);
+    } catch (error) {
+      toast({ variant: 'destructive', title: 'No se confirmó el pago', description: error instanceof Error ? error.message : 'Comprueba la conexión y vuelve a consultar la orden.' });
+      setIsClosing(false);
+      return;
+    }
     setLastClosedOrden(ordenToClose);
-    closeOrden(activeOrden.id, selectedMesaId, metodoPago, propinaAplicada);
+    setIsClosing(false);
     
     setSelectedMesaId(null);
     setMetodoPago(null);
