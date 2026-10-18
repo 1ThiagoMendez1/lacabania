@@ -97,10 +97,13 @@ export default function CierrePage() {
     return `${yyyy}-${mm}-${dd}`;
   };
 
+  // Closing 'Hoy' must use today's Bogotá date, not stale localStorage state.
+  const fechaCierreHoy = getBogotaDateString();
+
   // Cálculos de ventas
   const ventasCerradas = ordenes.filter(o => 
     o.estado === 'CERRADA' && 
-    getOrderLocalDateStr(o.updatedAt || o.createdAt) === fechaOperativa
+    getOrderLocalDateStr(o.updatedAt || o.createdAt) === fechaCierreHoy
   );
   
   const totalVentasCerradas = ventasCerradas.reduce((acc, o) => 
@@ -128,9 +131,9 @@ export default function CierrePage() {
   const granTotalRecaudado = totalVentasCerradas + totalPropinas;
 
   const ordersToday = ordenes.filter(o => 
-    getOrderLocalDateStr(o.updatedAt || o.createdAt) === fechaOperativa
+    getOrderLocalDateStr(o.updatedAt || o.createdAt) === fechaCierreHoy
   );
-  const pedidosAbiertosHoy = ordersToday.filter(o => o.estado === 'ABIERTA').length;
+  const pedidosAbiertosHoy = ordenes.filter(o => o.estado === 'ABIERTA').length;
   const totalPedidosHoy = ordersToday.length;
 
   const totalMesasHoy = ordersToday.filter(o => {
@@ -141,8 +144,12 @@ export default function CierrePage() {
   const pedidosCerradosHoy = ordersToday.filter(o => o.estado === 'CERRADA').length;
   const costoInsumosHoy = ventasCerradas.reduce((sum, o) => sum + getCostoAsociado(o), 0);
   
-  const gastosHoy = gastos.filter(g => g.fecha === fechaOperativa);
+  const gastosHoy = gastos.filter(g => g.fecha === fechaCierreHoy);
   const otrosCostos = gastosHoy.reduce((sum, g) => sum + g.valor, 0);
+  // The browser may carry a different operative date; only today's confirmed
+  // close controls today's close-screen status.
+  const cierreHoyRegistrado = historialCierres.some(c => c.fecha === fechaCierreHoy) ||
+    (typeof window !== 'undefined' && !!localStorage.getItem('cierre_' + fechaCierreHoy));
 
   const utilidadHoy = totalVentasCerradas - (costoInsumosHoy + otrosCostos);
   const margenHoy = totalVentasCerradas > 0 ? (utilidadHoy / totalVentasCerradas) * 100 : 0;
@@ -212,6 +219,10 @@ export default function CierrePage() {
 
   const handleConfirmarCierre = async () => {
     if (isProcessing) return;
+    if (historialCierres.some(c => c.fecha === fechaCierreHoy)) {
+      toast({ variant: 'destructive', title: 'Día ya cerrado', description: 'Este día ya tiene un cierre registrado.' });
+      return;
+    }
     if (ordenes.some(o => o.estado === 'ABIERTA')) {
       toast({
         variant: 'destructive',
@@ -222,7 +233,7 @@ export default function CierrePage() {
     }
     setIsProcessing(true);
     const closureData = {
-      fecha: fechaOperativa,
+      fecha: fechaCierreHoy,
       esperadoEfectivo,
       esperadoTarjeta,
       esperadoTransferencia,
@@ -235,7 +246,7 @@ export default function CierrePage() {
 
     try {
       const record = {
-        fecha: fechaOperativa,
+        fecha: fechaCierreHoy,
         esperado_efectivo: esperadoEfectivo,
         esperado_tarjeta: esperadoTarjeta,
         esperado_transferencia: esperadoTransferencia,
@@ -262,7 +273,7 @@ export default function CierrePage() {
 
       // Do not mark the register closed locally until Supabase confirms success.
       try {
-        localStorage.setItem(`cierre_${fechaOperativa}`, JSON.stringify(closureData));
+        localStorage.setItem(`cierre_${fechaCierreHoy}`, JSON.stringify(closureData));
       } catch (storageError) {
         console.warn('El cierre fue confirmado en BD pero falló la copia local:', storageError);
       }
@@ -273,7 +284,7 @@ export default function CierrePage() {
         console.warn('No se pudo recargar el historial, pero el cierre fue confirmado:', historyError);
       }
 
-      const sigDia = getFechaSiguiente(fechaOperativa);
+      const sigDia = getFechaSiguiente(fechaCierreHoy);
       if (sigDia) {
         setFechaOperativa(sigDia);
         setCajaCerrada(false);
@@ -322,8 +333,8 @@ export default function CierrePage() {
           <Card className="bg-card border-border shadow-xl rounded-[2rem] overflow-hidden">
             <CardHeader className="bg-accent/10 border-b border-border/40 p-6">
               <CardTitle className="text-xl font-headline flex items-center justify-between">
-                <span>Día Operativo: {getFullDateLabel(fechaOperativa)}</span>
-                {isCajaCerrada ? (
+                <span>Cierre de Hoy: {getFullDateLabel(fechaCierreHoy)}</span>
+                {cierreHoyRegistrado ? (
                   <span className="text-xs bg-red-500/20 text-red-500 px-3 py-1 rounded-full border border-red-500/30">CERRADO</span>
                 ) : (
                   <span className="text-xs bg-green-500/20 text-green-500 px-3 py-1 rounded-full border border-green-500/30">ABIERTO</span>
@@ -351,7 +362,7 @@ export default function CierrePage() {
                 <span className="text-2xl font-black text-primary">${granTotalRecaudado.toLocaleString('es-CO')}</span>
               </div>
 
-              {!isCajaCerrada && (
+              {!cierreHoyRegistrado && (
                 <div className="pt-4 border-t border-border/40">
                   {totalPedidosHoy === 0 ? (
                     <div className="mb-4 bg-red-500/10 border border-red-500/30 text-red-500 p-4 rounded-2xl flex items-center gap-3">
@@ -374,7 +385,7 @@ export default function CierrePage() {
                     <DialogTrigger asChild>
                       <Button 
                         className="w-full h-14 text-base font-black rounded-2xl shadow-lg hover:shadow-xl transition-all"
-                        disabled={isProcessing || totalPedidosHoy === 0}
+                        disabled={isProcessing || totalPedidosHoy === 0 || pedidosAbiertosHoy > 0}
                       >
                         {isProcessing ? "Procesando..." : "Realizar Cierre de Caja 🔒"}
                       </Button>
@@ -488,7 +499,7 @@ export default function CierrePage() {
                                     categoria: gastoCategoria,
                                     descripcion: gastoDescripcion.trim(),
                                     valor: val,
-                                    fecha: fechaOperativa || getBogotaDateString()
+                                    fecha: fechaCierreHoy
                                   });
                                   setGastoDescripcion("");
                                   setGastoValor("");
@@ -620,7 +631,7 @@ export default function CierrePage() {
                   </Dialog>
                 </div>
               )}
-              {isCajaCerrada && user?.rol === 'ADMINISTRADOR' && (
+              {cierreHoyRegistrado && user?.rol === 'ADMINISTRADOR' && (
                 <div className="pt-4 border-t border-border/40">
                   <div className="mb-4 bg-amber-500/10 border border-amber-500/30 text-amber-500 p-4 rounded-2xl flex items-center gap-3">
                     <AlertTriangle className="w-6 h-6 shrink-0" />
@@ -635,9 +646,9 @@ export default function CierrePage() {
                     onClick={async () => {
                       if (window.confirm('¿Estás seguro de que deseas REABRIR la caja? Esto eliminará el reporte de cierre de hoy.')) {
                         try {
-                          const { error } = await supabase.from('cierres_diarios').delete().eq('fecha', fechaOperativa);
+                          const { error } = await supabase.from('cierres_diarios').delete().eq('fecha', fechaCierreHoy);
                           if (error) throw new Error(error.message);
-                          localStorage.removeItem(`cierre_${fechaOperativa}`);
+                          localStorage.removeItem(`cierre_${fechaCierreHoy}`);
                           setCajaCerrada(false);
                           
                           // Recargar para que cambie el UI a abierto
