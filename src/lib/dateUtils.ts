@@ -20,15 +20,26 @@ export function getBogotaCurrentDate(): Date {
   return new Date(`${map.year}-${map.month}-${map.day}T${map.hour}:${map.minute}:${map.second}-05:00`);
 }
 
-export function getBogotaDateString(): string {
-  // Retorna la fecha en formato YYYY-MM-DD según el día que es en Bogotá.
-  const formatter = new Intl.DateTimeFormat('en-CA', { 
+export function getBogotaDateString(date: Date = new Date()): string {
+  // Use explicit date parts: locale formatting can return MM/DD/YYYY on
+  // certain devices. Never read the UTC date to decide Bogotá's business day.
+  const parts = new Intl.DateTimeFormat('en-US', {
     timeZone: 'America/Bogota',
     year: 'numeric',
     month: '2-digit',
     day: '2-digit'
-  });
-  return formatter.format(new Date());
+  }).formatToParts(date);
+  const value = (type: string) => parts.find(part => part.type === type)?.value || '';
+  return `${value('year')}-${value('month')}-${value('day')}`;
+}
+
+export function getBogotaHour(date: Date = new Date()): number {
+  const parts = new Intl.DateTimeFormat('en-US', {
+    timeZone: 'America/Bogota',
+    hour: '2-digit',
+    hourCycle: 'h23'
+  }).formatToParts(date);
+  return Number(parts.find(part => part.type === 'hour')?.value ?? '0');
 }
 
 export function getBogotaISOString(): string {

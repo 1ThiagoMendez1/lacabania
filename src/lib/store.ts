@@ -279,16 +279,20 @@ export const usePOSStore = create<POSState>((set, get) => ({
       tiempoAbierta: m.tiempo_abierta || undefined,
     }));
 
-    const getLocalDateString = () => {
-      return getBogotaDateString();
-    };
-    let activeFecha = getLocalDateString();
+    const todayInBogota = getBogotaDateString();
+    let activeFecha = todayInBogota;
     if (typeof window !== 'undefined') {
       const savedFecha = localStorage.getItem('fecha_operativa');
+      // A stale date from localStorage must not pin today's sales to a past day.
+      // Never switch operational dates while an open order may depend on one.
+      // A future date may be intentional when a day was closed early.
+      const hasOpenOrders = ordenesMapped.some(o => o.estado === 'ABIERTA');
       if (savedFecha && /^\d{4}-\d{2}-\d{2}$/.test(savedFecha)) {
-        // Permitir que la fecha operativa sea futura si se cerró la caja temprano
-        activeFecha = savedFecha;
-      } else {
+        activeFecha = savedFecha < todayInBogota && !hasOpenOrders
+          ? todayInBogota
+          : savedFecha;
+      }
+      if (activeFecha !== savedFecha) {
         localStorage.setItem('fecha_operativa', activeFecha);
       }
     }

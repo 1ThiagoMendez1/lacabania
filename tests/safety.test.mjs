@@ -48,3 +48,26 @@ test('order cancellation uses the database enum', () => {
   assert.match(source, /updateOrden\(activeOrder\.id,\s*\{\s*estado:\s*'ANULADA'/);
   assert.doesNotMatch(source, /estado:\s*'CANCELADA'/);
 });
+
+test('Bogotá business day remains stable across UTC midnight', () => {
+  const { exported } = loadSimpleTypescript('src/lib/dateUtils.ts');
+  const date = exported.getBogotaDateString;
+  assert.equal(date(new Date('2026-10-19T02:00:00Z')), '2026-10-18');
+  assert.equal(date(new Date('2026-10-18T04:59:59Z')), '2026-10-17');
+  assert.equal(date(new Date('2026-10-18T05:00:00Z')), '2026-10-18');
+  assert.equal(exported.getBogotaHour(new Date('2026-10-19T02:00:00Z')), 21);
+});
+
+test('dashboard separates real calendar date from operative closure date', () => {
+  const dashboard = readFileSync(join(root, 'src/app/dashboard/page.tsx'), 'utf8');
+  assert.match(dashboard, /Ventas \(\$\{dashboardToday\}\)/);
+  assert.match(dashboard, /Fecha operativa desactualizada/);
+  assert.match(dashboard, /if \(ordenes\.some\(o => o\.estado === 'ABIERTA'\)\)/);
+  assert.match(dashboard, /getBogotaHour\(date\)/);
+});
+
+test('stale stored operative dates are repaired only when there are no open orders', () => {
+  const store = readFileSync(join(root, 'src/lib/store.ts'), 'utf8');
+  assert.match(store, /savedFecha < todayInBogota && !hasOpenOrders/);
+  assert.match(store, /const hasOpenOrders = ordenesMapped\.some/);
+});

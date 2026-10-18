@@ -44,7 +44,7 @@ import {
 import { cn, formatCurrencyInput, parseCurrencyInput, getOrderIdentifier } from "@/lib/utils";
 import { usePOSStore } from "@/lib/store";
 import { useShallow } from 'zustand/react/shallow';
-import { getBogotaDateString, getBogotaISOString, getBogotaCurrentDate, toBogotaDate } from '@/lib/dateUtils';
+import { getBogotaDateString, getBogotaHour, getBogotaISOString, getBogotaCurrentDate, toBogotaDate } from '@/lib/dateUtils';
 import { supabase } from "@/lib/supabase";
 import { 
   Dialog, 
@@ -92,6 +92,20 @@ export default function DashboardPage() {
   const [selectedWarningDate, setSelectedWarningDate] = useState<string>("");
   const [expandedCloseIdx, setExpandedCloseIdx] = useState<number | null>(null);
   const [dashboardPeriod, setDashboardPeriod] = useState<'DIA' | 'MES' | 'AÑO'>('DIA');
+  // Dashboard KPIs always represent the real calendar date in Colombia,
+  // independently of any historical operative date retained for cash closures.
+  const [dashboardToday, setDashboardToday] = useState(getBogotaDateString);
+  useEffect(() => {
+    const syncCalendarDay = () => setDashboardToday(getBogotaDateString());
+    window.addEventListener('focus', syncCalendarDay);
+    document.addEventListener('visibilitychange', syncCalendarDay);
+    const interval = window.setInterval(syncCalendarDay, 60_000);
+    return () => {
+      window.removeEventListener('focus', syncCalendarDay);
+      document.removeEventListener('visibilitychange', syncCalendarDay);
+      window.clearInterval(interval);
+    };
+  }, []);
 
   const lowStockProducts = useMemo(() => {
     if (!productos) return [];
@@ -127,8 +141,7 @@ export default function DashboardPage() {
 
   function getOrderLocalDateStr(createdAt: string | Date | undefined) {
     if (!createdAt) return "";
-    const d = toBogotaDate(createdAt);
-    return d.toISOString().split('T')[0];
+    return getBogotaDateString(new Date(createdAt));
   };
 
   const getFechaAnterior = (dateStr: string) => {
@@ -745,7 +758,8 @@ ${tableRows}${cleanNotas}`;
     setIsCorteOpen(false);
   };
 
-  const mesasOcupadas = mesas.filter(m => m.estado === 'OCUPADA' || m.estado === 'EN PEDIDO' || m.estado === 'LISTA PAGAR').length;
+  // Table state can remain stale after cancellation; count persisted open orders.
+  const mesasOcupadas = mesas.filter(m => ordenes.some(o => o.mesaId === m.id && o.estado === 'ABIERTA')).length;
   const pedidosPendientes = ordenes
     .filter(o => o.estado === 'ABIERTA')
     .reduce((acc, o) => acc + o.items.filter(i => i.estado === 'PENDIENTE' || i.estado === 'EN PREPARACION').length, 0);
@@ -754,12 +768,12 @@ ${tableRows}${cleanNotas}`;
     return ordenes.filter(o => {
       if (o.estado !== 'CERRADA') return false;
       const orderDate = getOrderLocalDateStr(o.updatedAt || o.createdAt);
-      if (dashboardPeriod === 'DIA') return orderDate === activeCloseDate;
-      if (dashboardPeriod === 'MES') return orderDate.substring(0, 7) === activeCloseDate.substring(0, 7);
-      if (dashboardPeriod === 'AÑO') return orderDate.substring(0, 4) === activeCloseDate.substring(0, 4);
+      if (dashboardPeriod === 'DIA') return orderDate === dashboardToday;
+      if (dashboardPeriod === 'MES') return orderDate.substring(0, 7) === dashboardToday.substring(0, 7);
+      if (dashboardPeriod === 'AÑO') return orderDate.substring(0, 4) === dashboardToday.substring(0, 4);
       return false;
     });
-  }, [ordenes, activeCloseDate, dashboardPeriod]);
+  }, [ordenes, dashboardToday, dashboardPeriod]);
 
   const kpiTotalVentas = kpiVentasCerradas.reduce((acc, o) => 
     acc + o.items.filter(i => i.estado !== 'CANCELADO').reduce((sum, i) => sum + (i.precioUnitario * i.cantidad), 0), 0);
@@ -769,14 +783,14 @@ ${tableRows}${cleanNotas}`;
   const dynamicChartData = useMemo(() => {
     const salesForDay = ordenes.filter(o => 
       o.estado === 'CERRADA' && 
-      getOrderLocalDateStr(o.updatedAt || o.createdAt) === activeCloseDate
+      getOrderLocalDateStr(o.updatedAt || o.createdAt) === dashboardToday
     );
 
     const hourlySales = new globalThis.Map<number, number>();
     
     salesForDay.forEach(o => {
       const date = toBogotaDate(o.updatedAt || o.createdAt || new Date().toISOString());
-      const hour = date.getHours();
+      const hour = getBogotaHour(date);
       const totalOrden = o.items.filter(item => item.estado !== 'CANCELADO').reduce((sum, item) => sum + (item.precioUnitario * item.cantidad), 0);
       hourlySales.set(hour, (hourlySales.get(hour) || 0) + totalOrden);
     });
@@ -807,7 +821,7 @@ ${tableRows}${cleanNotas}`;
     }
 
     return chartDataResult;
-  }, [ordenes, activeCloseDate]);
+  }, [ordenes, dashboardToday]);
 
   const handleBarClick = (data: any) => {
     if (data && data.name && data.ventas > 0) {
@@ -825,21 +839,21 @@ ${tableRows}${cleanNotas}`;
     return ordenes.filter(o => {
       if (o.estado !== 'CERRADA') return false;
       const dateStr = getOrderLocalDateStr(o.updatedAt || o.createdAt);
-      if (dateStr !== activeCloseDate) return false;
+      if (dateStr !== dashboardToday) return false;
       const date = toBogotaDate(o.updatedAt || o.createdAt || new Date().toISOString());
-      return date.getHours() === targetHour;
+      return getBogotaHour(date) === targetHour;
     });
-  }, [ordenes, selectedHour, activeCloseDate]);
+  }, [ordenes, selectedHour, dashboardToday]);
 
   const kpis = [
     { 
-      title: dashboardPeriod === 'DIA' ? `Ventas (${activeCloseDate})` : dashboardPeriod === 'MES' ? "Ventas del Mes" : "Ventas del Año", 
+      title: dashboardPeriod === 'DIA' ? `Ventas (${dashboardToday})` : dashboardPeriod === 'MES' ? "Ventas del Mes" : "Ventas del Año", 
       value: `$${kpiTotalVentas.toLocaleString('es-CO')}`, 
       change: dashboardPeriod === 'DIA' ? "Hoy" : dashboardPeriod === 'MES' ? "Este mes" : "Este año", 
       icon: DollarSign, 
       color: "text-green-500" 
     },
-    { title: "Mesas Activas", value: `${mesasOcupadas} / ${mesas.length}`, change: `${Math.round((mesasOcupadas/mesas.length)*100)}% Ocupación`, icon: MapIcon, color: "text-secondary" },
+    { title: "Mesas Activas", value: `${mesasOcupadas} / ${mesas.length}`, change: `${mesas.length ? Math.round((mesasOcupadas / mesas.length) * 100) : 0}% Ocupación`, icon: MapIcon, color: "text-secondary" },
     { title: "Pedidos Pendientes", value: pedidosPendientes.toString(), change: "En estaciones", icon: ClipboardCheck, color: "text-primary" },
     { 
       title: "Ticket Promedio", 
@@ -1170,6 +1184,16 @@ ${tableRows}${cleanNotas}`;
 
   return (
     <main className="p-8">
+      {/* The operative date is a cash-control setting, not today's KPI date. */}
+      {fechaOperativa && fechaOperativa !== dashboardToday && (
+        <div role="alert" className="mb-4 p-4 rounded-xl border border-amber-500/50 bg-amber-500/10 text-amber-200 flex items-start gap-3">
+          <AlertTriangle className="h-5 w-5 shrink-0 mt-0.5" />
+          <div className="text-sm">
+            <p className="font-bold">Fecha operativa desactualizada: {fechaOperativa}</p>
+            <p>Hoy en Colombia es {dashboardToday}. Las ventas y gráficas del Dashboard muestran la fecha real; el cierre de caja sigue asociado a la fecha operativa guardada. Revisa las órdenes abiertas antes de sincronizarla.</p>
+          </div>
+        </div>
+      )}
       {/* 1. CABECERA GENERAL DE OPERACIÓN */}
       <div className="bg-primary text-primary-foreground p-6 rounded-3xl mb-8 flex flex-col md:flex-row justify-between items-start md:items-center gap-4 shadow-xl">
         <div>
@@ -1251,14 +1275,22 @@ ${tableRows}${cleanNotas}`;
               <Button
                 variant="outline"
                 onClick={() => {
-                  if (window.confirm('¿Desea forzar la sincronización del sistema al día de hoy? Use esto si el día anterior ya terminó y el sistema se quedó en una fecha pasada.')) {
-                    setFechaOperativa(getBogotaDateString());
-                    if (typeof window !== 'undefined') {
-                      localStorage.setItem('fecha_operativa', getBogotaDateString());
-                    }
+                  if (ordenes.some(o => o.estado === 'ABIERTA')) {
                     toast({
-                      title: "Sistema Sincronizado",
-                      description: "La fecha operativa se ha actualizado a hoy.",
+                      variant: 'destructive',
+                      title: 'Fecha no modificada',
+                      description: 'Hay órdenes abiertas. Ciérralas o anúlalas correctamente antes de cambiar el día operativo.',
+                    });
+                    return;
+                  }
+                  const today = getBogotaDateString();
+                  if (window.confirm(`¿Actualizar la fecha operativa de ${fechaOperativa} a ${today}? Esto no modificará ventas ni cierres anteriores.`)) {
+                    setFechaOperativa(today);
+                    setCierreFecha('');
+                    setDashboardToday(today);
+                    toast({
+                      title: 'Fecha operativa actualizada',
+                      description: `La nueva fecha operativa es ${today}.`,
                     });
                   }
                 }}

@@ -66,8 +66,7 @@ export default function CierrePage() {
   // Funciones de fecha
   function getOrderLocalDateStr(createdAt: string | Date | undefined) {
     if (!createdAt) return "";
-    const d = toBogotaDate(createdAt);
-    return d.toISOString().split('T')[0];
+    return getBogotaDateString(new Date(createdAt));
   };
 
   const getFullDateLabel = (dateStr: string) => {
