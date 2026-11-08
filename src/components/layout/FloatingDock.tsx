@@ -22,6 +22,8 @@ import { usePathname } from "next/navigation";
 import { cn } from "@/lib/utils";
 import { Badge } from "@/components/ui/badge";
 import { useState } from "react";
+import { useFestiveTheme } from "@/components/seasonal/FestiveTheme";
+import { Switch } from "@/components/ui/switch";
 
 export const ALL_MENU_ITEMS = [
   { icon: LayoutDashboard, label: "Dashboard", href: "/dashboard", isPrimary: true },
@@ -43,6 +45,7 @@ export function FloatingDock() {
   const pathname = usePathname();
   const { user, productos, permisos } = usePOSStore(useShallow(state => ({ user: state.user, productos: state.productos, permisos: state.permisos })));
   const [isMoreOpen, setIsMoreOpen] = useState(false);
+  const { enabled: festiveEnabled, toggle: toggleFestive } = useFestiveTheme();
 
   if (!user) return null;
 
@@ -58,7 +61,7 @@ export function FloatingDock() {
     const daysUntilExp = (new Date(p.fechaVencimiento).getTime() - new Date().getTime()) / (1000 * 60 * 60 * 24);
     return daysUntilExp <= 7;
   }).length;
-  const alertsCount = lowStockCount + expiringCount;
+  const alertsCount = userPermisos.includes('Inventario') ? lowStockCount + expiringCount : 0;
 
   return (
     <>
@@ -74,7 +77,7 @@ export function FloatingDock() {
       <div className="fixed bottom-4 md:bottom-8 left-1/2 -translate-x-1/2 z-50 w-full max-w-[calc(100vw-1rem)] md:max-w-fit px-2 md:px-0 flex justify-center">
         
         {/* Popup Menu (moved outside the scroll container to prevent clipping) */}
-        {isMoreOpen && secondaryItems.length > 0 && (
+        {isMoreOpen && (
           <div className="absolute bottom-[calc(100%+1rem)] right-2 md:right-0 w-64 bg-card/95 backdrop-blur-3xl border border-border rounded-3xl p-2 shadow-2xl animate-in slide-in-from-bottom-5 fade-in duration-300 z-50">
             <div className="grid grid-cols-1 gap-1">
               {secondaryItems.map((item) => {
@@ -110,11 +113,15 @@ export function FloatingDock() {
                 );
               })}
             </div>
+            <div className="mt-2 border-t border-border/70 px-3 pt-3 pb-2 flex items-center justify-between gap-3">
+              <label htmlFor="festive-decor" className="text-xs text-muted-foreground cursor-pointer">Ambiente navideño</label>
+              <Switch id="festive-decor" checked={festiveEnabled} onCheckedChange={toggleFestive} aria-label="Ambiente navideño" />
+            </div>
           </div>
         )}
 
         {/* Dock Bar */}
-        <div className="glass-panel rounded-[2rem] p-2 md:p-3 flex items-center gap-1 md:gap-4 overflow-x-auto no-scrollbar shadow-[0_25px_50px_-12px_rgba(255,81,0,0.3)] animate-in slide-in-from-bottom-full duration-700">
+        <div className="holiday-dock glass-panel rounded-[2rem] p-2 md:p-3 flex items-center gap-1 md:gap-4 overflow-x-auto no-scrollbar">
           
           {primaryItems.map((item) => {
             const isActive = pathname === item.href || pathname.startsWith(item.href + "/");
@@ -122,6 +129,7 @@ export function FloatingDock() {
               <Link 
                 key={item.href} 
                 href={item.href}
+                aria-label={item.label}
                 className="relative group outline-none shrink-0"
                 onClick={() => setIsMoreOpen(false)}
               >
@@ -151,15 +159,14 @@ export function FloatingDock() {
           })}
 
           {/* Vertical Divider */}
-          {secondaryItems.length > 0 && (
-            <div className="w-[1px] h-6 md:h-8 bg-border mx-0.5 md:mx-1 shrink-0"></div>
-          )}
+          <div className="w-[1px] h-6 md:h-8 bg-border mx-0.5 md:mx-1 shrink-0"></div>
 
           {/* More Menu Toggle */}
-          {secondaryItems.length > 0 && (
-            <div className="relative shrink-0">
+          <div className="relative shrink-0">
               <button 
                 onClick={() => setIsMoreOpen(!isMoreOpen)}
+                aria-label={isMoreOpen ? "Cerrar opciones" : "Más opciones"}
+                aria-expanded={isMoreOpen}
                 className={cn(
                   "w-10 h-10 md:w-14 md:h-14 flex items-center justify-center rounded-2xl transition-all duration-500 outline-none",
                   isMoreOpen 
@@ -172,8 +179,7 @@ export function FloatingDock() {
                   <span className="absolute top-1 md:top-2 right-1 md:right-2 w-2 h-2 md:w-3 md:h-3 bg-destructive rounded-full animate-pulse border md:border-2 border-background" />
                 )}
               </button>
-            </div>
-          )}
+          </div>
         </div>
       </div>
     </>

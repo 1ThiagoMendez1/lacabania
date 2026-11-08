@@ -2,9 +2,9 @@
 
 import { usePOSStore } from "@/lib/store";
 import { useShallow } from 'zustand/react/shallow';
-import { Flame, LogOut, Clock } from "lucide-react";
+import { LogOut, Clock, Sparkles } from "lucide-react";
 import { useEffect, useState } from "react";
-import { cn } from "@/lib/utils";
+import { ChristmasBrand } from "@/components/seasonal/ChristmasDetails";
 import { useRouter } from "next/navigation";
 
 export function TopHeader() {
@@ -28,45 +28,34 @@ export function TopHeader() {
   if (!user) return null;
 
   return (
-    <header className="fixed top-0 left-0 right-0 h-16 glass-panel border-b-0 z-40 px-4 md:px-8 flex items-center justify-between shadow-[0_15px_35px_-10px_rgba(255,81,0,0.2)] animate-in slide-in-from-top-full duration-700">
-      {/* Brand / Logo */}
-      <div className="flex items-center gap-3">
-        <div className="w-12 h-12 rounded-full bg-card shadow-[inset_0_2px_4px_rgba(255,255,255,1),0_4px_15px_rgba(255,81,0,0.4)] border-2 border-white flex items-center justify-center relative overflow-hidden group premium-glow">
-          <div className="absolute inset-0 bg-gradient-to-tr from-[#FF5100]/20 via-transparent to-[#FFC300]/20 opacity-0 group-hover:opacity-100 transition-opacity duration-500"></div>
-          <Flame className="w-6 h-6 text-[#FF5100] drop-shadow-[0_2px_10px_rgba(255,81,0,0.8)] animate-pulse-glow" />
+    <header className="holiday-topbar fixed top-0 left-0 right-0 h-16 z-40 px-4 md:px-8 flex items-center justify-between gap-3">
+      <div aria-hidden="true" className="christmas-only christmas-trim" />
+      <div className="flex items-center gap-3 min-w-0">
+        <ChristmasBrand className="h-12 w-12" />
+        <div className="hidden min-[420px]:flex flex-col">
+          <h1 className="font-decorative text-2xl text-foreground leading-none">La Cabaña</h1>
+          <p className="text-[9px] text-muted-foreground uppercase tracking-[.2em] mt-1">Punto de venta</p>
         </div>
-        <div className="hidden sm:flex flex-col">
-          <h1 className="font-decorative text-2xl text-gradient-gold leading-none tracking-wider py-0.5 drop-shadow-sm">La Cabaña</h1>
-          <p className="text-[10px] font-body font-black text-foreground uppercase tracking-[0.2em] drop-shadow-sm">Punto de Venta</p>
-        </div>
-      </div>
-
-      {/* Clock (Center) */}
-      <div className="hidden md:flex items-center gap-2 px-5 py-2 rounded-full bg-background border border-white/60 text-foreground shadow-sm hover:shadow-[0_5px_15px_-5px_rgba(255,81,0,0.3)] transition-all group">
-        <Clock className="w-4 h-4 text-[#FF5100] group-hover:scale-110 transition-transform" />
-        <span className="text-sm font-mono tracking-widest font-black">
-          {time ? time.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }) : '--:--'}
+        <span className="christmas-only holiday-season-label hidden lg:flex items-center gap-2 ml-4 text-[11px] text-[#dfc998]">
+          <Sparkles className="w-3.5 h-3.5" aria-hidden="true" /> Navidad colombiana
         </span>
       </div>
-
-      {/* User Profile & Logout */}
-      <div className="flex items-center gap-4">
-        <div className="flex items-center gap-3 bg-background pl-2 pr-5 py-1.5 rounded-full border border-white/60 shadow-sm hover:shadow-[0_5px_15px_-5px_rgba(255,81,0,0.3)] transition-all">
-          <div className="w-9 h-9 rounded-full bg-gradient-to-br from-[#FFC300] to-[#FF5100] flex items-center justify-center text-white text-sm font-black shadow-[0_2px_10px_rgba(255,81,0,0.4)] shrink-0 border border-white/50">
-            {user.nombre[0]}
-          </div>
+      <div className="hidden md:flex items-center gap-2 rounded-xl border border-border/60 bg-background/40 px-3 py-2">
+        <Clock className="w-3.5 h-3.5 text-muted-foreground" aria-hidden="true" />
+        <time className="text-sm font-mono font-medium tabular-nums" aria-label="Hora de Colombia">
+          {time ? time.toLocaleTimeString('es-CO', { timeZone: 'America/Bogota', hour: '2-digit', minute: '2-digit', hourCycle: 'h23' }) : '--:--'}
+        </time>
+      </div>
+      <div className="flex items-center gap-2 sm:gap-4 shrink-0">
+        <div className="holiday-profile flex items-center gap-2.5 rounded-full pl-1.5 pr-3 py-1.5">
+          <div className="w-8 h-8 rounded-full bg-primary/15 border border-primary/25 flex items-center justify-center text-primary text-sm font-bold shrink-0">{user.nombre[0]}</div>
           <div className="flex flex-col min-w-0">
-            <span className="text-xs font-black text-foreground leading-tight truncate max-w-[100px]">{user.nombre.split(' ')[0]}</span>
-            <span className="text-[10px] text-[#FF5100] font-black uppercase tracking-widest leading-tight">{user.rol}</span>
+            <span className="text-xs font-semibold text-foreground leading-tight truncate max-w-[100px]">{user.nombre.split(' ')[0]}</span>
+            <span className="text-[9px] text-muted-foreground uppercase tracking-wider mt-0.5">{user.rol}</span>
           </div>
         </div>
-
-        <button 
-          onClick={handleLogout}
-          className="w-11 h-11 rounded-full flex items-center justify-center text-muted-foreground hover:text-white hover:bg-[#E61919] border border-transparent hover:border-[#E61919] hover:shadow-[0_5px_15px_-5px_rgba(230,25,25,0.6)] transition-all duration-300 hover:scale-110"
-          title="Cerrar Sesión"
-        >
-          <LogOut className="w-5 h-5" />
+        <button onClick={handleLogout} className="w-11 h-11 rounded-xl flex items-center justify-center text-muted-foreground hover:text-destructive hover:bg-destructive/10 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring transition-colors" title="Cerrar sesión" aria-label="Cerrar sesión">
+          <LogOut className="w-5 h-5" aria-hidden="true" />
         </button>
       </div>
     </header>
