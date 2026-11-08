@@ -1,6 +1,8 @@
 
 "use client"
 
+import { OrderItemTiming } from "@/components/OrderItemTiming";
+import { formatBogotaDateTime } from "@/lib/dateUtils";
 import { usePOSStore } from "@/lib/store";
 import { useShallow } from 'zustand/react/shallow';
 import { 
@@ -332,6 +334,7 @@ export default function CajaPage() {
                         )}
                       </CardTitle>
                       <p className="text-xs uppercase text-muted-foreground font-mono mt-1">Orden ID: {activeOrden.id}</p>
+                      <p className="text-xs text-muted-foreground mt-1">Pedido: {formatBogotaDateTime(activeOrden.createdAt)}</p>
                     </div>
                   </div>
                 </CardHeader>
@@ -348,11 +351,12 @@ export default function CajaPage() {
                         {(activeOrden.items || []).map((item) => {
                           const isCancelado = item.estado === 'CANCELADO';
                           return (
-                            <tr key={item.id} className={`border-b border-border/30 ${isCancelado ? 'opacity-50 line-through' : ''}`}>
+                            <tr key={item.id} className={`border-b border-border/30 ${isCancelado ? 'opacity-70' : ''}`}>
                               <td className="py-3 font-bold pr-2">{item.cantidad}x</td>
                               <td className="py-3 text-foreground">
                                 {isCancelado && <span className="text-[10px] text-red-500 font-bold bg-red-500/10 px-1 py-0.5 rounded mr-1">CANCELADO</span>}
-                                {item.nombre}
+                                <span className={isCancelado ? 'line-through' : ''}>{item.nombre}</span>
+                                <OrderItemTiming item={item} canceledByName={usuarios.find(u => u.id === item.canceledBy)?.nombre} />
                               </td>
                               <td className="py-3 text-right font-bold text-foreground">
                                 {isCancelado ? "$0" : `$${(item.precioUnitario * item.cantidad).toLocaleString('es-CO')}`}

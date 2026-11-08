@@ -2,6 +2,7 @@ import { create } from 'zustand';
 import { Mesa, Producto, MenuItem, Orden, Usuario, ItemOrden, EstadoComanda, MetodoPago, Rol, Gasto } from './types';
 import { supabase } from './supabase';
 import { uuidv4 } from './utils';
+import { mapOrderItem } from './orderItems';
 import { getBogotaDateString, getBogotaISOString, getBogotaCurrentDate } from './dateUtils';
 
 // (QZ Tray eliminado - impresión vía servicio Node.js local + cola Supabase)
@@ -16,6 +17,10 @@ interface POSState {
   permisos: Record<Rol, string[]>;
   isInitialized: boolean;
   isCajaCerrada: boolean;
+  cierresDiarios: string[];
+  cierresLoaded: boolean;
+  cierresError: string | null;
+  refreshCierresDiarios: () => Promise<void>;
   fechaOperativa: string;
   isQzConnected: boolean;
   isQzConnecting: boolean;
@@ -44,7 +49,7 @@ interface POSState {
   updateOrden: (ordenId: string, updates: Partial<Orden>) => Promise<void>;
   addItemsToOrden: (ordenId: string, newItems: ItemOrden[]) => Promise<void>;
   updateItemEstado: (ordenId: string, itemId: string, estado: EstadoComanda) => Promise<void>;
-  cancelarItemOrden: (ordenId: string, itemId: string, observaciones: string, usuarioId: string) => Promise<void>;
+  cancelarItemOrden: (ordenId: string, itemId: string, cantidad: number, observaciones: string, usuarioId: string, solicitudId: string, reemplazoId?: string) => Promise<{ canceledItem: ItemOrden; replacementItem?: ItemOrden }>;
   updateStock: (productoId: string, cantidad: number) => Promise<void>;
   adjustStock: (productoId: string, nuevoStock: number) => Promise<void>;
   addProducto: (producto: Producto) => Promise<void>;
@@ -117,6 +122,9 @@ export const usePOSStore = create<POSState>((set, get) => ({
   ordenes: [],
   isInitialized: false,
   isCajaCerrada: false,
+  cierresDiarios: [],
+  cierresLoaded: false,
+  cierresError: null,
   fechaOperativa: '',
   isQzConnected: false,
   isQzConnecting: false,
@@ -131,6 +139,24 @@ export const usePOSStore = create<POSState>((set, get) => ({
     }
     const isClosed = typeof window !== 'undefined' && !!localStorage.getItem(`cierre_${fecha}`);
     set({ fechaOperativa: fecha, isCajaCerrada: isClosed });
+  },
+
+  refreshCierresDiarios: async () => {
+    try {
+      const fechas: string[] = [];
+      for (let offset = 0; ; offset += 500) {
+        const { data, error } = await supabase.from('cierres_diarios')
+          .select('fecha').order('fecha', { ascending: false }).range(offset, offset + 499);
+        if (error) throw new Error(error.message);
+        fechas.push(...(data || []).map(row => row.fecha));
+        if (!data || data.length < 500) break;
+      }
+      const today = getBogotaDateString();
+      set({ cierresDiarios: fechas, cierresLoaded: true, cierresError: null,
+        isCajaCerrada: fechas.includes(today) });
+    } catch (error) {
+      set({ cierresError: error instanceof Error ? error.message : 'No se pudieron consultar los cierres.' });
+    }
   },
 
   fetchInitialData: async () => {
@@ -247,23 +273,14 @@ export const usePOSStore = create<POSState>((set, get) => ({
       meseroId: o.mesero_id,
       estado: o.estado,
       metodoPago: o.metodo_pago,
+      propina: Number(o.propina || 0),
       facturaElectronicaId: o.factura_electronica_id,
       clienteNombre: o.cliente_nombre,
       rating: o.cliente_documento ? (o.cliente_documento.startsWith('{') ? JSON.parse(o.cliente_documento).rating : parseInt(o.cliente_documento, 10)) : undefined,
       ratingObservacion: o.cliente_documento && o.cliente_documento.startsWith('{') ? JSON.parse(o.cliente_documento).obs : undefined,
       createdAt: o.created_at,
       updatedAt: o.updated_at,
-      items: (o.items || []).map((i: any) => ({
-        id: i.id,
-        menuItemId: i.menu_item_id || i.producto_id,
-        nombre: i.nombre,
-        cantidad: i.cantidad,
-        precioUnitario: i.precio_unitario,
-        notas: i.notas,
-        estacion: i.estacion,
-        estado: i.estado,
-        createdAt: i.created_at
-      }))
+      items: (o.items || []).map(mapOrderItem)
     });
 
     const ordenesMapped = (ordenesRes.data || []).map(mapOrden);
@@ -339,6 +356,7 @@ export const usePOSStore = create<POSState>((set, get) => ({
       gastos: gastosRes.data || []
     });
     
+    await get().refreshCierresDiarios();
     get().setupRealtime();
     get().checkQzConnection().catch(e => console.warn("Print service check skipped:", e));
   },
@@ -372,23 +390,14 @@ export const usePOSStore = create<POSState>((set, get) => ({
         meseroId: o.mesero_id,
         estado: o.estado,
         metodoPago: o.metodo_pago,
+        propina: Number(o.propina || 0),
         facturaElectronicaId: o.factura_electronica_id,
         clienteNombre: o.cliente_nombre,
         rating: o.cliente_documento ? (o.cliente_documento.startsWith('{') ? JSON.parse(o.cliente_documento).rating : parseInt(o.cliente_documento, 10)) : undefined,
         ratingObservacion: o.cliente_documento && o.cliente_documento.startsWith('{') ? JSON.parse(o.cliente_documento).obs : undefined,
         createdAt: o.created_at,
         updatedAt: o.updated_at,
-        items: (o.items || []).map((i: any) => ({
-          id: i.id,
-          menuItemId: i.menu_item_id || i.producto_id,
-          nombre: i.nombre,
-          cantidad: i.cantidad,
-          precioUnitario: i.precio_unitario,
-          notas: i.notas,
-          estacion: i.estacion,
-          estado: i.estado,
-          createdAt: i.created_at
-        }))
+        items: (o.items || []).map(mapOrderItem)
       });
 
       const ordenesMapped = ordenesRes.data.map(mapOrden);
@@ -816,6 +825,7 @@ export const usePOSStore = create<POSState>((set, get) => ({
       await get().refreshOrdenesYMesas();
       throw new Error(error.message || 'No se pudo actualizar orden');
     }
+    if (updates.estado === 'ANULADA') await get().refreshOrdenesYMesas();
   },
   addItemsToOrden: async (ordenId, newItems) => {
     set((state) => ({
@@ -845,6 +855,7 @@ export const usePOSStore = create<POSState>((set, get) => ({
     }
   },
   updateItemEstado: async (ordenId, itemId, estado) => {
+    if (get().ordenes.find(order => order.id === ordenId)?.items.find(item => item.id === itemId)?.estado === 'CANCELADO') return;
     set((state) => ({
       ordenes: state.ordenes.map(o => 
         o.id === ordenId 
@@ -852,39 +863,35 @@ export const usePOSStore = create<POSState>((set, get) => ({
           : o
       )
     }));
-    const { error } = await supabase.from('items_orden').update({ estado }).eq('id', itemId);
-    if (error) console.error("Error al actualizar estado de item de orden en Supabase:", error);
+    const { data, error } = await supabase.from('items_orden').update({ estado })
+      .eq('id', itemId).eq('orden_id', ordenId).neq('estado', 'CANCELADO').select('id');
+    if (error || !data?.length) {
+      if (error) console.error("Error al actualizar estado de item de orden en Supabase:", error);
+      await get().refreshOrdenesYMesas();
+    }
   },
-  cancelarItemOrden: async (ordenId, itemId, observaciones, usuarioId) => {
-    const previous = get().ordenes.find(o => o.id === ordenId)?.items.find(i => i.id === itemId);
-    if (!previous || previous.estado === 'CANCELADO') return;
-    const { error: err1 } = await supabase.from('items_orden')
-      .update({ estado: 'CANCELADO' }).eq('id', itemId).eq('orden_id', ordenId);
-    if (err1) {
-      console.error('Error al cancelar item:', err1);
-      throw new Error('No se guardó la cancelación: ' + err1.message);
+  cancelarItemOrden: async (ordenId, itemId, cantidad, observaciones, usuarioId, solicitudId, reemplazoId) => {
+    if (!Number.isInteger(cantidad) || cantidad < 1) throw new Error('Selecciona una cantidad válida.');
+    const { data, error } = await supabase.rpc('cancelar_item_orden', {
+      p_orden_id: ordenId, p_item_id: itemId, p_cantidad: cantidad,
+      p_usuario_id: usuarioId, p_solicitud_id: solicitudId,
+      p_observaciones: observaciones.trim() || null, p_reemplazo_id: reemplazoId || null,
+    });
+    if (error) {
+      if (error.code === 'PGRST202' || error.code === '42883') {
+        throw new Error('Falta instalar la actualización de cancelaciones en la base de datos.');
+      }
+      throw new Error('No se confirmó la cancelación: ' + error.message);
     }
-    set((state) => ({
-      ordenes: state.ordenes.map(o => o.id === ordenId
-        ? { ...o, items: o.items.map(i => i.id === itemId ? { ...i, estado: 'CANCELADO' } : i) }
-        : o)
-    }));
-
-    const orden = get().ordenes.find(o => o.id === ordenId);
-    const item = orden?.items.find(i => i.id === itemId);
-    if (item) {
-      await get().decrementMenuItemStock(item.menuItemId, -item.cantidad);
-      const { error: err2 } = await supabase.from('modificaciones_comanda').insert({
-        id: uuidv4(),
-        orden_id: ordenId,
-        usuario_id: usuarioId,
-        tipo: 'CANCELACION',
-        items_afectados: [item],
-        observaciones: observaciones,
-        fecha: getBogotaISOString()
-      });
-      if (err2) console.error("Error al guardar auditoria de modificacion:", err2);
+    if (!data?.canceledItem || !Array.isArray(data.items)) {
+      throw new Error('El servidor no devolvió la confirmación de la cancelación. Revisa el pedido.');
     }
+    const items = data.items.map(mapOrderItem);
+    set(state => ({ ordenes: state.ordenes.map(order => order.id === ordenId ? { ...order, items } : order) }));
+    // The server already committed cancellation, stock and replacement together.
+    await get().refreshMenuItems().catch(error => console.warn('No se pudo refrescar el menú:', error));
+    return { canceledItem: mapOrderItem(data.canceledItem),
+      replacementItem: data.replacementItem ? mapOrderItem(data.replacementItem) : undefined };
   },
   updateStock: async (productoId, cantidad) => {
     const p = get().productos.find(p => p.id === productoId);
@@ -1036,7 +1043,7 @@ export const usePOSStore = create<POSState>((set, get) => ({
       const itemsToUpdate = targetOrden.items.filter(i => i.estado !== 'CANCELADO');
       if (itemsToUpdate.length > 0) {
         updates.push(
-          supabase.from('items_orden').update({ estado: 'ENTREGADO' }).in('id', itemsToUpdate.map(i => i.id))
+          supabase.from('items_orden').update({ estado: 'ENTREGADO' }).in('id', itemsToUpdate.map(i => i.id)).neq('estado', 'CANCELADO')
         );
       }
     }

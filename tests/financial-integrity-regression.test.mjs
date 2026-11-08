@@ -35,7 +35,7 @@ test('secondary cash close route also waits for Supabase and ignores canceled it
   const local = block.indexOf("localStorage.setItem(");
   const errorCheck = block.indexOf("if (error) {");
   assert.ok(insert >= 0 && errorCheck > insert && local > errorCheck);
-  assert.match(block, /if \(ordenes\.some\(o => o\.estado === 'ABIERTA'\)\)/);
+  assert.match(block, /if \(hasBlockingOpenOrder\(ordenes, fechaCierre, fechaCierreHoy\)\)/);
   assert.match(block, /finally \{/);
   assert.match(secondary, /filter\(\(item: any\) => item.estado !== 'CANCELADO'\)/);
   assert.match(secondary, /el día operativo es \{fechaOperativa\}/);

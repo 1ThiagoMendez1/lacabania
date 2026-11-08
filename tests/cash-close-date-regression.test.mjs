@@ -31,12 +31,12 @@ test('administrative zero-income close rejects sales and does not advance histor
   assert.match(dashboard, /if \(fechaCierre === dashboardToday\) handleIniciarSiguienteDia\(fechaCierre\)/);
 });
 
-test('dedicated close route uses today for every payment method, expense and date', () => {
+test('dedicated close route defaults to today and applies the explicitly selected historical date consistently', () => {
   assert.match(cierre, /const fechaCierreHoy = getBogotaDateString\(\)/);
-  assert.match(cierre, /getOrderLocalDateStr\(o\.updatedAt \|\| o\.createdAt\) === fechaCierreHoy/);
-  assert.match(cierre, /gastos\.filter\(g => g\.fecha === fechaCierreHoy\)/);
-  assert.match(cierre, /const closureData = \{\s*fecha: fechaCierreHoy/);
-  assert.match(cierre, /const record = \{\s*fecha: fechaCierreHoy/);
+  assert.match(cierre, /const fechaCierre = selectedDate \|\| fechaCierreHoy/);
+  assert.match(cierre, /gastos\.filter\(g => g\.fecha === fechaCierre\)/);
+  assert.match(cierre, /const closureData = \{\s*fecha: fechaCierre/);
+  assert.match(cierre, /const record = \{\s*fecha: fechaCierre/);
   assert.doesNotMatch(cierre, /getOrderLocalDateStr\(o\.updatedAt \|\| o\.createdAt\) === fechaOperativa/);
   assert.doesNotMatch(cierre, /o\.items\.reduce\(/);
 });

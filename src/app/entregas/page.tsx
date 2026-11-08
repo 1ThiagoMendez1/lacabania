@@ -1,5 +1,6 @@
 "use client"
 
+import { CancelOrderItemDialog } from "@/components/CancelOrderItemDialog";
 import { usePOSStore } from "@/lib/store";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
@@ -13,27 +14,18 @@ import {
   BellRing,
   Ban
 } from "lucide-react";
-import { cn, uuidv4 } from "@/lib/utils";
+import { cn } from "@/lib/utils";
 import { ScrollArea } from "@/components/ui/scroll-area";
-import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "@/components/ui/dialog";
-import { Label } from "@/components/ui/label";
-import { Input } from "@/components/ui/input";
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { SearchableSelect } from "@/components/ui/searchable-select";
 import { ItemOrden } from "@/lib/types";
 import { format } from "date-fns";
-import { getBogotaISOString } from '@/lib/dateUtils';
 import { useState } from "react";
-import { printModificacionTicket } from "@/lib/printHelper";
 import { useToast } from "@/hooks/use-toast";
 
 export default function EntregasPage() {
-  const { ordenes, updateItemEstado, user, menuItems, cancelarItemOrden, mesas, addItemsToOrden, usuarios } = usePOSStore();
+  const { ordenes, updateItemEstado, user, mesas, usuarios } = usePOSStore();
   const { toast } = useToast();
   
   const [cancelItemDialog, setCancelItemDialog] = useState<(ItemOrden & { orderId: string; mesaId: number }) | null>(null);
-  const [cancelMotivo, setCancelMotivo] = useState("");
-  const [cancelReplacementId, setCancelReplacementId] = useState<string>("none");
 
   // Obtener todas las órdenes abiertas que le pertenecen al mesero actual (o todas si es admin)
   const userOrders = ordenes.filter(o => 
@@ -167,8 +159,6 @@ export default function EntregasPage() {
                                   className="p-2.5 text-red-400 hover:text-red-500 bg-red-500/10 hover:bg-red-500/20 rounded-full transition-colors shrink-0 active:scale-95"
                                   onClick={() => {
                                     setCancelItemDialog(item);
-                                    setCancelMotivo("");
-                                    setCancelReplacementId("none");
                                   }}
                                   title="Cancelar producto"
                                 >
@@ -204,134 +194,11 @@ export default function EntregasPage() {
         )}
       </div>
 
-      <Dialog open={!!cancelItemDialog} onOpenChange={(open) => !open && setCancelItemDialog(null)}>
-        <DialogContent className="max-w-[90vw] md:max-w-md bg-card border-border paper-texture rounded-[2rem]">
-          <DialogHeader>
-            <DialogTitle className="font-headline text-red-500 flex items-center gap-2">
-              <Ban className="w-5 h-5" /> Cancelar Producto
-            </DialogTitle>
-          </DialogHeader>
-          <div className="space-y-4 py-4">
-            <p className="text-sm">
-              Vas a cancelar <strong>{cancelItemDialog?.cantidad}x {cancelItemDialog?.nombre}</strong>.
-            </p>
-            <div className="space-y-2">
-              <Label>Motivo de cancelación</Label>
-              <Input 
-                value={cancelMotivo}
-                onChange={(e) => setCancelMotivo(e.target.value)}
-                placeholder="Ej: Cliente cambió de opinión"
-                className="bg-background"
-              />
-            </div>
-            
-            <div className="space-y-2 bg-primary/5 p-4 rounded-xl border border-primary/20">
-              <Label className="text-primary font-bold">¿Cambiar por otro producto?</Label>
-              <p className="text-xs text-muted-foreground mb-2">Si el cliente solicitó un cambio, selecciona el nuevo producto aquí para enviarlo a cocina automáticamente.</p>
-              <SearchableSelect 
-                value={cancelReplacementId} 
-                onValueChange={setCancelReplacementId}
-                placeholder="Seleccionar producto..."
-                searchPlaceholder="Buscar plato..."
-                options={[
-                  { label: "-- Ninguno (Solo cancelar) --", value: "none" },
-                  ...menuItems
-                    .filter(item => item.disponible && (item.stock === undefined || item.stock === null || item.stock >= (cancelItemDialog?.cantidad || 1)))
-                    .map(item => ({
-                      label: `${item.nombre} - $${item.precio.toLocaleString('es-CO')}${item.stock !== undefined ? ` (Stock: ${item.stock})` : ''}`,
-                      value: item.id
-                    }))
-                ]}
-              />
-            </div>
-          </div>
-          <DialogFooter className="gap-2">
-            <Button variant="outline" onClick={() => setCancelItemDialog(null)} className="rounded-xl">Volver</Button>
-            <Button 
-              className="bg-red-600 hover:bg-red-700 font-bold rounded-xl" 
-              onClick={async () => {
-                if (!cancelItemDialog) return;
-                
-                const changeToProductId = cancelReplacementId === "none" ? null : cancelReplacementId;
-                
-                if (changeToProductId) {
-                  const mi = menuItems.find(m => m.id === changeToProductId);
-                  if (mi && mi.stock !== undefined && mi.stock < cancelItemDialog.cantidad) {
-                    toast({ 
-                      variant: "destructive", 
-                      title: "Stock Insuficiente", 
-                      description: `Solo quedan ${mi.stock} disponibles de ${mi.nombre}. Necesitas ${cancelItemDialog.cantidad} para el cambio.` 
-                    });
-                    return;
-                  }
-                }
-                
-                const userToLogId = user?.id || '';
-                const timestampStr = getBogotaISOString();
-
-                let replacementItem: ItemOrden | undefined = undefined;
-                if (cancelReplacementId !== "none") {
-                  const mi = menuItems.find(m => m.id === cancelReplacementId);
-                  if (mi) {
-                    replacementItem = {
-                      id: uuidv4(),
-                      menuItemId: mi.id,
-                      nombre: mi.nombre,
-                      cantidad: cancelItemDialog.cantidad,
-                      precioUnitario: mi.precio,
-                      estacion: mi.estacion,
-                      estado: 'EN PREPARACION',
-                      createdAt: timestampStr
-                    };
-                    
-                    addItemsToOrden(cancelItemDialog.orderId, [replacementItem]);
-                  }
-                }
-
-                await cancelarItemOrden(
-                  cancelItemDialog.orderId, 
-                  cancelItemDialog.id, 
-                  cancelMotivo || "Cancelado desde Entregas",
-                  userToLogId
-                );
-
-                // Print modification ticket
-                try {
-                  const mesaAsignada = mesas.find(m => m.id === cancelItemDialog.mesaId);
-                  const mesaNumero = mesaAsignada ? mesaAsignada.numero : cancelItemDialog.mesaId;
-                  
-                  const notasTicket = cancelMotivo 
-                    ? `${cancelMotivo}${replacementItem ? ' (CAMBIO)' : ''}`
-                    : (replacementItem ? 'Cambio de producto' : 'Cancelación');
-                    
-                  await printModificacionTicket(
-                    mesaNumero, 
-                    user?.nombre || 'Mesero', 
-                    [cancelItemDialog], 
-                    replacementItem ? [replacementItem] : [], 
-                    notasTicket
-                  );
-                  
-                  toast({
-                    title: replacementItem ? "Producto cambiado" : "Producto cancelado",
-                    description: "Se imprimió la modificación en la estación correspondiente.",
-                  });
-                } catch (err: any) {
-                  toast({
-                    variant: "destructive",
-                    title: "Error de Impresión",
-                    description: err.message || "No se pudo imprimir el ticket de modificación.",
-                  });
-                }
-                
-                setCancelItemDialog(null);
-              }}
-            >
-              CONFIRMAR CANCELACIÓN
-            </Button>
-          </DialogFooter>
-        </DialogContent>
-      </Dialog>
+      {cancelItemDialog && ordenes.find(order => order.id === cancelItemDialog.orderId) && <CancelOrderItemDialog
+        key={cancelItemDialog.id} order={ordenes.find(order => order.id === cancelItemDialog.orderId)!}
+        item={cancelItemDialog} mesaNumero={mesas.find(mesa => mesa.id === cancelItemDialog.mesaId)?.numero || cancelItemDialog.mesaId}
+        onClose={() => setCancelItemDialog(null)}
+      />}
     </main>
   );
 }
