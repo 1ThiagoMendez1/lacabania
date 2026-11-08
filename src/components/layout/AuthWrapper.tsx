@@ -6,6 +6,7 @@ import { usePathname, useRouter } from "next/navigation";
 import { useEffect, useState } from "react";
 import { TopHeader } from "@/components/layout/TopHeader";
 import { DailyCloseReminder } from "@/components/layout/DailyCloseReminder";
+import { WorkspaceChristmasBanner, WorkspaceChristmasEdges } from "@/components/seasonal/WorkspaceChristmas";
 import { FloatingDock, ALL_MENU_ITEMS } from "@/components/layout/FloatingDock";
 
 export default function AuthWrapper({ children }: { children: React.ReactNode }) {
@@ -98,16 +99,18 @@ export default function AuthWrapper({ children }: { children: React.ReactNode })
   }
 
   return (
-    <div className="flex flex-col min-h-screen w-full bg-background text-foreground relative">
+    <div className="holiday-app-shell flex flex-col min-h-screen w-full bg-background text-foreground relative isolate">
       <TopHeader />
+      <WorkspaceChristmasEdges />
       
       {/* 
         Main content area with top padding to account for fixed TopHeader
         and bottom padding to account for FloatingDock 
       */}
-      <main className="flex-1 w-full pt-20 pb-28 md:pb-32 px-4 md:px-8 mx-auto max-w-7xl overflow-x-hidden">
+      <main className="holiday-workspace-main relative z-10 flex-1 w-full pt-20 pb-28 md:pb-32 px-4 md:px-8 mx-auto max-w-7xl overflow-x-hidden">
         <DailyCloseReminder />
-        {children}
+        <WorkspaceChristmasBanner />
+        <div className="holiday-content">{children}</div>
       </main>
 
       <FloatingDock />
