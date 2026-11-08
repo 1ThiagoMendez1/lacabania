@@ -2,6 +2,7 @@ import { ItemOrden, Estacion } from './types';
 import { usePOSStore } from './store';
 import { getOrderIdentifier } from './utils';
 import { formatBogotaDateTime } from './dateUtils';
+import { groupOrderItems } from './orderItems';
 
 /**
  * Agrupa los nuevos productos de un pedido por su impresora de destino (estación)
@@ -196,7 +197,7 @@ export async function printModificacionTicket(
         data.push('\x1B\x21\x00'); 
         data.push('\x1B\x61\x00'); // Izquierda
         
-        for (const item of canceladosStation) {
+        for (const item of groupOrderItems(canceladosStation)) {
           data.push('\x1B\x21\x30'); 
           data.push(`-${item.cantidad}x `);
           data.push('\x1B\x21\x00'); 
@@ -217,7 +218,7 @@ export async function printModificacionTicket(
         data.push('\x1B\x21\x00'); 
         data.push('\x1B\x61\x00'); // Izquierda
         
-        for (const item of agregadosStation) {
+        for (const item of groupOrderItems(agregadosStation)) {
           data.push('\x1B\x21\x30'); 
           data.push(`+${item.cantidad}x `);
           data.push('\x1B\x21\x00'); 
@@ -296,7 +297,7 @@ export async function printReceiptTicket(
     data.push('--------------------------------\n');
 
     let subtotal = 0;
-    for (const item of orden.items) {
+    for (const item of groupOrderItems(orden.items)) {
       if (item.estado === 'CANCELADO') continue;
       const totalItem = item.cantidad * item.precioUnitario;
       subtotal += totalItem;

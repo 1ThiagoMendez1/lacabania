@@ -5,6 +5,7 @@ Base: rama `v1.1.3`.
 ## Comportamiento
 
 - Mesas, pedido, caja e historial muestran la fecha y hora de Colombia con segundos, sin depender de la zona horaria del dispositivo.
+- Adiciones iguales del mismo producto se muestran en una sola línea, por ejemplo Churrasco ×3. Las observaciones y precios distintos conservan su propia preparación. Los estados se resumen por unidades y el detalle desplegable conserva cada hora original. El cobro y los recibos usan la misma agrupación.
 - La cancelación permite seleccionar de 1 a la cantidad disponible. Cancelar 2 de 3 churrascos conserva 1 en su estado de preparación original y registra las otras 2 unidades como canceladas. El cobro excluye esas unidades.
 - Cada cancelación conserva la hora original del pedido y registra hora del servidor, responsable, motivo y cantidades. Las cancelaciones antiguas recuperan su hora únicamente si existe una auditoría que identifica el producto; en los demás casos se indica que la hora no está registrada.
 - El reemplazo opcional usa solo las unidades seleccionadas. La cancelación, las existencias, el reemplazo y la auditoría se guardan juntos en una transacción. Una solicitud repetida con el mismo identificador devuelve su resultado anterior. Una pantalla de cocina desactualizada no puede reactivar unidades canceladas.
@@ -25,11 +26,13 @@ Los cierres se consultan con paginación y se actualizan cada minuto mientras la
 ## Actualización de una instalación existente
 
 1. Obtener un respaldo y revisar la estructura de la instalación objetivo.
-2. Aplicar **solo** `supabase/migrations/20261108172231_cancelaciones_por_unidad.sql` en la base correspondiente. Es incremental, transaccional y no elimina pedidos ni cierres. No ejecutar `supabase/schema.sql` contra una instalación existente.
+2. Aplicar, en orden, `supabase/migrations/20261108172231_cancelaciones_por_unidad.sql` y `supabase/migrations/20261108174956_cancelaciones_agrupadas.sql` en la base correspondiente. Son incrementales, transaccionales y no eliminan pedidos ni cierres. No ejecutar `supabase/schema.sql` contra una instalación existente.
 3. Desplegar esta rama con las variables actuales de Supabase. No requiere claves nuevas ni cambios en el servicio de impresión de Windows.
 4. Verificar un pedido de prueba: 3 unidades, cancelar 2, refrescar, comprobar 1 cobrable y el registro de 2 canceladas. Revisar el aviso y un cierre de fecha anterior.
 
 La migración instala campos de auditoría, el RPC `cancelar_item_orden` y un trigger que registra la hora del servidor al anular un pedido completo. El RPC es `SECURITY INVOKER`, conserva los permisos existentes de las tablas y no desactiva RLS. Mantiene compatibilidad con el acceso por PIN existente; este cambio no reemplaza ese mecanismo de autenticación.
+
+El RPC adicional `cancelar_items_orden` permite cancelar unidades de varias adiciones iguales en una transacción. Conserva sus registros originales, vincula las auditorías a una misma solicitud y evita cancelaciones adicionales al reintentar. Se eligen primero las unidades pendientes o en preparación; las entregadas quedan al final.
 
 El frontend detecta si falta el RPC y explica que debe instalarse la actualización de base de datos. La migración debe aplicarse antes del despliegue para evitar interrumpir las cancelaciones.
 

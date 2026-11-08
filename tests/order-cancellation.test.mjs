@@ -6,6 +6,7 @@ import { PGlite } from '@electric-sql/pglite';
 
 const db = new PGlite();
 const migration = readFileSync(new URL('../supabase/migrations/20261108172231_cancelaciones_por_unidad.sql', import.meta.url), 'utf8');
+const groupMigration = readFileSync(new URL('../supabase/migrations/20261108174956_cancelaciones_agrupadas.sql', import.meta.url), 'utf8');
 let actor;
 before(async () => {
   await db.exec('CREATE ROLE anon; CREATE ROLE authenticated; CREATE ROLE service_role;');
@@ -13,6 +14,7 @@ before(async () => {
   const schema = readFileSync(new URL('../supabase/schema.sql', import.meta.url), 'utf8').replace(/DO \$\$[\s\S]*?\$\$;/, '');
   await db.exec(schema);
   await db.exec(migration);
+  await db.exec(groupMigration);
   actor = (await db.query('SELECT id FROM usuarios LIMIT 1')).rows[0].id;
 });
 after(async () => { await db.close(); });
@@ -30,6 +32,49 @@ async function cancel(f, quantity, { request = randomUUID(), user = actor, repla
   return rows[0].result;
 }
 async function description(id) { return (await db.query('SELECT descripcion FROM menu_items WHERE id=$1', [id])).rows[0].descripcion; }
+
+async function splitFixture() {
+  const f = await fixture(), second = randomUUID(), third = randomUUID();
+  await db.query('UPDATE items_orden SET cantidad=1 WHERE id=$1', [f.item]);
+  for (const id of [second, third]) await db.query("INSERT INTO items_orden(id,orden_id,menu_item_id,nombre,cantidad,precio_unitario,estacion,estado,created_at) VALUES($1,$2,$3,'Churrasco',1,30000,'PARRILLA','EN PREPARACION','2026-11-07T18:15:00Z')", [id, f.order, f.source]);
+  return { ...f, second, third };
+}
+async function cancelGroup(f, items, request = randomUUID(), replacement = null) {
+  return (await db.query('SELECT cancelar_items_orden($1,$2,$3,$4,$5,$6) AS result', [f.order, JSON.stringify(items), actor, request, 'Reducir a uno', replacement])).rows[0].result;
+}
+
+test('cancel 2 of 3 separately added units as one product, with idempotent retry', async () => {
+  const f = await splitFixture(), request = randomUUID();
+  const items = [{ id: f.item, cantidad: 1 }, { id: f.second, cantidad: 1 }];
+  const result = await cancelGroup(f, items, request);
+  assert.equal(result.canceledItems.length, 2);
+  assert.equal(result.items.filter(item => item.estado !== 'CANCELADO').reduce((sum, item) => sum + item.cantidad, 0), 1);
+  assert.equal(await description(f.source), '[STOCK:12] Original');
+  await cancelGroup(f, [...items].reverse(), request);
+  assert.equal(await description(f.source), '[STOCK:12] Original');
+  await assert.rejects(cancelGroup(f, [...items, { id: f.third, cantidad: 1 }], request), /otras cantidades/);
+});
+
+test('group cancellation rolls every change back if a later unit is no longer available', async () => {
+  const f = await splitFixture();
+  await assert.rejects(cancelGroup(f, [{ id: f.item, cantidad: 1 }, { id: f.second, cantidad: 2 }]));
+  assert.equal(await description(f.source), '[STOCK:10] Original');
+  assert.equal((await db.query("SELECT count(*)::integer AS n FROM items_orden WHERE orden_id=$1 AND estado='CANCELADO'", [f.order])).rows[0].n, 0);
+});
+
+test('group replacement covers exactly the two selected units', async () => {
+  const f = await splitFixture();
+  const result = await cancelGroup(f, [{ id: f.item, cantidad: 1 }, { id: f.second, cantidad: 1 }], randomUUID(), f.target);
+  assert.equal(result.replacementItems.reduce((sum, item) => sum + item.cantidad, 0), 2);
+  assert.equal(await description(f.target), '[STOCK:3] Reemplazo');
+});
+
+test('different observations cannot be accidentally canceled as one preparation', async () => {
+  const f = await splitFixture();
+  await db.query("UPDATE items_orden SET notas='Sin cebolla' WHERE id=$1", [f.second]);
+  await assert.rejects(cancelGroup(f, [{ id: f.item, cantidad: 1 }, { id: f.second, cantidad: 1 }]), /mismo producto/);
+  assert.equal(await description(f.source), '[STOCK:10] Original');
+});
 
 test('cancel 2 of 3: bill retains one, original preparation status and request time survive reload', async () => {
   const f = await fixture();

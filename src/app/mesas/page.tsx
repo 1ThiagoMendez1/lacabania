@@ -1,7 +1,8 @@
 "use client"
 
 import { CancelOrderItemDialog } from "@/components/CancelOrderItemDialog";
-import { OrderItemTiming } from "@/components/OrderItemTiming";
+import { OrderItemGroupTiming } from "@/components/OrderItemGroupTiming";
+import { groupOrderItems, groupStatusLabel, type OrderItemGroup } from "@/lib/orderItems";
 import { formatBogotaDateTime } from "@/lib/dateUtils";
 import { usePOSStore } from "@/lib/store";
 import { useShallow } from 'zustand/react/shallow';
@@ -517,7 +518,7 @@ function MesaCard({ mesa, user, onOpenMesa, onVerPedido, onStartEdit, onToggleFu
     const actualMeseroNombre = meseroEncontrado?.nombre;
     const [isOpen, setIsOpen] = useState(false);
     const [isModifying, setIsModifying] = useState(false);
-    const [cancelItemDialog, setCancelItemDialog] = useState<ItemOrden | null>(null);
+    const [cancelItemDialog, setCancelItemDialog] = useState<ItemOrden | OrderItemGroup | null>(null);
     const [isLiberarDialogOpen, setIsLiberarDialogOpen] = useState(false);
     const [isEliminarDialogOpen, setIsEliminarDialogOpen] = useState(false);
 
@@ -702,14 +703,14 @@ function MesaCard({ mesa, user, onOpenMesa, onVerPedido, onStartEdit, onToggleFu
                       </h4>
                     </div>
                     <Badge variant="secondary" className="text-[9px] bg-amber-500/10 text-amber-500 border border-amber-500/20 font-black px-2.5 py-0.5 rounded-full shadow-inner">
-                      {activeOrder.items.length} {activeOrder.items.length === 1 ? 'ÍTEM' : 'ÍTEMS'}
+                      {activeOrder.items.filter((item: ItemOrden) => item.estado !== 'CANCELADO').reduce((sum: number, item: ItemOrden) => sum + item.cantidad, 0)} UNIDADES
                     </Badge>
                   </div>
                   
                   {/* Contenido Desplazable sin barra de scroll */}
                   <div className="max-h-[35vh] overflow-y-auto p-4 sm:px-5 sm:py-4 [&::-webkit-scrollbar]:hidden [-ms-overflow-style:none] [scrollbar-width:none]">
                     <ul className="space-y-4">
-                      {activeOrder.items.map((item: any, index: number) => (
+                      {groupOrderItems(activeOrder.items).map((item, index) => (
                         <li key={item.id || index} 
                           className={cn(
                             "flex justify-between items-center text-sm sm:text-base group relative transition-all duration-300 rounded-xl",
@@ -723,11 +724,11 @@ function MesaCard({ mesa, user, onOpenMesa, onVerPedido, onStartEdit, onToggleFu
                         >
                           <div className={cn("flex gap-3 flex-1", "pr-4")}>
                             <div className="flex-shrink-0 flex items-center justify-center w-7 h-7 bg-amber-500/15 border border-amber-500/20 text-amber-500 rounded-xl font-black text-xs shadow-sm">
-                              {item.cantidad}
+                              {item.cantidad}×
                             </div>
                             <div className="flex flex-col justify-center">
                               <span className={cn("font-bold text-foreground/90 tracking-tight", item.estado === 'CANCELADO' && "line-through text-muted-foreground")}>{item.nombre}</span>
-                              <OrderItemTiming item={item} canceledByName={usuarios.find(u => u.id === item.canceledBy)?.nombre} />
+                              <OrderItemGroupTiming group={item} users={usuarios} />
                               {item.notas && (
                                 <span className="text-[10px] text-muted-foreground italic leading-tight mt-0.5 line-clamp-2 bg-background/50 p-1.5 rounded-md border border-white/5">
                                   {item.notas}
@@ -752,7 +753,7 @@ function MesaCard({ mesa, user, onOpenMesa, onVerPedido, onStartEdit, onToggleFu
                                 item.estado === 'ENTREGADO' ? "bg-slate-500/20 text-slate-400 border border-slate-500/30" :
                                 "bg-red-500/20 text-red-400 border border-red-500/30"
                               )}>
-                                {item.estado || 'PENDIENTE'}
+                                {groupStatusLabel(item)}
                               </span>
                             )}
                           </div>

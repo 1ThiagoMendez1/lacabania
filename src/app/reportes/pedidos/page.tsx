@@ -1,7 +1,8 @@
 "use client"
 
 import React from "react";
-import { OrderItemTiming } from "@/components/OrderItemTiming";
+import { OrderItemGroupTiming } from "@/components/OrderItemGroupTiming";
+import { groupOrderItems, groupStatusLabel, type OrderItemGroup } from "@/lib/orderItems";
 import { formatBogotaDateTime } from "@/lib/dateUtils";
 import { usePOSStore } from "@/lib/store";
 import { 
@@ -239,7 +240,7 @@ export default function HistorialPedidosPage() {
                                     </Button>
                                   </div>
                                   <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-3">
-                                    {o.items.map(item => (
+                                    {groupOrderItems(o.items).map(item => (
                                       <div key={item.id} className="bg-background/80 border border-border/50 rounded-xl p-3 flex justify-between items-start shadow-sm">
                                         <div className="flex items-start gap-2.5">
                                           <div className={`mt-0.5 w-6 h-6 shrink-0 rounded-md flex items-center justify-center text-xs font-black ${item.estado === 'CANCELADO' ? 'bg-destructive/10 text-destructive' : 'bg-secondary/10 text-secondary'}`}>
@@ -249,7 +250,7 @@ export default function HistorialPedidosPage() {
                                             <span className={`text-xs font-bold ${item.estado === 'CANCELADO' ? 'text-muted-foreground line-through' : 'text-foreground'}`}>
                                               {item.nombre}
                                             </span>
-                                            <OrderItemTiming item={item} canceledByName={usuarios.find(u => u.id === item.canceledBy)?.nombre} />
+                                            <OrderItemGroupTiming group={item} users={usuarios} />
                                             {item.notas && (
                                               <span className="text-[10px] text-muted-foreground/80 italic mt-0.5 leading-tight">
                                                 * {item.notas}
@@ -370,7 +371,7 @@ export default function HistorialPedidosPage() {
                   </tr>
                 </thead>
                 <tbody className="divide-y divide-dashed divide-black/10">
-                  {orderToPrint?.items.map((item: any) => {
+                  {groupOrderItems(orderToPrint?.items || []).map((item) => {
                     const isCancelado = item.estado === 'CANCELADO';
                     return (
                       <tr key={item.id} className={isCancelado ? "opacity-60 text-muted-foreground" : ""}>

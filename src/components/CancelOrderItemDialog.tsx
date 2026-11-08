@@ -13,15 +13,17 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import { SearchableSelect } from '@/components/ui/searchable-select';
-import { OrderItemTiming } from './OrderItemTiming';
+import { OrderItemGroupTiming } from './OrderItemGroupTiming';
+import { allocateCancellation, groupOrderItems, type OrderItemGroup } from '@/lib/orderItems';
 
 /** Mounted afresh for each item so quantity, reason and request ID never leak between orders. */
 export function CancelOrderItemDialog({ order, item, mesaNumero, onClose }: {
-  order: Orden; item: ItemOrden; mesaNumero: number; onClose: () => void;
+  order: Orden; item: ItemOrden | OrderItemGroup; mesaNumero: number; onClose: () => void;
 }) {
-  const { user, menuItems, cancelarItemOrden } = usePOSStore(useShallow(state => ({
-    user: state.user, menuItems: state.menuItems, cancelarItemOrden: state.cancelarItemOrden,
+  const { user, menuItems, cancelarItemsOrden } = usePOSStore(useShallow(state => ({
+    user: state.user, menuItems: state.menuItems, cancelarItemsOrden: state.cancelarItemsOrden,
   })));
+  const group = 'items' in item ? item : groupOrderItems([item])[0];
   const [quantity, setQuantity] = useState(1);
   const [reason, setReason] = useState('');
   const [replacementId, setReplacementId] = useState('none');
@@ -38,13 +40,14 @@ export function CancelOrderItemDialog({ order, item, mesaNumero, onClose }: {
     setPending(true);
     setError('');
     try {
-      const result = await cancelarItemOrden(order.id, item.id, quantity, reason, user.id,
+      const result = await cancelarItemsOrden(order.id, allocateCancellation(group.items, quantity), reason, user.id,
         requestId.current, replacementId === 'none' ? undefined : replacementId);
       onClose();
-      toast({ title: 'Cancelación guardada', description: `${result.canceledItem.cantidad} unidad(es) de ${item.nombre}. Quedan ${item.cantidad - result.canceledItem.cantidad} del producto original.` });
+      const canceledQuantity = result.canceledItems.reduce((sum, canceled) => sum + canceled.cantidad, 0);
+      toast({ title: 'Cancelación guardada', description: `${canceledQuantity} unidad(es) de ${item.nombre}. Quedan ${item.cantidad - canceledQuantity} del producto original.` });
       try {
-        await printModificacionTicket(mesaNumero, user.nombre, [result.canceledItem],
-          result.replacementItem ? [result.replacementItem] : [], reason || 'Cancelación por unidades');
+        await printModificacionTicket(mesaNumero, user.nombre, result.canceledItems,
+          result.replacementItems, reason || 'Cancelación por unidades');
       } catch (printError) {
         toast({ variant: 'destructive', title: 'Cancelación guardada; impresión pendiente',
           description: printError instanceof Error ? printError.message : 'No se pudo imprimir la modificación.' });
@@ -66,7 +69,7 @@ export function CancelOrderItemDialog({ order, item, mesaNumero, onClose }: {
       <div className="space-y-4">
         <div className="rounded-xl border border-border p-3">
           <p className="font-bold">{item.cantidad} × {item.nombre}</p>
-          <OrderItemTiming item={item} />
+          <OrderItemGroupTiming group={group} />
         </div>
         <div className="space-y-2">
           <Label htmlFor="cancel-quantity">Unidades a cancelar</Label>

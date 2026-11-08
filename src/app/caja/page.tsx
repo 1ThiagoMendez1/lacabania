@@ -1,7 +1,8 @@
 
 "use client"
 
-import { OrderItemTiming } from "@/components/OrderItemTiming";
+import { OrderItemGroupTiming } from "@/components/OrderItemGroupTiming";
+import { groupOrderItems, groupStatusLabel, type OrderItemGroup } from "@/lib/orderItems";
 import { formatBogotaDateTime } from "@/lib/dateUtils";
 import { usePOSStore } from "@/lib/store";
 import { useShallow } from 'zustand/react/shallow';
@@ -343,12 +344,12 @@ export default function CajaPage() {
                     <h3 className="text-xs font-black uppercase tracking-widest text-muted-foreground flex items-center gap-2">
                       <Receipt className="w-4 h-4" /> Consumo
                     </h3>
-                    <Badge variant="outline" className="bg-background">{(activeOrden.items || []).length} items</Badge>
+                    <Badge variant="outline" className="bg-background">{activeOrden.items.filter(item => item.estado !== 'CANCELADO').reduce((sum, item) => sum + item.cantidad, 0)} unidades</Badge>
                   </div>
                   <ScrollArea className="flex-1 p-4 lg:p-6">
                     <table className="w-full text-sm">
                       <tbody>
-                        {(activeOrden.items || []).map((item) => {
+                        {groupOrderItems(activeOrden.items || []).map((item) => {
                           const isCancelado = item.estado === 'CANCELADO';
                           return (
                             <tr key={item.id} className={`border-b border-border/30 ${isCancelado ? 'opacity-70' : ''}`}>
@@ -356,7 +357,7 @@ export default function CajaPage() {
                               <td className="py-3 text-foreground">
                                 {isCancelado && <span className="text-[10px] text-red-500 font-bold bg-red-500/10 px-1 py-0.5 rounded mr-1">CANCELADO</span>}
                                 <span className={isCancelado ? 'line-through' : ''}>{item.nombre}</span>
-                                <OrderItemTiming item={item} canceledByName={usuarios.find(u => u.id === item.canceledBy)?.nombre} />
+                                <OrderItemGroupTiming group={item} users={usuarios} />
                               </td>
                               <td className="py-3 text-right font-bold text-foreground">
                                 {isCancelado ? "$0" : `$${(item.precioUnitario * item.cantidad).toLocaleString('es-CO')}`}

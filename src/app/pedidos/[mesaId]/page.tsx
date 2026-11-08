@@ -2,7 +2,8 @@
 "use client"
 
 import { CancelOrderItemDialog } from "@/components/CancelOrderItemDialog";
-import { OrderItemTiming } from "@/components/OrderItemTiming";
+import { OrderItemGroupTiming } from "@/components/OrderItemGroupTiming";
+import { groupOrderItems, groupStatusLabel, type OrderItemGroup } from "@/lib/orderItems";
 import { formatBogotaDateTime } from "@/lib/dateUtils";
 import { usePOSStore } from "@/lib/store";
 import { useShallow } from 'zustand/react/shallow';
@@ -112,7 +113,7 @@ export default function OrderPage() {
   const [noteEditingItem, setNoteEditingItem] = useState<CartItem | null>(null);
   const [tempNote, setTempNote] = useState("");
 
-  const [cancelItemDialog, setCancelItemDialog] = useState<ItemOrden | null>(null);
+  const [cancelItemDialog, setCancelItemDialog] = useState<ItemOrden | OrderItemGroup | null>(null);
 
   if (!mesa) {
     return (
@@ -446,10 +447,10 @@ export default function OrderPage() {
       {activeOrder && <section aria-label="Pedido enviado" className="m-2 rounded-2xl border border-border p-3 space-y-3">
         <h3 className="text-sm font-bold">Pedido de la mesa · {formatBogotaDateTime(activeOrder.createdAt)}</h3>
         <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3 max-h-64 overflow-y-auto">
-          {activeOrder.items.map(item => <div key={item.id} className="rounded-xl bg-accent/20 p-3 flex items-start justify-between gap-2">
+          {groupOrderItems(activeOrder.items).map(item => <div key={item.groupKey} className="rounded-xl bg-accent/20 p-3 flex items-start justify-between gap-2">
             <div className="min-w-0">
               <p className={cn("text-sm font-bold", item.estado === 'CANCELADO' && 'line-through text-muted-foreground')}>{item.cantidad} × {item.nombre}</p>
-              <OrderItemTiming item={item} canceledByName={usuarios.find(u => u.id === item.canceledBy)?.nombre} />
+              <OrderItemGroupTiming group={item} users={usuarios} />
             </div>
             {item.estado !== 'CANCELADO' && !isMesaOwnedByOther && !isCajaCerrada && <Button size="sm" variant="outline" aria-label={`Cancelar unidades de ${item.nombre}`} onClick={() => setCancelItemDialog(item)}><Ban className="h-4 w-4 mr-1" /> Cancelar</Button>}
           </div>)}

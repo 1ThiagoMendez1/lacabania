@@ -49,6 +49,7 @@ interface POSState {
   updateOrden: (ordenId: string, updates: Partial<Orden>) => Promise<void>;
   addItemsToOrden: (ordenId: string, newItems: ItemOrden[]) => Promise<void>;
   updateItemEstado: (ordenId: string, itemId: string, estado: EstadoComanda) => Promise<void>;
+  cancelarItemsOrden: (ordenId: string, items: { id: string; cantidad: number }[], observaciones: string, usuarioId: string, solicitudId: string, reemplazoId?: string) => Promise<{ canceledItems: ItemOrden[]; replacementItems: ItemOrden[] }>;
   cancelarItemOrden: (ordenId: string, itemId: string, cantidad: number, observaciones: string, usuarioId: string, solicitudId: string, reemplazoId?: string) => Promise<{ canceledItem: ItemOrden; replacementItem?: ItemOrden }>;
   updateStock: (productoId: string, cantidad: number) => Promise<void>;
   adjustStock: (productoId: string, nuevoStock: number) => Promise<void>;
@@ -869,6 +870,18 @@ export const usePOSStore = create<POSState>((set, get) => ({
       if (error) console.error("Error al actualizar estado de item de orden en Supabase:", error);
       await get().refreshOrdenesYMesas();
     }
+  },
+  cancelarItemsOrden: async (ordenId, items, observaciones, usuarioId, solicitudId, reemplazoId) => {
+    if (!items.length || items.some(item => !Number.isInteger(item.cantidad) || item.cantidad < 1)) throw new Error('Selecciona una cantidad válida.');
+    const { data, error } = await supabase.rpc('cancelar_items_orden', {
+      p_orden_id: ordenId, p_items: items, p_usuario_id: usuarioId, p_solicitud_id: solicitudId,
+      p_observaciones: observaciones.trim() || null, p_reemplazo_id: reemplazoId || null,
+    });
+    if (error) throw new Error('No se confirmó la cancelación: ' + error.message);
+    if (!Array.isArray(data?.items) || !data.canceledItems?.length) throw new Error('No llegó la confirmación del servidor. Revisa el pedido.');
+    set(state => ({ ordenes: state.ordenes.map(order => order.id === ordenId ? { ...order, items: data.items.map(mapOrderItem) } : order) }));
+    await get().refreshMenuItems().catch(error => console.warn('No se pudo refrescar el menú:', error));
+    return { canceledItems: data.canceledItems.map(mapOrderItem), replacementItems: (data.replacementItems || []).map(mapOrderItem) };
   },
   cancelarItemOrden: async (ordenId, itemId, cantidad, observaciones, usuarioId, solicitudId, reemplazoId) => {
     if (!Number.isInteger(cantidad) || cantidad < 1) throw new Error('Selecciona una cantidad válida.');
