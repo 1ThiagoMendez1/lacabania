@@ -2,6 +2,7 @@ import type {Metadata} from 'next';
 import './globals.css';
 import { Toaster } from "@/components/ui/toaster"
 import AuthWrapper from "@/components/layout/AuthWrapper"
+import { FestiveThemeProvider } from "@/components/seasonal/FestiveTheme"
 
 export const metadata: Metadata = {
   title: 'La Cabaña POS | Sistema de Gestión',
@@ -21,17 +22,17 @@ export default function RootLayout({
   children: React.ReactNode;
 }>) {
   return (
-    <html lang="es">
+    <html lang="es" data-festive="christmas">
       <head>
         <link rel="preconnect" href="https://fonts.googleapis.com" />
         <link rel="preconnect" href="https://fonts.gstatic.com" crossOrigin="anonymous" />
         <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=Playfair+Display:wght@700;900&family=JetBrains+Mono&family=Satisfy&display=swap" rel="stylesheet" />
       </head>
       <body className="font-body antialiased bg-background">
-        <AuthWrapper>
-          {children}
-        </AuthWrapper>
-        <Toaster />
+        <FestiveThemeProvider>
+          <AuthWrapper>{children}</AuthWrapper>
+          <Toaster />
+        </FestiveThemeProvider>
       </body>
     </html>
   );
