@@ -71,6 +71,9 @@ export interface ItemOrden {
   estacion: Estacion;
   estado: EstadoComanda;
   createdAt: string;
+  canceledAt?: string;
+  canceledBy?: string;
+  cancellationReason?: string;
 }
 
 export interface Orden {

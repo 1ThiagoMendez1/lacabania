@@ -1,6 +1,9 @@
 "use client"
 
 import React from "react";
+import { OrderItemGroupTiming } from "@/components/OrderItemGroupTiming";
+import { groupOrderItems, groupStatusLabel, type OrderItemGroup } from "@/lib/orderItems";
+import { formatBogotaDateTime } from "@/lib/dateUtils";
 import { usePOSStore } from "@/lib/store";
 import { 
   ClipboardList, 
@@ -60,7 +63,7 @@ export default function HistorialPedidosPage() {
 
   const closedOrders = useMemo(() => {
     return ordenes
-      .filter(o => o.estado === 'CERRADA' && (user?.rol === 'ADMINISTRADOR' || user?.rol === 'CAJERO' || o.meseroId === user?.id))
+      .filter(o => (o.estado === 'CERRADA' || o.estado === 'ANULADA') && (user?.rol === 'ADMINISTRADOR' || user?.rol === 'CAJERO' || o.meseroId === user?.id))
       .sort((a, b) => new Date(b.updatedAt).getTime() - new Date(a.updatedAt).getTime());
   }, [ordenes, user]);
 
@@ -100,7 +103,7 @@ export default function HistorialPedidosPage() {
           <div>
             <h2 className="text-2xl font-black font-headline tracking-tight text-white">Historial de Pedidos</h2>
             <p className="text-sm opacity-90 font-medium mt-1 text-primary-foreground/90">
-              Detalle completo de todas las órdenes cerradas y pagadas 📝
+              Pedidos pagados y anulados, con fechas y horas de cada movimiento
             </p>
           </div>
         </div>
@@ -153,7 +156,7 @@ export default function HistorialPedidosPage() {
                     const activeItems = o.items.filter(i => i.estado !== 'CANCELADO');
                     const subtotal = activeItems.reduce((sum, i) => sum + (i.precioUnitario * i.cantidad), 0);
                     const tienePropina = o.propina !== undefined && o.propina > 0;
-                    const total = subtotal + (o.propina || 0);
+                    const total = o.estado === 'ANULADA' ? 0 : subtotal + (o.propina || 0);
                     const isExpanded = expandedOrderId === o.id;
                     
                     return (
@@ -187,10 +190,10 @@ export default function HistorialPedidosPage() {
                           <TableCell className="p-4">
                             <div className="flex flex-col text-[11px]">
                               <span className="font-bold text-foreground">
-                                {format(new Date(o.updatedAt), "dd MMM yyyy", { locale: es })}
+                                Pedido: {formatBogotaDateTime(o.createdAt)}
                               </span>
                               <span className="text-muted-foreground flex items-center gap-1 mt-1">
-                                <Calendar className="w-3 h-3" /> {format(new Date(o.updatedAt), "hh:mm a")}
+                                {o.estado === 'ANULADA' ? 'Anulado' : 'Pagado'}: {o.estado === 'ANULADA' && o.updatedAt === o.createdAt ? 'hora no registrada' : formatBogotaDateTime(o.updatedAt)}
                               </span>
                             </div>
                           </TableCell>
@@ -208,7 +211,7 @@ export default function HistorialPedidosPage() {
                                 ${total.toLocaleString('es-CO')}
                               </span>
                               <Badge className="bg-muted text-muted-foreground text-[10px] font-black tracking-widest border border-border/50 uppercase shadow-sm">
-                                {o.metodoPago || "Sin método"}
+                                {o.estado === 'ANULADA' ? "ANULADO" : o.metodoPago || "Sin método"}
                               </Badge>
                               {tienePropina && (
                                 <span className="text-[9px] text-green-600 font-bold uppercase tracking-widest">
@@ -232,12 +235,12 @@ export default function HistorialPedidosPage() {
                                     <h4 className="text-[10px] font-black uppercase tracking-widest text-muted-foreground flex items-center gap-2">
                                       <Utensils className="w-4 h-4 text-primary"/> Platos del Pedido
                                     </h4>
-                                    <Button size="sm" variant="outline" className="text-xs h-7 px-3 gap-2 border-primary text-primary hover:bg-primary hover:text-white" onClick={(e) => { e.stopPropagation(); setOrderToPrint(o); }}>
+                                    <Button disabled={o.estado === 'ANULADA'} size="sm" variant="outline" className="text-xs h-7 px-3 gap-2 border-primary text-primary hover:bg-primary hover:text-white" onClick={(e) => { e.stopPropagation(); setOrderToPrint(o); }}>
                                       <Printer className="w-3 h-3" /> Imprimir Copia
                                     </Button>
                                   </div>
                                   <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-3">
-                                    {o.items.map(item => (
+                                    {groupOrderItems(o.items).map(item => (
                                       <div key={item.id} className="bg-background/80 border border-border/50 rounded-xl p-3 flex justify-between items-start shadow-sm">
                                         <div className="flex items-start gap-2.5">
                                           <div className={`mt-0.5 w-6 h-6 shrink-0 rounded-md flex items-center justify-center text-xs font-black ${item.estado === 'CANCELADO' ? 'bg-destructive/10 text-destructive' : 'bg-secondary/10 text-secondary'}`}>
@@ -247,6 +250,7 @@ export default function HistorialPedidosPage() {
                                             <span className={`text-xs font-bold ${item.estado === 'CANCELADO' ? 'text-muted-foreground line-through' : 'text-foreground'}`}>
                                               {item.nombre}
                                             </span>
+                                            <OrderItemGroupTiming group={item} users={usuarios} />
                                             {item.notas && (
                                               <span className="text-[10px] text-muted-foreground/80 italic mt-0.5 leading-tight">
                                                 * {item.notas}
@@ -256,7 +260,7 @@ export default function HistorialPedidosPage() {
                                         </div>
                                         <div className="flex flex-col items-end">
                                           <span className="text-xs font-mono font-bold text-muted-foreground">
-                                            ${(item.precioUnitario * item.cantidad).toLocaleString('es-CO')}
+                                            ${(item.estado === 'CANCELADO' ? 0 : item.precioUnitario * item.cantidad).toLocaleString('es-CO')}
                                           </span>
                                           {item.estado === 'CANCELADO' && (
                                             <Badge variant="destructive" className="text-[8px] h-4 px-1 py-0 uppercase mt-1">Cancelado</Badge>
@@ -336,8 +340,9 @@ export default function HistorialPedidosPage() {
             </div>
 
             <div className="border-t border-dashed border-black/30 pt-4 space-y-1 text-[10px]">
+              <p>PEDIDO: {orderToPrint ? formatBogotaDateTime(orderToPrint.createdAt) : ''}</p>
               <div className="flex justify-between">
-                <span>FECHA: {orderToPrint ? new Date(orderToPrint.updatedAt).toLocaleDateString() : ''}</span>
+                <span>PAGADO: {orderToPrint ? formatBogotaDateTime(orderToPrint.updatedAt) : ''}</span>
                 <span>
                   PEDIDO: {orderToPrint ? getOrderIdentifier({ mesaId: orderToPrint.mesaId, consecutivo: orderToPrint.consecutivo, id: orderToPrint.id }) : ''}
                 </span>
@@ -366,7 +371,7 @@ export default function HistorialPedidosPage() {
                   </tr>
                 </thead>
                 <tbody className="divide-y divide-dashed divide-black/10">
-                  {orderToPrint?.items.map((item: any) => {
+                  {groupOrderItems(orderToPrint?.items || []).map((item) => {
                     const isCancelado = item.estado === 'CANCELADO';
                     return (
                       <tr key={item.id} className={isCancelado ? "opacity-60 text-muted-foreground" : ""}>

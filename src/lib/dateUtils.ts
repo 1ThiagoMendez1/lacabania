@@ -48,6 +48,18 @@ export function getBogotaISOString(): string {
   return getBogotaCurrentDate().toISOString();
 }
 
+/** Exact event time in Colombia, independent of the device's time zone. */
+export function formatBogotaDateTime(value?: string | Date): string {
+  if (!value) return 'Sin registro';
+  const date = new Date(value);
+  if (Number.isNaN(date.getTime())) return 'Sin registro';
+  return new Intl.DateTimeFormat('es-CO', {
+    timeZone: 'America/Bogota',
+    day: '2-digit', month: '2-digit', year: 'numeric',
+    hour: '2-digit', minute: '2-digit', second: '2-digit', hourCycle: 'h23',
+  }).format(date);
+}
+
 export function toBogotaDate(dateString: string | Date): Date {
   const d = new Date(dateString);
   const formatter = new Intl.DateTimeFormat('en-US', {

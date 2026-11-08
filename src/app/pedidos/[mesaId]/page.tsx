@@ -1,6 +1,10 @@
 
 "use client"
 
+import { CancelOrderItemDialog } from "@/components/CancelOrderItemDialog";
+import { OrderItemGroupTiming } from "@/components/OrderItemGroupTiming";
+import { groupOrderItems, groupStatusLabel, type OrderItemGroup } from "@/lib/orderItems";
+import { formatBogotaDateTime } from "@/lib/dateUtils";
 import { usePOSStore } from "@/lib/store";
 import { useShallow } from 'zustand/react/shallow';
 import { useParams, useRouter } from "next/navigation";
@@ -72,7 +76,6 @@ import {
   SelectTrigger, 
   SelectValue 
 } from "@/components/ui/select";
-import { SearchableSelect } from "@/components/ui/searchable-select";
 import { Switch } from "@/components/ui/switch";
 
 type CartItem = {
@@ -110,10 +113,7 @@ export default function OrderPage() {
   const [noteEditingItem, setNoteEditingItem] = useState<CartItem | null>(null);
   const [tempNote, setTempNote] = useState("");
 
-  const [cancelItemDialog, setCancelItemDialog] = useState<ItemOrden | null>(null);
-  const [cancelMotivo, setCancelMotivo] = useState("");
-  const [cancelReplacementId, setCancelReplacementId] = useState<string>("none");
-  const { cancelarItemOrden } = usePOSStore(useShallow(state => ({ cancelarItemOrden: state.cancelarItemOrden })));
+  const [cancelItemDialog, setCancelItemDialog] = useState<ItemOrden | OrderItemGroup | null>(null);
 
   if (!mesa) {
     return (
@@ -444,6 +444,18 @@ export default function OrderPage() {
         </div>
       </header>
 
+      {activeOrder && <section aria-label="Pedido enviado" className="m-2 rounded-2xl border border-border p-3 space-y-3">
+        <h3 className="text-sm font-bold">Pedido de la mesa · {formatBogotaDateTime(activeOrder.createdAt)}</h3>
+        <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3 max-h-64 overflow-y-auto">
+          {groupOrderItems(activeOrder.items).map(item => <div key={item.groupKey} className="rounded-xl bg-accent/20 p-3 flex items-start justify-between gap-2">
+            <div className="min-w-0">
+              <p className={cn("text-sm font-bold", item.estado === 'CANCELADO' && 'line-through text-muted-foreground')}>{item.cantidad} × {item.nombre}</p>
+              <OrderItemGroupTiming group={item} users={usuarios} />
+            </div>
+            {item.estado !== 'CANCELADO' && !isMesaOwnedByOther && !isCajaCerrada && <Button size="sm" variant="outline" aria-label={`Cancelar unidades de ${item.nombre}`} onClick={() => setCancelItemDialog(item)}><Ban className="h-4 w-4 mr-1" /> Cancelar</Button>}
+          </div>)}
+        </div>
+      </section>}
       <div className="flex-1 flex flex-col lg:flex-row gap-0 lg:gap-3 p-0 lg:p-3 overflow-hidden mt-0 bg-accent/5">
           <div className="flex-1 flex flex-col gap-2 p-2 lg:p-0 overflow-hidden">
             <div className="space-y-1.5">
@@ -637,116 +649,10 @@ export default function OrderPage() {
           </Sheet>
         </div>
       )}
-    <Dialog open={!!cancelItemDialog} onOpenChange={(open) => !open && setCancelItemDialog(null)}>
-        <DialogContent className="max-w-[90vw] md:max-w-md bg-card border-border paper-texture rounded-[2rem]">
-          <DialogHeader>
-            <DialogTitle className="font-headline text-red-500 flex items-center gap-2">
-              <Ban className="w-5 h-5" /> Cancelar Producto
-            </DialogTitle>
-          </DialogHeader>
-          <div className="space-y-4 py-4">
-            <p className="text-sm">
-              Vas a cancelar <strong>{cancelItemDialog?.cantidad}x {cancelItemDialog?.nombre}</strong>.
-            </p>
-            <div className="space-y-2">
-              <Label>Motivo de cancelación</Label>
-              <Input 
-                value={cancelMotivo}
-                onChange={(e) => setCancelMotivo(e.target.value)}
-                placeholder="Ej: Cliente cambió de opinión"
-                className="bg-background"
-              />
-            </div>
-            
-            <div className="space-y-2 bg-primary/5 p-4 rounded-xl border border-primary/20">
-              <Label className="text-primary font-bold">¿Cambiar por otro producto?</Label>
-              <p className="text-xs text-muted-foreground mb-2">Si el cliente solicitó un cambio, selecciona el nuevo producto aquí para enviarlo a cocina automáticamente.</p>
-              <SearchableSelect 
-                value={cancelReplacementId} 
-                onValueChange={setCancelReplacementId}
-                placeholder="Seleccionar producto..."
-                searchPlaceholder="Buscar plato..."
-                options={[
-                  { label: "-- Ninguno (Solo cancelar) --", value: "none" },
-                  ...menuItems.map(item => ({
-                    label: `${item.nombre} - $${item.precio.toLocaleString('es-CO')}`,
-                    value: item.id
-                  }))
-                ]}
-              />
-            </div>
-          </div>
-          <DialogFooter className="gap-2">
-            <Button variant="outline" onClick={() => setCancelItemDialog(null)} className="rounded-xl">Volver</Button>
-            <Button 
-              className="bg-red-600 hover:bg-red-700 font-bold rounded-xl" 
-              onClick={async () => {
-                if (!activeOrder || !cancelItemDialog) return;
-                
-                const userToLogId = user?.id || '';
-
-                // Obtener datos operativos para el nuevo item (si hay)
-                const operationalTimestamp = getBogotaISOString();
-
-                let nuevosItemsParaComanda: ItemOrden[] = [];
-                
-                // Execute cancellation
-                await cancelarItemOrden(activeOrder.id, cancelItemDialog.id, cancelMotivo, userToLogId);
-                
-                // Si seleccionó un producto de reemplazo
-                if (cancelReplacementId && cancelReplacementId !== "none") {
-                  const replacementMenu = menuItems.find(m => m.id === cancelReplacementId);
-                  if (replacementMenu) {
-                    const newItem: ItemOrden = {
-                      id: uuidv4(),
-                      menuItemId: replacementMenu.id,
-                      nombre: replacementMenu.nombre,
-                      cantidad: cancelItemDialog.cantidad, // Misma cantidad que el cancelado
-                      precioUnitario: replacementMenu.precio,
-                      notas: `Cambio por: ${cancelItemDialog.nombre}`,
-                      estacion: replacementMenu.estacion,
-                      estado: 'EN PREPARACION',
-                      createdAt: operationalTimestamp
-                    };
-                    
-                    usePOSStore.getState().addItemsToOrden(activeOrder.id, [newItem]);
-                    nuevosItemsParaComanda = [newItem];
-                  }
-                }
-
-                // Print modification ticket
-                try {
-                  const notasTicket = cancelMotivo 
-                    ? `${cancelMotivo}${nuevosItemsParaComanda.length > 0 ? ' (CAMBIO)' : ''}`
-                    : (nuevosItemsParaComanda.length > 0 ? 'Cambio de producto' : 'Cancelación');
-                    
-                  await printModificacionTicket(
-                    mesa.numero, 
-                    user?.nombre || 'Mesero', 
-                    [cancelItemDialog], 
-                    nuevosItemsParaComanda, 
-                    notasTicket
-                  );
-                  
-                  toast({
-                    title: nuevosItemsParaComanda.length > 0 ? "Producto cambiado" : "Producto cancelado",
-                    description: "Se imprimió la modificación en la estación correspondiente.",
-                  });
-                } catch (err: any) {
-                  toast({
-                    variant: "destructive",
-                    title: "Error de Impresión",
-                    description: err.message || "No se pudo imprimir el ticket de modificación.",
-                  });
-                }
-                setCancelItemDialog(null);
-              }}
-            >
-              CONFIRMAR CANCELACIÓN
-            </Button>
-          </DialogFooter>
-        </DialogContent>
-      </Dialog>
+    {cancelItemDialog && activeOrder && <CancelOrderItemDialog
+          key={cancelItemDialog.id} order={activeOrder} item={cancelItemDialog} mesaNumero={mesa.numero || mesa.id}
+          onClose={() => { setCancelItemDialog(null); }}
+        />}
 
     </main>
   );

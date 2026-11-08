@@ -29,3 +29,5 @@ El proyecto no configura actualmente un linter independiente; la compilación om
 ## Documentación técnica
 
 Ver [informe de auditoría de v1.1.3](docs/auditoria-v1.1.3.md), con cambios efectuados, pruebas y riesgos aún pendientes.
+
+Ver [pedidos por unidades y cierres pendientes](docs/pedidos-unidades-cierres.md) para el comportamiento nuevo y la migración incremental que debe aplicarse antes del despliegue.

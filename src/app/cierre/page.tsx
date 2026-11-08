@@ -21,9 +21,11 @@ import {
 } from "lucide-react";
 import { cn, formatCurrencyInput, parseCurrencyInput } from "@/lib/utils";
 import { usePOSStore } from "@/lib/store";
-import { getBogotaDateString, getBogotaISOString, getBogotaCurrentDate, toBogotaDate } from '@/lib/dateUtils';
+import { formatBogotaDateTime, getBogotaDateString, getBogotaISOString, getBogotaCurrentDate, toBogotaDate } from '@/lib/dateUtils';
+import { getPendingCloseDays, hasBlockingOpenOrder, isValidBusinessDate, orderBusinessDate } from "@/lib/dailyClose";
 import { supabase } from "@/lib/supabase";
-import { useState, useEffect } from "react";
+import { useSearchParams } from "next/navigation";
+import { Suspense, useState, useEffect } from "react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { useToast } from "@/hooks/use-toast";
@@ -36,13 +38,26 @@ import {
 } from "@/components/ui/dialog";
 
 export default function CierrePage() {
-  const { ordenes, mesas, gastos, isCajaCerrada, setCajaCerrada, user, fechaOperativa, setFechaOperativa, usuarios, addGasto, deleteGasto } = usePOSStore();
+  return <Suspense fallback={<p className="p-4">Cargando cierre…</p>}><CierreContent /></Suspense>;
+}
+
+function CierreContent() {
+  const searchParams = useSearchParams();
+  const { ordenes, mesas, gastos, isCajaCerrada, setCajaCerrada, user, fechaOperativa, setFechaOperativa, usuarios, addGasto, deleteGasto, cierresDiarios, cierresLoaded, cierresError, refreshCierresDiarios } = usePOSStore();
   const { toast } = useToast();
   const [historialCierres, setHistorialCierres] = useState<any[]>([]);
   const [expandedCloseIdx, setExpandedCloseIdx] = useState<number | null>(null);
   const [isProcessing, setIsProcessing] = useState(false);
   const [selectedCierreReport, setSelectedCierreReport] = useState<any | null>(null);
   const [isPreCierreOpen, setIsPreCierreOpen] = useState(false);
+  const [selectedDate, setSelectedDate] = useState('');
+  useEffect(() => {
+    const readDate = () => {
+      const date = searchParams.get('fecha') || '';
+      setSelectedDate(isValidBusinessDate(date) && date <= getBogotaDateString() ? date : '');
+    };
+    readDate();
+  }, [searchParams]);
 
   const [gastoCategoria, setGastoCategoria] = useState("Insumos");
   const [gastoDescripcion, setGastoDescripcion] = useState("");
@@ -83,27 +98,20 @@ export default function CierrePage() {
     return `${daysOfWeek[date.getDay()]}, ${day} de ${months[date.getMonth()]} de ${year}`;
   };
 
-  const getFechaSiguiente = (dateStr: string) => {
-    if (!dateStr || !/^\d{4}-\d{2}-\d{2}$/.test(dateStr)) return "";
-    const parts = dateStr.split('-');
-    const year = parseInt(parts[0], 10);
-    const month = parseInt(parts[1], 10) - 1;
-    const day = parseInt(parts[2], 10);
-    const date = new Date(year, month, day);
-    date.setDate(date.getDate() + 1);
-    const yyyy = date.getFullYear();
-    const mm = String(date.getMonth() + 1).padStart(2, '0');
-    const dd = String(date.getDate()).padStart(2, '0');
-    return `${yyyy}-${mm}-${dd}`;
-  };
-
   // Closing 'Hoy' must use today's Bogotá date, not stale localStorage state.
   const fechaCierreHoy = getBogotaDateString();
+  const fechaCierre = selectedDate || fechaCierreHoy;
+  const pendingDays = getPendingCloseDays(ordenes, gastos, cierresDiarios, fechaCierreHoy);
+  const selectCloseDate = (date: string) => {
+    setSelectedDate(date);
+    setIsPreCierreOpen(false);
+    window.history.replaceState(null, '', `/cierre?fecha=${date}`);
+  };
 
   // Cálculos de ventas
   const ventasCerradas = ordenes.filter(o => 
     o.estado === 'CERRADA' && 
-    getOrderLocalDateStr(o.updatedAt || o.createdAt) === fechaCierreHoy
+    orderBusinessDate(o) === fechaCierre
   );
   
   const totalVentasCerradas = ventasCerradas.reduce((acc, o) => 
@@ -131,9 +139,9 @@ export default function CierrePage() {
   const granTotalRecaudado = totalVentasCerradas + totalPropinas;
 
   const ordersToday = ordenes.filter(o => 
-    getOrderLocalDateStr(o.updatedAt || o.createdAt) === fechaCierreHoy
+    orderBusinessDate(o) === fechaCierre || getOrderLocalDateStr(o.createdAt) === fechaCierre
   );
-  const pedidosAbiertosHoy = ordenes.filter(o => o.estado === 'ABIERTA').length;
+  const pedidosAbiertosHoy = ordenes.filter(o => hasBlockingOpenOrder([o], fechaCierre, fechaCierreHoy)).length;
   const totalPedidosHoy = ordersToday.length;
 
   const totalMesasHoy = ordersToday.filter(o => {
@@ -144,86 +152,48 @@ export default function CierrePage() {
   const pedidosCerradosHoy = ordersToday.filter(o => o.estado === 'CERRADA').length;
   const costoInsumosHoy = ventasCerradas.reduce((sum, o) => sum + getCostoAsociado(o), 0);
   
-  const gastosHoy = gastos.filter(g => g.fecha === fechaCierreHoy);
+  const gastosHoy = gastos.filter(g => g.fecha === fechaCierre);
   const otrosCostos = gastosHoy.reduce((sum, g) => sum + g.valor, 0);
-  // The browser may carry a different operative date; only today's confirmed
-  // close controls today's close-screen status.
-  const cierreHoyRegistrado = historialCierres.some(c => c.fecha === fechaCierreHoy) ||
-    (typeof window !== 'undefined' && !!localStorage.getItem('cierre_' + fechaCierreHoy));
+  const cierreHoyRegistrado = cierresDiarios.includes(fechaCierre);
 
   const utilidadHoy = totalVentasCerradas - (costoInsumosHoy + otrosCostos);
   const margenHoy = totalVentasCerradas > 0 ? (utilidadHoy / totalVentasCerradas) * 100 : 0;
 
   const cargarHistorialCierres = async () => {
-    let dbCierres: any[] = [];
-    try {
-      const { data, error } = await supabase
-        .from('cierres_diarios')
-        .select('*')
-        .order('fecha', { ascending: false });
-      if (data) dbCierres = data;
-    } catch (e) {
-      console.warn("Excepción al cargar cierres de Supabase:", e);
+    const dbCierres: any[] = [];
+    for (let offset = 0; ; offset += 500) {
+      const { data, error } = await supabase.from('cierres_diarios').select('*')
+        .order('fecha', { ascending: false }).range(offset, offset + 499);
+      if (error) throw new Error(error.message);
+      dbCierres.push(...(data || []));
+      if (!data || data.length < 500) break;
     }
-
-    const localCierres: any[] = [];
-    if (typeof window !== 'undefined') {
-      for (let i = 0; i < localStorage.length; i++) {
-        const key = localStorage.key(i);
-        if (key && key.startsWith('cierre_')) {
-          try {
-            const raw = localStorage.getItem(key);
-            if (raw) localCierres.push(JSON.parse(raw));
-          } catch (e) { }
-        }
-      }
-    }
-
-    const map = new Map<string, any>();
-    localCierres.forEach(c => {
-      if (c && c.fecha) {
-        map.set(c.fecha, {
-          fecha: c.fecha,
-          esperadoEfectivo: Number(c.esperadoEfectivo || 0),
-          esperadoTarjeta: Number(c.esperadoTarjeta || 0),
-          esperadoTransferencia: Number(c.esperadoTransferencia || 0),
-          usuario: c.usuario || 'Cajero',
-          timestamp: c.timestamp || getBogotaISOString(),
-          notas: c.notas || "{}"
-        });
-      }
-    });
-
-    dbCierres.forEach(c => {
-      if (c && c.fecha) {
-        const creator = usuarios.find(u => u.id === c.creado_por);
-        map.set(c.fecha, {
-          fecha: c.fecha,
-          esperadoEfectivo: Number(c.esperado_efectivo || 0),
-          esperadoTarjeta: Number(c.esperado_tarjeta || 0),
-          esperadoTransferencia: Number(c.esperado_transferencia || 0),
-          usuario: creator ? creator.nombre : 'Administrador',
-          timestamp: c.created_at || getBogotaISOString(),
-          notas: c.notas || "{}"
-        });
-      }
-    });
-
-    const list = Array.from(map.values()).sort((a: any, b: any) => b.fecha.localeCompare(a.fecha));
-    setHistorialCierres(list);
+    setHistorialCierres(dbCierres.map(c => ({
+      fecha: c.fecha,
+      esperadoEfectivo: Number(c.esperado_efectivo || 0),
+      esperadoTarjeta: Number(c.esperado_tarjeta || 0),
+      esperadoTransferencia: Number(c.esperado_transferencia || 0),
+      usuario: usuarios.find(u => u.id === c.creado_por)?.nombre || 'Administrador',
+      timestamp: c.created_at, notas: c.notas || '{}',
+    })));
+    await refreshCierresDiarios();
   };
 
   useEffect(() => {
-    cargarHistorialCierres();
+    cargarHistorialCierres().catch(error => console.warn('No se pudo cargar el historial de cierres:', error));
   }, [isCajaCerrada, fechaOperativa, usuarios]);
 
   const handleConfirmarCierre = async () => {
     if (isProcessing) return;
-    if (historialCierres.some(c => c.fecha === fechaCierreHoy)) {
+    if (!cierresLoaded || cierresError || fechaCierre > fechaCierreHoy || (totalPedidosHoy === 0 && gastosHoy.length === 0)) {
+      toast({ variant: 'destructive', title: 'Cierre no disponible', description: 'Verifica la fecha, la actividad y la conexión antes de cerrar.' });
+      return;
+    }
+    if (historialCierres.some(c => c.fecha === fechaCierre)) {
       toast({ variant: 'destructive', title: 'Día ya cerrado', description: 'Este día ya tiene un cierre registrado.' });
       return;
     }
-    if (ordenes.some(o => o.estado === 'ABIERTA')) {
+    if (hasBlockingOpenOrder(ordenes, fechaCierre, fechaCierreHoy)) {
       toast({
         variant: 'destructive',
         title: 'Cierre bloqueado',
@@ -233,7 +203,7 @@ export default function CierrePage() {
     }
     setIsProcessing(true);
     const closureData = {
-      fecha: fechaCierreHoy,
+      fecha: fechaCierre,
       esperadoEfectivo,
       esperadoTarjeta,
       esperadoTransferencia,
@@ -245,9 +215,15 @@ export default function CierrePage() {
     };
 
     try {
+      let openOrdersQuery = supabase.from('ordenes').select('id').eq('estado', 'ABIERTA');
+      if (fechaCierre < fechaCierreHoy) {
+        const end = new Date(`${fechaCierre}T00:00:00-05:00`);
+        end.setUTCDate(end.getUTCDate() + 1);
+        openOrdersQuery = openOrdersQuery.lt('created_at', end.toISOString());
+      }
       const [openOrdersCheck, existingCloseCheck] = await Promise.all([
-        supabase.from('ordenes').select('id').eq('estado', 'ABIERTA').limit(1),
-        supabase.from('cierres_diarios').select('fecha').eq('fecha', fechaCierreHoy).limit(1)
+        openOrdersQuery.limit(1),
+        supabase.from('cierres_diarios').select('fecha').eq('fecha', fechaCierre).limit(1)
       ]);
       if (openOrdersCheck.error || existingCloseCheck.error) {
         throw new Error('No se pudo verificar el estado de Caja en el servidor.');
@@ -264,12 +240,12 @@ export default function CierrePage() {
         toast({
           variant: 'destructive',
           title: 'Día ya cerrado',
-          description: 'El servidor ya tiene registrado un cierre para hoy.'
+          description: 'El servidor ya tiene registrado un cierre para esta fecha.'
         });
         return;
       }
       const record = {
-        fecha: fechaCierreHoy,
+        fecha: fechaCierre,
         esperado_efectivo: esperadoEfectivo,
         esperado_tarjeta: esperadoTarjeta,
         esperado_transferencia: esperadoTransferencia,
@@ -296,22 +272,21 @@ export default function CierrePage() {
 
       // Do not mark the register closed locally until Supabase confirms success.
       try {
-        localStorage.setItem(`cierre_${fechaCierreHoy}`, JSON.stringify(closureData));
+        localStorage.setItem(`cierre_${fechaCierre}`, JSON.stringify(closureData));
       } catch (storageError) {
         console.warn('El cierre fue confirmado en BD pero falló la copia local:', storageError);
       }
-      setCajaCerrada(true);
+      if (fechaCierre === fechaCierreHoy) {
+        setFechaOperativa(fechaCierreHoy);
+        setCajaCerrada(true);
+      }
+      window.dispatchEvent(new Event('daily-close-changed'));
       try {
         await cargarHistorialCierres();
       } catch (historyError) {
         console.warn('No se pudo recargar el historial, pero el cierre fue confirmado:', historyError);
       }
 
-      const sigDia = getFechaSiguiente(fechaCierreHoy);
-      if (sigDia) {
-        setFechaOperativa(sigDia);
-        setCajaCerrada(false);
-      }
       setIsPreCierreOpen(false);
       toast({
         title: 'Cierre Exitoso',
@@ -338,9 +313,19 @@ export default function CierrePage() {
           </div>
           <h2 className="text-2xl md:text-3xl font-headline text-foreground">Cierre Diario</h2>
         </div>
-        <p className="text-sm text-muted-foreground">Resumen de ventas y cierre operativo del día.</p>
+        <p className="text-sm text-muted-foreground">Revisa y cierra cada fecha con actividad para mantener las cuentas al día.</p>
       </header>
 
+      <section aria-label="Fechas pendientes de cierre" className="mb-6 rounded-2xl border border-border p-4 space-y-3">
+        <h3 className="font-bold">Días por cerrar</h3>
+        <p className="text-sm text-muted-foreground">Selecciona una fecha para revisar sus ventas y gastos. Cerrar un día anterior conserva la operación de hoy.</p>
+        {!cierresLoaded || cierresError ? <p role="status" className="text-sm">{cierresError ? 'No se pudieron comprobar los cierres.' : 'Consultando cierres…'}</p> : <div className="flex flex-wrap gap-2 max-h-64 overflow-y-auto">
+          <Button variant={fechaCierre === fechaCierreHoy ? 'default' : 'outline'} onClick={() => selectCloseDate(fechaCierreHoy)}>Hoy · {fechaCierreHoy}</Button>
+          {pendingDays.filter(day => day.fecha < fechaCierreHoy).map(day => <Button key={day.fecha} variant={fechaCierre === day.fecha ? 'default' : 'outline'} onClick={() => selectCloseDate(day.fecha)}>
+            {day.fecha} · {day.pedidos} pedido(s)
+          </Button>)}
+        </div>}
+      </section>
       {fechaOperativa && fechaOperativa !== getBogotaDateString() && (
         <div role="alert" className="mb-4 rounded-xl border border-amber-500/50 bg-amber-500/10 p-4 flex items-start gap-3 text-amber-500">
           <AlertTriangle className="h-5 w-5 shrink-0" />
@@ -355,12 +340,12 @@ export default function CierrePage() {
         <div className="lg:col-span-2 space-y-6">
           <Card className="bg-card border-border shadow-xl rounded-[2rem] overflow-hidden">
             <CardHeader className="bg-accent/10 border-b border-border/40 p-6">
-              <CardTitle className="text-xl font-headline flex items-center justify-between">
-                <span>Cierre de Hoy: {getFullDateLabel(fechaCierreHoy)}</span>
+              <CardTitle className="text-xl font-headline flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3">
+                <span className="min-w-0 leading-snug">Cierre: {getFullDateLabel(fechaCierre)}</span>
                 {cierreHoyRegistrado ? (
-                  <span className="text-xs bg-red-500/20 text-red-500 px-3 py-1 rounded-full border border-red-500/30">CERRADO</span>
+                  <span className="shrink-0 text-xs bg-red-500/20 text-red-500 px-3 py-1 rounded-full border border-red-500/30">CERRADO</span>
                 ) : (
-                  <span className="text-xs bg-green-500/20 text-green-500 px-3 py-1 rounded-full border border-green-500/30">ABIERTO</span>
+                  <span className="shrink-0 text-xs bg-green-500/20 text-green-500 px-3 py-1 rounded-full border border-green-500/30">ABIERTO</span>
                 )}
               </CardTitle>
             </CardHeader>
@@ -387,15 +372,15 @@ export default function CierrePage() {
 
               {!cierreHoyRegistrado && (
                 <div className="pt-4 border-t border-border/40">
-                  {totalPedidosHoy === 0 ? (
+                  {(totalPedidosHoy === 0 && gastosHoy.length === 0) ? (
                     <div className="mb-4 bg-red-500/10 border border-red-500/30 text-red-500 p-4 rounded-2xl flex items-center gap-3">
                       <AlertTriangle className="w-6 h-6 shrink-0" />
-                      <p className="text-sm">No se puede realizar el cierre: <strong>No hay pedidos registrados</strong> para este día operativo. Debes registrar al menos un pedido antes de hacer el cierre.</p>
+                      <p className="text-sm">No se puede realizar el cierre: <strong>No hay movimientos registrados</strong> para este día operativo. Se requiere al menos un pedido o gasto en esta fecha.</p>
                     </div>
                   ) : pedidosAbiertosHoy > 0 ? (
                     <div className="mb-4 bg-amber-500/10 border border-amber-500/30 text-amber-500 p-4 rounded-2xl flex items-center gap-3">
                       <AlertTriangle className="w-6 h-6 animate-pulse shrink-0" />
-                      <p className="text-sm">Aún hay {pedidosAbiertosHoy} pedido(s) abiertos. Es recomendable cerrarlos antes de hacer corte.</p>
+                      <p className="text-sm">Aún hay {pedidosAbiertosHoy} pedido(s) abiertos. Debes resolverlos antes de cerrar esta fecha.</p>
                     </div>
                   ) : (
                     <div className="mb-4 bg-green-500/10 border border-green-500/30 text-green-500 p-4 rounded-2xl flex items-center gap-3">
@@ -408,7 +393,7 @@ export default function CierrePage() {
                     <DialogTrigger asChild>
                       <Button 
                         className="w-full h-14 text-base font-black rounded-2xl shadow-lg hover:shadow-xl transition-all"
-                        disabled={isProcessing || totalPedidosHoy === 0 || pedidosAbiertosHoy > 0}
+                        disabled={isProcessing || !cierresLoaded || !!cierresError || (totalPedidosHoy === 0 && gastosHoy.length === 0) || pedidosAbiertosHoy > 0}
                       >
                         {isProcessing ? "Procesando..." : "Realizar Cierre de Caja 🔒"}
                       </Button>
@@ -424,7 +409,7 @@ export default function CierrePage() {
                               <span>1. Pre-Cierre — Revisión Automática</span>
                               {typeof window !== 'undefined' && (
                                 <span className="text-[12px] uppercase tracking-widest font-mono text-muted-foreground bg-accent/20 border border-border/50 px-3 py-1 rounded-full whitespace-nowrap">
-                                  {format(getBogotaCurrentDate(), "dd MMM yyyy - hh:mm a", { locale: es })}
+                                  {formatBogotaDateTime(new Date())}
                                 </span>
                               )}
                             </DialogTitle>
@@ -522,7 +507,7 @@ export default function CierrePage() {
                                     categoria: gastoCategoria,
                                     descripcion: gastoDescripcion.trim(),
                                     valor: val,
-                                    fecha: fechaCierreHoy
+                                    fecha: fechaCierre
                                   });
                                   setGastoDescripcion("");
                                   setGastoValor("");
@@ -540,7 +525,7 @@ export default function CierrePage() {
                           {/* List of today's expenses inside closure dialog */}
                           <div className="max-h-[120px] overflow-y-auto pr-1 space-y-1 text-xs border-t border-border/20 pt-2">
                             {gastosHoy.length === 0 && (
-                              <div className="text-center text-muted-foreground/50 py-2">No hay gastos adicionales hoy</div>
+                              <div className="text-center text-muted-foreground/50 py-2">No hay gastos adicionales en esta fecha</div>
                             )}
                             {gastosHoy.map((g) => (
                               <div key={g.id} className="flex justify-between items-center py-1.5 border-b border-border/5 last:border-0 group">
@@ -586,8 +571,8 @@ export default function CierrePage() {
                               <p className="text-[10px] opacity-80 mt-0.5">{pedidosAbiertosHoy} pedidos siguen activos</p>
                             </div>
                           </div>
-                          <div className={cn("p-4 rounded-2xl border text-xs font-medium transition-all duration-300 mt-2", totalPedidosHoy === 0 ? "bg-red-500/10 border-red-500/30 text-red-500" : pedidosAbiertosHoy > 0 ? "bg-amber-500/10 border-amber-500/30 text-amber-800 dark:text-amber-300" : "bg-green-500/10 border-green-500/30 text-green-800 dark:text-green-300")}>
-                            {totalPedidosHoy === 0 ? (
+                          <div className={cn("p-4 rounded-2xl border text-xs font-medium transition-all duration-300 mt-2", (totalPedidosHoy === 0 && gastosHoy.length === 0) ? "bg-red-500/10 border-red-500/30 text-red-500" : pedidosAbiertosHoy > 0 ? "bg-amber-500/10 border-amber-500/30 text-amber-800 dark:text-amber-300" : "bg-green-500/10 border-green-500/30 text-green-800 dark:text-green-300")}>
+                            {(totalPedidosHoy === 0 && gastosHoy.length === 0) ? (
                               <p><strong>Error:</strong> No se puede realizar el cierre porque no hay pedidos registrados para el día operativo en curso.</p>
                             ) : pedidosAbiertosHoy > 0 ? (
                               <p><strong>Nota:</strong> Hay items con advertencias. Puede continuar con el cierre, pero se recomienda revisar los puntos señalados.</p>
@@ -611,21 +596,22 @@ export default function CierrePage() {
                           </div>
                           <div className="space-y-3 bg-card border border-border/40 p-5 rounded-[1.5rem] shadow-inner flex flex-col h-[280px]">
                             <h4 className="text-xs font-black uppercase tracking-widest text-muted-foreground flex items-center gap-1.5 shrink-0">
-                              <UtensilsCrossed className="w-4 h-4 text-primary" /> Mesas y Pedidos de Hoy
+                              <UtensilsCrossed className="w-4 h-4 text-primary" /> Mesas y pedidos de esta fecha
                             </h4>
                             <div className="flex-1 overflow-y-auto pr-1 space-y-2">
-                              {ordersToday.length === 0 && <p className="text-xs text-muted-foreground text-center py-10 italic">No hay mesas atendidas registradas hoy.</p>}
+                              {ordersToday.length === 0 && <p className="text-xs text-muted-foreground text-center py-10 italic">No hay pedidos registrados en esta fecha.</p>}
                               {ordersToday.map((o) => {
                                 const closedMesa = mesas.find(m => m.id === o.mesaId);
                                 const label = closedMesa?.zona === 'Para Llevar' ? `Llevar - PLL-${o.consecutivo || (o.mesaId >= 101 ? o.mesaId - 100 : o.mesaId)}` : `Mesa ${o.mesaId}`;
                                 const subtotal = o.items.filter(i => i.estado !== 'CANCELADO').reduce((sum, i) => sum + (i.precioUnitario * i.cantidad), 0);
-                                const totalOrder = subtotal + (o.propina || 0);
+                                const totalOrder = o.estado === 'CERRADA' && orderBusinessDate(o) === fechaCierre ? subtotal + (o.propina || 0) : 0;
                                 const waiterName = usuarios.find(u => u.id === o.meseroId)?.nombre || 'Mesero';
                                 return (
                                   <div key={o.id} className="p-2.5 bg-background/50 rounded-xl border border-border/30 flex items-center justify-between text-[11px] gap-2 hover:border-primary/20 transition-all duration-200">
                                     <div className="min-w-0 flex-1">
                                       <div className="flex items-center gap-1.5 font-bold text-foreground"><span className="truncate">{label}</span></div>
                                       <div className="text-[9px] text-muted-foreground mt-0.5 truncate">Atendió: {waiterName}</div>
+                                      {o.estado === 'CERRADA' && orderBusinessDate(o) !== fechaCierre && <p className="text-[10px] text-muted-foreground">Cobrado el {orderBusinessDate(o)}</p>}
                                     </div>
                                     <div className="text-right shrink-0">
                                       <div className="font-bold text-foreground">${totalOrder.toLocaleString('es-CO')}</div>
@@ -667,12 +653,13 @@ export default function CierrePage() {
                     variant="destructive"
                     className="w-full h-14 text-base font-black rounded-2xl shadow-lg hover:shadow-xl transition-all"
                     onClick={async () => {
-                      if (window.confirm('¿Estás seguro de que deseas REABRIR la caja? Esto eliminará el reporte de cierre de hoy.')) {
+                      if (window.confirm('¿Estás seguro de que deseas REABRIR la caja? Esto eliminará el reporte de cierre de la fecha seleccionada.')) {
                         try {
-                          const { error } = await supabase.from('cierres_diarios').delete().eq('fecha', fechaCierreHoy);
+                          const { error } = await supabase.from('cierres_diarios').delete().eq('fecha', fechaCierre);
                           if (error) throw new Error(error.message);
-                          localStorage.removeItem(`cierre_${fechaCierreHoy}`);
-                          setCajaCerrada(false);
+                          localStorage.removeItem(`cierre_${fechaCierre}`);
+                          if (fechaCierre === fechaCierreHoy) setCajaCerrada(false);
+                          window.dispatchEvent(new Event('daily-close-changed'));
                           
                           // Recargar para que cambie el UI a abierto
                           window.location.reload();
@@ -734,7 +721,7 @@ export default function CierrePage() {
                               <div className="col-span-2"><span className="font-bold block">Transf/Nequi:</span>${cierre.esperadoTransferencia.toLocaleString('es-CO')}</div>
                             </div>
                             <div className="mt-3 text-[9px] text-muted-foreground/60 text-right">
-                              Sincronizado: {new Date(cierre.timestamp).toLocaleString()}
+                              Cierre registrado: {formatBogotaDateTime(cierre.timestamp)}
                             </div>
                             <div className="mt-3">
                               <Button 
@@ -885,7 +872,7 @@ export default function CierrePage() {
 
                 <div className="flex justify-between items-center text-[10px] text-muted-foreground font-mono border-t border-border/30 pt-3">
                   <span>Cerrado por: {selectedCierreReport.usuario}</span>
-                  <span>{new Date(selectedCierreReport.timestamp).toLocaleString('es-CO')}</span>
+                  <span>{formatBogotaDateTime(selectedCierreReport.timestamp)}</span>
                 </div>
 
                 <div className="pt-2 flex justify-end gap-2 border-border/30">

@@ -1,13 +1,14 @@
 "use client"
 
+import { CancelOrderItemDialog } from "@/components/CancelOrderItemDialog";
+import { OrderItemGroupTiming } from "@/components/OrderItemGroupTiming";
+import { groupOrderItems, groupStatusLabel, type OrderItemGroup } from "@/lib/orderItems";
+import { formatBogotaDateTime } from "@/lib/dateUtils";
 import { usePOSStore } from "@/lib/store";
 import { useShallow } from 'zustand/react/shallow';
-import { getBogotaISOString } from "@/lib/dateUtils";
 import { Badge } from "@/components/ui/badge";
-import { cn, getOrderIdentifier, uuidv4 } from "@/lib/utils";
+import { cn, getOrderIdentifier } from "@/lib/utils";
 import { Clock, Users, UtensilsCrossed, PlusCircle, Edit, Ban, CheckCircle, Layers, AlertCircle, MapPin, Activity, Info, Map, Trash2, ShoppingBag, Star, Lock, UserCircle } from "lucide-react";
-import { printModificacionTicket } from "@/lib/printHelper";
-import { SearchableSelect } from "@/components/ui/searchable-select";
 import { 
   Dialog, 
   DialogContent, 
@@ -507,7 +508,7 @@ export default function MesasPage() {
 }
 
 function MesaCard({ mesa, user, onOpenMesa, onVerPedido, onStartEdit, onToggleFueraServicio, onDeleteMesa, getStatusColor, ordenes }: any) {
-    const { isCajaCerrada, updateOrden, usuarios, cancelarItemOrden, menuItems, fechaOperativa, updateMesaEstado } = usePOSStore(useShallow(state => ({ isCajaCerrada: state.isCajaCerrada, updateOrden: state.updateOrden, usuarios: state.usuarios, cancelarItemOrden: state.cancelarItemOrden, menuItems: state.menuItems, fechaOperativa: state.fechaOperativa, updateMesaEstado: state.updateMesaEstado })));
+    const { isCajaCerrada, updateOrden, usuarios, updateMesaEstado } = usePOSStore(useShallow(state => ({ isCajaCerrada: state.isCajaCerrada, updateOrden: state.updateOrden, usuarios: state.usuarios, updateMesaEstado: state.updateMesaEstado })));
     const router = useRouter();
     const { toast } = useToast();
     const activeOrder = ordenes.find((o: Orden) => o.mesaId === mesa.id && o.estado === 'ABIERTA');
@@ -517,9 +518,7 @@ function MesaCard({ mesa, user, onOpenMesa, onVerPedido, onStartEdit, onToggleFu
     const actualMeseroNombre = meseroEncontrado?.nombre;
     const [isOpen, setIsOpen] = useState(false);
     const [isModifying, setIsModifying] = useState(false);
-    const [cancelItemDialog, setCancelItemDialog] = useState<ItemOrden | null>(null);
-    const [cancelMotivo, setCancelMotivo] = useState("");
-    const [cancelReplacementId, setCancelReplacementId] = useState<string>("none");
+    const [cancelItemDialog, setCancelItemDialog] = useState<ItemOrden | OrderItemGroup | null>(null);
     const [isLiberarDialogOpen, setIsLiberarDialogOpen] = useState(false);
     const [isEliminarDialogOpen, setIsEliminarDialogOpen] = useState(false);
 
@@ -660,6 +659,7 @@ function MesaCard({ mesa, user, onOpenMesa, onVerPedido, onStartEdit, onToggleFu
                       {getOrderIdentifier({ mesaId: mesa.id, consecutivo: activeOrder?.consecutivo, id: activeOrder?.id })}
                     </DialogTitle>
                     <p className="text-[10px] uppercase font-bold tracking-widest text-muted-foreground">Detalle de Gestión</p>
+                    {activeOrder && <p className="text-xs text-muted-foreground mt-1">Pedido: <time dateTime={activeOrder.createdAt}>{formatBogotaDateTime(activeOrder.createdAt)}</time></p>}
                   </div>
                 </div>
               </DialogHeader>
@@ -703,31 +703,32 @@ function MesaCard({ mesa, user, onOpenMesa, onVerPedido, onStartEdit, onToggleFu
                       </h4>
                     </div>
                     <Badge variant="secondary" className="text-[9px] bg-amber-500/10 text-amber-500 border border-amber-500/20 font-black px-2.5 py-0.5 rounded-full shadow-inner">
-                      {activeOrder.items.length} {activeOrder.items.length === 1 ? 'ÍTEM' : 'ÍTEMS'}
+                      {activeOrder.items.filter((item: ItemOrden) => item.estado !== 'CANCELADO').reduce((sum: number, item: ItemOrden) => sum + item.cantidad, 0)} UNIDADES
                     </Badge>
                   </div>
                   
                   {/* Contenido Desplazable sin barra de scroll */}
                   <div className="max-h-[35vh] overflow-y-auto p-4 sm:px-5 sm:py-4 [&::-webkit-scrollbar]:hidden [-ms-overflow-style:none] [scrollbar-width:none]">
                     <ul className="space-y-4">
-                      {activeOrder.items.map((item: any, index: number) => (
+                      {groupOrderItems(activeOrder.items).map((item, index) => (
                         <li key={item.id || index} 
                           className={cn(
                             "flex justify-between items-center text-sm sm:text-base group relative transition-all duration-300 rounded-xl",
-                            isModifying ? "px-2 py-1.5 -mx-2 bg-red-500/5 cursor-pointer hover:bg-red-500/10 ring-1 ring-inset ring-red-500/20 active:scale-[0.98]" : ""
+                            isModifying && item.estado !== 'CANCELADO' ? "px-2 py-1.5 -mx-2 bg-red-500/5 cursor-pointer hover:bg-red-500/10 ring-1 ring-inset ring-red-500/20 active:scale-[0.98]" : ""
                           )}
                           onClick={() => {
-                            if (isModifying) {
+                            if (isModifying && item.estado !== 'CANCELADO' && !isMesaOwnedByOther) {
                               setCancelItemDialog(item);
                             }
                           }}
                         >
                           <div className={cn("flex gap-3 flex-1", "pr-4")}>
                             <div className="flex-shrink-0 flex items-center justify-center w-7 h-7 bg-amber-500/15 border border-amber-500/20 text-amber-500 rounded-xl font-black text-xs shadow-sm">
-                              {item.cantidad}
+                              {item.cantidad}×
                             </div>
                             <div className="flex flex-col justify-center">
-                              <span className="font-bold text-foreground/90 group-hover:text-amber-400 transition-colors tracking-tight">{item.nombre}</span>
+                              <span className={cn("font-bold text-foreground/90 tracking-tight", item.estado === 'CANCELADO' && "line-through text-muted-foreground")}>{item.nombre}</span>
+                              <OrderItemGroupTiming group={item} users={usuarios} />
                               {item.notas && (
                                 <span className="text-[10px] text-muted-foreground italic leading-tight mt-0.5 line-clamp-2 bg-background/50 p-1.5 rounded-md border border-white/5">
                                   {item.notas}
@@ -737,9 +738,9 @@ function MesaCard({ mesa, user, onOpenMesa, onVerPedido, onStartEdit, onToggleFu
                           </div>
                           <div className="flex flex-col items-end gap-1.5 justify-center mt-1">
                             <span className="font-black font-mono text-foreground/80 text-xs sm:text-sm">
-                              ${(item.cantidad * item.precioUnitario).toLocaleString()}
+                              ${(item.estado === 'CANCELADO' ? 0 : item.cantidad * item.precioUnitario).toLocaleString()}
                             </span>
-                            {isModifying ? (
+                            {isModifying && item.estado !== 'CANCELADO' ? (
                               <div className="flex items-center gap-1 text-red-500/90 bg-red-500/10 px-2 py-1 rounded-full border border-red-500/20 shadow-sm pointer-events-none">
                                 <Edit className="w-3 h-3" /> <span className="text-[7px] font-black uppercase tracking-widest">Cambiar</span>
                               </div>
@@ -752,7 +753,7 @@ function MesaCard({ mesa, user, onOpenMesa, onVerPedido, onStartEdit, onToggleFu
                                 item.estado === 'ENTREGADO' ? "bg-slate-500/20 text-slate-400 border border-slate-500/30" :
                                 "bg-red-500/20 text-red-400 border border-red-500/30"
                               )}>
-                                {item.estado || 'PENDIENTE'}
+                                {groupStatusLabel(item)}
                               </span>
                             )}
                           </div>
@@ -881,128 +882,10 @@ function MesaCard({ mesa, user, onOpenMesa, onVerPedido, onStartEdit, onToggleFu
           </DialogContent>
         </Dialog>
 
-        <Dialog open={!!cancelItemDialog} onOpenChange={(open) => !open && setCancelItemDialog(null)}>
-          <DialogContent className="max-w-[90vw] md:max-w-md bg-card border-border paper-texture rounded-[2rem] z-[100]">
-            <DialogHeader>
-              <DialogTitle className="font-headline text-red-500 flex items-center gap-2">
-                <Ban className="w-5 h-5" /> Cancelar / Cambiar Producto
-              </DialogTitle>
-            </DialogHeader>
-            <div className="space-y-4 py-4">
-              <p className="text-sm">
-                Vas a modificar: <strong className="text-primary">{cancelItemDialog?.cantidad}x {cancelItemDialog?.nombre}</strong>.
-              </p>
-              <div className="space-y-2">
-                <Label>Motivo de cancelación (opcional)</Label>
-                <Input 
-                  value={cancelMotivo}
-                  onChange={(e) => setCancelMotivo(e.target.value)}
-                  placeholder="Ej: Cliente cambió de opinión"
-                  className="bg-background"
-                />
-              </div>
-              
-              <div className="space-y-3 bg-primary/5 p-4 rounded-xl border border-primary/20 mt-4">
-                <Label className="text-primary font-bold text-sm">¿Cambiar por otro producto?</Label>
-                <p className="text-xs text-muted-foreground mb-2 leading-tight">Si el cliente solicitó un cambio, selecciona el nuevo producto aquí.</p>
-                <SearchableSelect 
-                  value={cancelReplacementId} 
-                  onValueChange={setCancelReplacementId}
-                  placeholder="Seleccionar producto..."
-                  searchPlaceholder="Buscar plato..."
-                  options={[
-                    { label: "-- Ninguno (Solo cancelar) --", value: "none" },
-                    ...menuItems.map((item: any) => ({
-                      label: `${item.nombre} - $${item.precio.toLocaleString('es-CO')}`,
-                      value: item.id
-                    }))
-                  ]}
-                />
-              </div>
-            </div>
-            <DialogFooter className="gap-3 pt-2">
-              <Button variant="outline" onClick={() => setCancelItemDialog(null)} className="rounded-xl h-12 flex-1">Volver</Button>
-              <Button 
-                className="bg-red-600 hover:bg-red-700 font-bold rounded-xl h-12 flex-1" 
-                onClick={async () => {
-                  if (!activeOrder || !cancelItemDialog) return;
-                  
-                  const userToLogId = user?.id || '';
-                  const timestampStr = getBogotaISOString();
-
-                  const mi = menuItems.find((m: any) => m.id === cancelReplacementId);
-                  let replacementItem: ItemOrden | undefined = undefined;
-                  
-                  if (mi) {
-                    replacementItem = {
-                      id: uuidv4(),
-                      menuItemId: mi.id,
-                      nombre: mi.nombre,
-                      cantidad: cancelItemDialog.cantidad,
-                      precioUnitario: mi.precio,
-                      estacion: mi.estacion,
-                      estado: 'EN PREPARACION',
-                      createdAt: timestampStr
-                    };
-                  }
-
-                  await cancelarItemOrden(activeOrder.id, cancelItemDialog.id, cancelMotivo, userToLogId);
-                  
-                  let nuevosItemsParaComanda: ItemOrden[] = [];
-                  if (cancelReplacementId && cancelReplacementId !== "none") {
-                    const replacementMenu = menuItems.find((m: any) => m.id === cancelReplacementId);
-                    if (replacementMenu) {
-                      const operationalTimestamp = timestampStr;
-                      const newItem: ItemOrden = {
-                        id: uuidv4(),
-                        menuItemId: replacementMenu.id,
-                        nombre: replacementMenu.nombre,
-                        cantidad: cancelItemDialog.cantidad,
-                        precioUnitario: replacementMenu.precio,
-                        notas: `Cambio por: ${cancelItemDialog.nombre}`,
-                        estacion: replacementMenu.estacion,
-                        estado: 'EN PREPARACION',
-                        createdAt: operationalTimestamp
-                      };
-                      
-                      usePOSStore.getState().addItemsToOrden(activeOrder.id, [newItem]);
-                      nuevosItemsParaComanda = [newItem];
-                    }
-                  }
-
-                  try {
-                    const notasTicket = cancelMotivo 
-                      ? `${cancelMotivo}${nuevosItemsParaComanda.length > 0 ? ' (CAMBIO)' : ''}`
-                      : (nuevosItemsParaComanda.length > 0 ? 'Cambio de producto' : 'Cancelación');
-                      
-                    await printModificacionTicket(
-                      mesa.numero, 
-                      user?.nombre || 'Mesero', 
-                      [cancelItemDialog], 
-                      nuevosItemsParaComanda, 
-                      notasTicket
-                    );
-                    
-                    toast({
-                      title: nuevosItemsParaComanda.length > 0 ? "Producto cambiado" : "Producto cancelado",
-                      description: "Se imprimió la modificación en la estación correspondiente.",
-                    });
-                  } catch (err: any) {
-                    toast({
-                      variant: "destructive",
-                      title: "Error de Impresión",
-                      description: err.message || "No se pudo imprimir el ticket de modificación.",
-                    });
-                  }
-                  setCancelItemDialog(null);
-                  setIsModifying(false);
-                }}
-              >
-                CONFIRMAR
-              </Button>
-            </DialogFooter>
-          </DialogContent>
-        </Dialog>
+        {cancelItemDialog && activeOrder && <CancelOrderItemDialog
+          key={cancelItemDialog.id} order={activeOrder} item={cancelItemDialog} mesaNumero={mesa.numero}
+          onClose={() => { setCancelItemDialog(null); setIsModifying(false); }}
+        />}
 
         <AlertDialog open={isLiberarDialogOpen} onOpenChange={setIsLiberarDialogOpen}>
           <AlertDialogContent className="bg-card border-border paper-texture rounded-[2rem] z-[110]">

@@ -738,6 +738,7 @@ ${tableRows}${cleanNotas}`;
         console.warn('Cierre guardado, pero no se pudo recargar el historial:', historyError);
       }
       if (fechaCierre === dashboardToday) handleIniciarSiguienteDia(fechaCierre);
+      window.dispatchEvent(new Event('daily-close-changed'));
       toast({
         title: 'Cierre de Caja Guardado',
         description: 'El servidor confirmó el cierre del día.'

@@ -1,6 +1,8 @@
 import { ItemOrden, Estacion } from './types';
 import { usePOSStore } from './store';
 import { getOrderIdentifier } from './utils';
+import { formatBogotaDateTime } from './dateUtils';
+import { groupOrderItems } from './orderItems';
 
 /**
  * Agrupa los nuevos productos de un pedido por su impresora de destino (estación)
@@ -37,8 +39,6 @@ export async function printKitchenTickets(
 
     try {
       const now = new Date();
-      const timeStr = now.toLocaleTimeString('es-CO', { hour: '2-digit', minute: '2-digit', hour12: true });
-      const dateStr = now.toLocaleDateString('es-CO');
 
       // Comandos ESC/POS estándar para impresión térmica
       const data: any[] = [];
@@ -77,7 +77,7 @@ export async function printKitchenTickets(
       data.push(`PEDIDO: ${orderIdStr}\n`);
       data.push(`MESERO: ${meseroNombre}\n`);
       data.push('\x1B\x21\x00'); // Volver a tamaño normal
-      data.push(`FECHA: ${dateStr} ${timeStr}\n`);
+      data.push(`FECHA: ${formatBogotaDateTime(stationItems[0]?.createdAt || now)}\n`);
       data.push('--------------------------------\n\n');
 
       data.push('\x1B\x45\x01'); // Negrita ON
@@ -147,8 +147,6 @@ export async function printModificacionTicket(
 
     try {
       const now = new Date();
-      const timeStr = now.toLocaleTimeString('es-CO', { hour: '2-digit', minute: '2-digit', hour12: true });
-      const dateStr = now.toLocaleDateString('es-CO');
 
       const data: any[] = [];
       const mesa = store.mesas.find(m => m.id === mesaNumero || m.numero === mesaNumero);
@@ -182,7 +180,7 @@ export async function printModificacionTicket(
       data.push(`PEDIDO: ${orderIdStr}\n`);
       data.push(`MESERO: ${meseroNombre}\n`);
       data.push('\x1B\x21\x00'); 
-      data.push(`FECHA: ${dateStr} ${timeStr}\n`);
+      data.push(`FECHA: ${formatBogotaDateTime(canceladosStation[0]?.canceledAt || now)}\n`);
       data.push('--------------------------------\n\n');
 
       if (observaciones) {
@@ -199,12 +197,14 @@ export async function printModificacionTicket(
         data.push('\x1B\x21\x00'); 
         data.push('\x1B\x61\x00'); // Izquierda
         
-        for (const item of canceladosStation) {
+        for (const item of groupOrderItems(canceladosStation)) {
           data.push('\x1B\x21\x30'); 
           data.push(`-${item.cantidad}x `);
           data.push('\x1B\x21\x00'); 
           data.push('\x1B\x45\x01'); 
           data.push(` ${item.nombre}\n`);
+          data.push(`PEDIDO: ${formatBogotaDateTime(item.createdAt)}\n`);
+          data.push(`CANCELADO: ${formatBogotaDateTime(item.canceledAt)}\n`);
           data.push('\x1B\x45\x00'); 
           data.push('\n');
         }
@@ -218,7 +218,7 @@ export async function printModificacionTicket(
         data.push('\x1B\x21\x00'); 
         data.push('\x1B\x61\x00'); // Izquierda
         
-        for (const item of agregadosStation) {
+        for (const item of groupOrderItems(agregadosStation)) {
           data.push('\x1B\x21\x30'); 
           data.push(`+${item.cantidad}x `);
           data.push('\x1B\x21\x00'); 
@@ -261,8 +261,6 @@ export async function printReceiptTicket(
   try {
     const data: any[] = [];
     const orderIdStr = getOrderIdentifier({ mesaId: orden.mesaId, consecutivo: orden.consecutivo, id: orden.id });
-    const dateStr = new Date(orden.updatedAt).toLocaleDateString('es-CO');
-    const timeStr = new Date(orden.updatedAt).toLocaleTimeString('es-CO', { hour: '2-digit', minute: '2-digit', hour12: true });
 
     data.push('\x1B\x40'); // Init
     data.push('\x1B\x61\x01'); // Center
@@ -287,7 +285,8 @@ export async function printReceiptTicket(
 
     data.push('\x1B\x61\x00'); // Left align
     data.push('\n--------------------------------\n');
-    data.push(`FECHA:  ${dateStr} ${timeStr}\n`);
+    data.push(`PEDIDO: ${formatBogotaDateTime(orden.createdAt)}\n`);
+    data.push(`PAGADO: ${formatBogotaDateTime(orden.updatedAt)}\n`);
     data.push(`MESERO: ${meseroNombre}\n`);
     data.push('--------------------------------\n');
 
@@ -298,7 +297,7 @@ export async function printReceiptTicket(
     data.push('--------------------------------\n');
 
     let subtotal = 0;
-    for (const item of orden.items) {
+    for (const item of groupOrderItems(orden.items)) {
       if (item.estado === 'CANCELADO') continue;
       const totalItem = item.cantidad * item.precioUnitario;
       subtotal += totalItem;
