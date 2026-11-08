@@ -137,6 +137,86 @@ html[data-festive="off"] .christmas-only { display: none !important; }
 .holiday-pin-key:focus-visible { outline: 2px solid hsl(var(--primary)); outline-offset: 3px; }
 .christmas-scene { max-width: 470px; margin-top: 12px; }
 
+html[data-festive="christmas"] .holiday-app-shell {
+  background: radial-gradient(ellipse at 0% 28%, rgb(57 85 50 / .18), transparent 42%),
+    radial-gradient(ellipse at 100% 60%, rgb(150 100 47 / .1), transparent 42%),
+    linear-gradient(180deg, #22352a 0, #27291f 320px, #241e1a 740px);
+  background-attachment: fixed;
+}
+
+.workspace-christmas-banner {
+  position: relative;
+  isolation: isolate;
+  overflow: hidden;
+  min-height: 80px;
+  margin: 0 0 12px;
+  padding: 16px 22px;
+  border: 1px solid rgb(202 170 103 / .42);
+  border-radius: 20px;
+  background: linear-gradient(105deg, #324d38, #233c2e 60%, #453728);
+  box-shadow: inset 0 1px 0 rgb(246 222 168 / .1), 0 8px 26px rgb(0 0 0 / .1);
+}
+.workspace-christmas-banner::after {
+  content: '';
+  position: absolute;
+  pointer-events: none;
+  inset: auto 0 0;
+  height: 3px;
+  opacity: .6;
+  background: repeating-linear-gradient(90deg, #a78a4b 0 28px, #884b3a 28px 43px, #58734b 43px 70px);
+}
+.workspace-christmas-art {
+  position: absolute;
+  pointer-events: none;
+  top: 0;
+  right: 0;
+  height: 100%;
+  width: 440px;
+  opacity: .95;
+  mask-image: linear-gradient(90deg, transparent, #000 22%);
+}
+.workspace-christmas-edges {
+  position: fixed;
+  pointer-events: none;
+  inset: 64px 0 0;
+  overflow: hidden;
+  z-index: 0;
+}
+.workspace-christmas-edges svg {
+  position: absolute;
+  pointer-events: none;
+  width: 100px;
+  height: 300px;
+  top: 42px;
+  opacity: .85;
+}
+.workspace-edge-left { left: -10px; }
+.workspace-edge-right { right: -10px; transform: scaleX(-1); }
+html[data-festive="christmas"] .holiday-content > main > header h2::after {
+  content: '';
+  display: inline-block;
+  pointer-events: none;
+  width: 31px;
+  height: 23px;
+  margin-left: 9px;
+  vertical-align: middle;
+  background: url('/seasonal/holly-sprig.svg') center / contain no-repeat;
+}
+html[data-festive="christmas"] .holiday-content > main > header:not(.sticky) {
+  border-bottom: 1px solid rgb(194 159 96 / .23);
+  padding-bottom: 14px;
+}
+html[data-festive="christmas"] .holiday-content > main {
+  padding-top: 12px;
+}
+@media (max-width: 1199px) { .workspace-christmas-edges { display: none; } }
+@media (max-width: 639px) {
+  .workspace-christmas-banner { min-height: 68px; border-radius: 16px; padding: 12px 14px; }
+  .workspace-christmas-banner > div { max-width: calc(100% - 70px); }
+  .workspace-christmas-art { width: 120px; opacity: .85; mask-image: linear-gradient(90deg, transparent, #000 32%); }
+  html[data-festive="christmas"] .holiday-content > main > header h2::after { width: 25px; height: 21px; margin-left: 6px; }
+}
+
 /* No decorative flashing, floating ornaments or sweeping highlights during service. */
 html[data-festive] .animate-float,
 html[data-festive] .animate-pulse-glow,
